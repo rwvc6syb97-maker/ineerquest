@@ -1,0 +1,46 @@
+# InnerQuest 非敏感配置（ConfigMap）
+# 按环境覆盖 namespace / 值；敏感项见 secret.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: innerquest-config
+  namespace: innerquest
+  labels:
+    app.kubernetes.io/name: innerquest
+    app.kubernetes.io/part-of: innerquest
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+
+  # ===== 集群内服务地址 =====
+  REDIS_URL: "redis://redis:6379/0"
+  MONGODB_URI: "mongodb://mongo:27017"
+  MONGODB_DB: "innerquest"
+  CLICKHOUSE_URL: "http://clickhouse:8123"
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_DB: "innerquest_ops"
+  OSS_REGION: "oss-cn-hangzhou"
+  OSS_BUCKET: "innerquest"
+
+  # ===== JWT Token TTL =====
+  JWT_ACCESS_TTL: "2h"
+  JWT_REFRESH_TTL: "30d"
+  JWT_ACCESS_TTL_SEC: "7200"
+  JWT_REFRESH_TTL_SEC: "2592000"
+  JWT_ADMIN_REFRESH_TTL_SEC: "28800"
+
+  # ===== AI / LLM =====
+  LLM_PROVIDER_ENABLED: "true"
+  LLM_BASE_URL: "https://api.deepseek.com/v1"
+  LLM_MODEL: "deepseek-chat"
+
+  # ===== 邮件（Resend from 地址） =====
+  RESEND_FROM: "InnerQuest <noreply@你的域名.com>"
+
+  # ===== 功能开关 =====
+  SMS_PROVIDER_ENABLED: "false"       # V1.1 开通
+  WECHAT_OAUTH_ENABLED: "false"       # V1.1 开通
+  WECHAT_PAY_ENABLED: "false"         # V1.1 开通
+
+  # ===== 前端 API base =====
+  API_BASE_URL: "/api/v1"

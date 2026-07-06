@@ -1,0 +1,12 @@
+{
+  "name": "@innerquest/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InnerQuest 前后端共享类型与常量（统一响应结构等）",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "echo \"(shared) no lint yet\" && exit 0"
+  }
+}

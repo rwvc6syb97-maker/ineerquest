@@ -1,0 +1,79 @@
+@import './styles/design-tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+  font-family: var(--font-family-display);
+}
+
+/* ============================================
+   全局动效基座 (Motion Foundation)
+   全部遵守 prefers-reduced-motion 降级
+   ============================================ */
+
+/* fadeUp 关键帧：淡入 + 上移 */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scroll-Reveal：初始隐藏，命中后由 useScrollReveal 添加 .is-revealed */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity var(--duration-slow) var(--ease-spring),
+    transform var(--duration-slow) var(--ease-spring);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* 子元素错峰 stagger：通过内联 --i 控制序号 */
+[data-reveal] > * {
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+
+/* 维度条填充动画：初始宽度 0，命中后填充至目标宽度 */
+.dimension-bar__fill {
+  width: 0;
+  transition: width var(--duration-slow) var(--ease-spring);
+}
+
+.dimension-bar.is-revealed .dimension-bar__fill,
+.is-revealed .dimension-bar__fill,
+.dimension-bar__fill.is-revealed {
+  width: var(--dimension-bar-target, 100%);
+}
+
+/* 动效无障碍降级：尊重系统「减弱动态效果」，禁用位移/缩放/过渡 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .dimension-bar__fill {
+    width: var(--dimension-bar-target, 100%);
+  }
+}

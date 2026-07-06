@@ -1,0 +1,68 @@
+# InnerQuest 前端 Web：Deployment + Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: innerquest-web
+  namespace: innerquest
+  labels:
+    app.kubernetes.io/name: innerquest-web
+    app.kubernetes.io/part-of: innerquest
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: innerquest-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: innerquest-web
+        app.kubernetes.io/part-of: innerquest
+    spec:
+      containers:
+        - name: web
+          # blocked：镜像仓库地址需按环境补齐（如 registry.example.com/innerquest/web:TAG）
+          image: innerquest/web:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+  namespace: innerquest
+  labels:
+    app.kubernetes.io/name: innerquest-web
+    app.kubernetes.io/part-of: innerquest
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: innerquest-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,992 @@
+/* ============================================
+   Design Tokens - MBTI职业规划网页产品
+   版本: v1.0 | 更新: 2026-07-04
+   用途: 全局CSS设计规范变量定义
+   ============================================ */
+
+:root {
+  /* ============================================
+     1. 品牌色系 (Brand Colors)
+     ============================================ */
+  
+  /* 1.1 主品牌色 - 专业信赖的蓝色系 */
+  --brand-primary-50: #eff6ff;
+  --brand-primary-100: #dbeafe;
+  --brand-primary-200: #bfdbfe;
+  --brand-primary-300: #93c5fd;
+  --brand-primary-400: #60a5fa;
+  --brand-primary-500: #3b82f6;
+  --brand-primary-600: #2563eb;
+  --brand-primary-700: #1d4ed8;
+  --brand-primary-800: #1e40af;
+  --brand-primary-900: #1e3a8a;
+  --brand-primary-950: #101a39;
+
+  /* 1.2 辅助色 - 温暖的橙色系 (用于CTA按钮、高亮) */
+  --brand-accent-50: #fff7ed;
+  --brand-accent-100: #ffedd5;
+  --brand-accent-200: #fed7aa;
+  --brand-accent-300: #fdba74;
+  --brand-accent-400: #fb923c;
+  --brand-accent-500: #f97316;
+  --brand-accent-600: #ea580c;
+  --brand-accent-700: #c2410c;
+  --brand-accent-800: #9a3412;
+  --brand-accent-900: #7c2d12;
+
+  /* 1.3 成功色 - 绿色系 */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+
+  /* 1.4 警告色 - 黄色系 */
+  --color-warning-50: #fefce8;
+  --color-warning-100: #fef9c3;
+  --color-warning-200: #fef08a;
+  --color-warning-300: #fde047;
+  --color-warning-400: #facc15;
+  --color-warning-500: #eab308;
+  --color-warning-600: #ca8a04;
+  --color-warning-700: #a16207;
+  --color-warning-800: #854d0e;
+  --color-warning-900: #713f12;
+
+  /* 1.5 错误色 - 红色系 */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  /* 1.6 信息色 - 青色系 */
+  --color-info-50: #ecfeff;
+  --color-info-100: #cffafe;
+  --color-info-200: #a5f3fc;
+  --color-info-300: #67e8f9;
+  --color-info-400: #22d3ee;
+  --color-info-500: #06b6d4;
+  --color-info-600: #0891b2;
+  --color-info-700: #0e7490;
+  --color-info-800: #155e75;
+  --color-info-900: #164e63;
+
+  /* 1.7 中性色 - 灰色系 */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  /* 1.8 MBTI维度专用色 */
+  --mbti-ei-energy: #f97316;      /* E外向 - 活力橙 */
+  --mbti-ei-introvert: #3b82f6;   /* I内向 - 沉静蓝 */
+  --mbti-sn-sensing: #22c55e;     /* S实感 - 自然绿 */
+  --mbti-sn-intuition: #8b5cf6;   /* N直觉 - 灵感紫 */
+  --mbti-tf-thinking: #64748b;    /* T思考 - 理性灰 */
+  --mbti-tf-feeling: #ec4899;    /* F情感 - 温暖粉 */
+  --mbti-jp-judging: #0ea5e9;    /* J判断 - 秩序青 */
+  --mbti-jp-perceiving: #f59e0b;  /* P感知 - 随性金 */
+
+  /* 1.9 16种人格类型配色 */
+  --personality-analyst: #3b82f6;      /* 分析家 NT */
+  --personality-diplomat: #8b5cf6;     /* 外交家 NF */
+  --personality-sentinel: #22c55e;     /* 守护者 SJ */
+  --personality-explorer: #f97316;     /* 探险家 SP */
+
+  /* ============================================
+     2. 排版系统 (Typography)
+     ============================================ */
+
+  /* 2.1 字体家族 */
+  --font-family-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-family-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+  --font-family-display: 'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* 2.2 字体大小 */
+  --font-size-xs: 0.75rem;      /* 12px - 辅助文字、标签 */
+  --font-size-sm: 0.875rem;     /* 14px - 正文小、描述 */
+  --font-size-base: 1rem;       /* 16px - 正文 */
+  --font-size-md: 1.125rem;     /* 18px - 强调正文 */
+  --font-size-lg: 1.25rem;      /* 20px - 小标题 */
+  --font-size-xl: 1.5rem;       /* 24px - 标题H4 */
+  --font-size-2xl: 1.875rem;    /* 30px - 标题H3 */
+  --font-size-3xl: 2.25rem;     /* 36px - 标题H2 */
+  --font-size-4xl: 3rem;        /* 48px - 标题H1 */
+  --font-size-5xl: 3.75rem;     /* 60px - 大标题 */
+  --font-size-6xl: 4.5rem;     /* 72px - Hero标题 */
+
+  /* 2.3 字体粗细 */
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  /* 2.4 行高 */
+  --line-height-none: 1;
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 1.75;
+  --line-height-double: 2;
+
+  /* 2.5 字间距 */
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+
+  /* ============================================
+     3. 间距系统 (Spacing)
+     ============================================ */
+
+  /* 3.1 基础间距 (4px基准) */
+  --spacing-0: 0;
+  --spacing-px: 1px;
+  --spacing-0-5: 0.125rem;  /* 2px */
+  --spacing-1: 0.25rem;     /* 4px */
+  --spacing-1-5: 0.375rem;  /* 6px */
+  --spacing-2: 0.5rem;      /* 8px */
+  --spacing-2-5: 0.625rem;  /* 10px */
+  --spacing-3: 0.75rem;     /* 12px */
+  --spacing-3-5: 0.875rem;  /* 14px */
+  --spacing-4: 1rem;        /* 16px */
+  --spacing-5: 1.25rem;     /* 20px */
+  --spacing-6: 1.5rem;      /* 24px */
+  --spacing-7: 1.75rem;     /* 28px */
+  --spacing-8: 2rem;        /* 32px */
+  --spacing-9: 2.25rem;     /* 36px */
+  --spacing-10: 2.5rem;     /* 40px */
+  --spacing-11: 2.75rem;    /* 44px */
+  --spacing-12: 3rem;       /* 48px */
+  --spacing-14: 3.5rem;     /* 56px */
+  --spacing-16: 4rem;       /* 64px */
+  --spacing-20: 5rem;       /* 80px */
+  --spacing-24: 6rem;       /* 96px */
+  --spacing-28: 7rem;       /* 112px */
+  --spacing-32: 8rem;       /* 128px */
+  --spacing-36: 9rem;       /* 144px */
+  --spacing-40: 10rem;      /* 160px */
+  --spacing-44: 11rem;      /* 176px */
+  --spacing-48: 12rem;      /* 192px */
+  --spacing-52: 13rem;      /* 208px */
+  --spacing-56: 14rem;      /* 224px */
+  --spacing-60: 15rem;      /* 240px */
+  --spacing-64: 16rem;      /* 256px */
+  --spacing-72: 18rem;      /* 288px */
+  --spacing-80: 20rem;      /* 320px */
+  --spacing-96: 24rem;      /* 384px */
+
+  /* 3.2 页面级间距 */
+  --page-padding-x: var(--spacing-6);
+  --page-padding-y: var(--spacing-8);
+  --section-gap: var(--spacing-16);
+  --container-max-width: 1280px;
+  --container-narrow-width: 960px;
+  --container-wide-width: 1440px;
+
+  /* ============================================
+     4. 圆角系统 (Border Radius)
+     ============================================ */
+
+  --radius-none: 0;
+  --radius-sm: 0.125rem;    /* 2px */
+  --radius-md: 0.25rem;     /* 4px */
+  --radius-base: 0.375rem;  /* 6px */
+  --radius-lg: 0.5rem;      /* 8px */
+  --radius-xl: 0.75rem;     /* 12px */
+  --radius-2xl: 1rem;       /* 16px */
+  --radius-3xl: 1.5rem;     /* 24px */
+  --radius-4xl: 2rem;       /* 32px */
+  --radius-full: 9999px;    /* 圆形 */
+
+  /* ============================================
+     5. 阴影系统 (Box Shadow)
+     ============================================ */
+
+  /* 5.1 基础阴影 */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* 5.2 品牌色阴影 */
+  --shadow-primary: 0 4px 14px 0 rgb(59 130 246 / 0.35);
+  --shadow-accent: 0 4px 14px 0 rgb(249 115 22 / 0.35);
+  --shadow-success: 0 4px 14px 0 rgb(34 197 94 / 0.35);
+  --shadow-error: 0 4px 14px 0 rgb(239 68 68 / 0.35);
+
+  /* 5.3 内阴影 */
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+  --shadow-ring: 0 0 0 3px rgb(59 130 246 / 0.3);
+
+  /* ============================================
+     6. 动画系统 (Animation & Transition)
+     ============================================ */
+
+  /* 6.1 过渡时长 */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 700ms;
+  --duration-slowest: 1000ms;
+
+  /* 6.2 缓动函数 */
+  --ease-linear: cubic-bezier(0, 0, 1, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* 6.3 通用过渡 */
+  --transition-colors: color var(--duration-normal) var(--ease-in-out), background-color var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out);
+  --transition-opacity: opacity var(--duration-normal) var(--ease-in-out);
+  --transition-shadow: box-shadow var(--duration-normal) var(--ease-in-out);
+  --transition-transform: transform var(--duration-normal) var(--ease-in-out);
+  --transition-all: all var(--duration-normal) var(--ease-in-out);
+
+  /* ============================================
+     7. 布局系统 (Layout)
+     ============================================ */
+
+  /* 7.1 Z-index层级 */
+  --z-index-behind: -1;
+  --z-index-base: 0;
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+  --z-index-toast: 1080;
+  --z-index-loading: 1090;
+
+  /* 7.2 网格系统 */
+  --grid-columns: 12;
+  --grid-gap: var(--spacing-6);
+  --grid-gap-sm: var(--spacing-4);
+  --grid-gap-lg: var(--spacing-8);
+
+  /* 7.3 断点 */
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* ============================================
+     8. 按钮组件 (Button)
+     ============================================ */
+
+  /* 8.1 按钮高度 */
+  --btn-height-xs: 1.75rem;   /* 28px */
+  --btn-height-sm: 2.25rem;   /* 36px */
+  --btn-height-md: 2.75rem;   /* 44px */
+  --btn-height-lg: 3.25rem;   /* 52px */
+  --btn-height-xl: 3.75rem;   /* 60px */
+
+  /* 8.2 按钮内边距 */
+  --btn-padding-x-xs: 0.5rem;
+  --btn-padding-x-sm: 0.75rem;
+  --btn-padding-x-md: 1rem;
+  --btn-padding-x-lg: 1.5rem;
+  --btn-padding-x-xl: 2rem;
+
+  /* 8.3 按钮字体大小 */
+  --btn-font-size-xs: var(--font-size-xs);
+  --btn-font-size-sm: var(--font-size-sm);
+  --btn-font-size-md: var(--font-size-base);
+  --btn-font-size-lg: var(--font-size-md);
+  --btn-font-size-xl: var(--font-size-lg);
+
+  /* 8.4 按钮圆角 */
+  --btn-radius: var(--radius-lg);
+
+  /* 8.5 按钮颜色变体 */
+  --btn-primary-bg: var(--brand-primary-500);
+  --btn-primary-hover-bg: var(--brand-primary-600);
+  --btn-primary-active-bg: var(--brand-primary-700);
+  --btn-primary-disabled-bg: var(--brand-primary-300);
+  --btn-primary-text: #ffffff;
+
+  --btn-secondary-bg: var(--color-neutral-100);
+  --btn-secondary-hover-bg: var(--color-neutral-200);
+  --btn-secondary-active-bg: var(--color-neutral-300);
+  --btn-secondary-disabled-bg: var(--color-neutral-100);
+  --btn-secondary-text: var(--color-neutral-700);
+
+  --btn-accent-bg: var(--brand-accent-500);
+  --btn-accent-hover-bg: var(--brand-accent-600);
+  --btn-accent-active-bg: var(--brand-accent-700);
+  --btn-accent-disabled-bg: var(--brand-accent-300);
+  --btn-accent-text: #ffffff;
+
+  --btn-outline-bg: transparent;
+  --btn-outline-border: var(--brand-primary-500);
+  --btn-outline-hover-bg: var(--brand-primary-50);
+  --btn-outline-text: var(--brand-primary-500);
+
+  --btn-ghost-bg: transparent;
+  --btn-ghost-hover-bg: var(--color-neutral-100);
+  --btn-ghost-text: var(--color-neutral-600);
+
+  --btn-danger-bg: var(--color-error-500);
+  --btn-danger-hover-bg: var(--color-error-600);
+  --btn-danger-active-bg: var(--color-error-700);
+  --btn-danger-disabled-bg: var(--color-error-300);
+  --btn-danger-text: #ffffff;
+
+  /* 8.6 按钮焦点环 */
+  --btn-focus-ring: 0 0 0 3px rgb(59 130 246 / 0.4);
+  --btn-focus-ring-offset: 2px;
+
+  /* ============================================
+     9. 输入框组件 (Input)
+     ============================================ */
+
+  /* 9.1 输入框高度 */
+  --input-height-sm: 2rem;    /* 32px */
+  --input-height-md: 2.5rem;  /* 40px */
+  --input-height-lg: 3rem;    /* 48px */
+
+  /* 9.2 输入框内边距 */
+  --input-padding-x: 0.75rem;
+  --input-padding-y: 0.5rem;
+
+  /* 9.3 输入框边框 */
+  --input-border-width: 1px;
+  --input-border-color: var(--color-neutral-300);
+  --input-border-radius: var(--radius-lg);
+
+  /* 9.4 输入框状态颜色 */
+  --input-bg: #ffffff;
+  --input-bg-disabled: var(--color-neutral-50);
+  --input-text: var(--color-neutral-900);
+  --input-placeholder: var(--color-neutral-400);
+
+  --input-border-hover: var(--color-neutral-400);
+  --input-border-focus: var(--brand-primary-500);
+  --input-border-error: var(--color-error-500);
+  --input-border-success: var(--color-success-500);
+
+  --input-focus-ring: 0 0 0 3px rgb(59 130 246 / 0.2);
+  --input-error-ring: 0 0 0 3px rgb(239 68 68 / 0.2);
+
+  --input-label-color: var(--color-neutral-700);
+  --input-helper-color: var(--color-neutral-500);
+  --input-error-color: var(--color-error-600);
+  --input-success-color: var(--color-success-600);
+
+  /* 9.5 文本域 */
+  --textarea-min-height: 5rem;
+  --textarea-max-height: 15rem;
+
+  /* ============================================
+     10. 表格组件 (Table)
+     ============================================ */
+
+  /* 10.1 表格单元格 */
+  --table-cell-padding-x: 1rem;
+  --table-cell-padding-y: 0.75rem;
+  --table-cell-padding-sm-x: 0.75rem;
+  --table-cell-padding-sm-y: 0.5rem;
+
+  /* 10.2 表格行高 */
+  --table-row-height: 3rem;
+  --table-row-height-sm: 2.5rem;
+  --table-row-height-lg: 3.5rem;
+
+  /* 10.3 表格边框 */
+  --table-border-color: var(--color-neutral-200);
+  --table-border-width: 1px;
+
+  /* 10.4 表格颜色 */
+  --table-header-bg: var(--color-neutral-50);
+  --table-header-text: var(--color-neutral-600);
+  --table-header-font-weight: var(--font-weight-semibold);
+
+  --table-body-bg: #ffffff;
+  --table-row-hover-bg: var(--color-neutral-50);
+  --table-row-striped-bg: var(--color-neutral-50);
+  --table-row-selected-bg: var(--brand-primary-50);
+
+  /* 10.5 表头排序图标 */
+  --table-sort-icon-color: var(--color-neutral-400);
+  --table-sort-icon-active-color: var(--brand-primary-500);
+
+  /* ============================================
+     11. 弹窗组件 (Modal / Dialog)
+     ============================================ */
+
+  /* 11.1 弹窗尺寸 */
+  --modal-width-sm: 360px;
+  --modal-width-md: 480px;
+  --modal-width-lg: 640px;
+  --modal-width-xl: 800px;
+  --modal-width-full: 90vw;
+
+  /* 11.2 弹窗内边距 */
+  --modal-padding-x: var(--spacing-6);
+  --modal-padding-y: var(--spacing-6);
+
+  /* 11.3 弹窗圆角 */
+  --modal-radius: var(--radius-2xl);
+
+  /* 11.4 弹窗背景 */
+  --modal-bg: #ffffff;
+  --modal-backdrop-bg: rgb(0 0 0 / 0.5);
+  --modal-backdrop-blur: 4px;
+
+  /* 11.5 弹窗阴影 */
+  --modal-shadow: var(--shadow-2xl);
+
+  /* 11.6 弹窗头部 */
+  --modal-header-height: 3.5rem;
+  --modal-header-border: var(--color-neutral-200);
+
+  /* 11.7 弹窗底部 */
+  --modal-footer-gap: var(--spacing-3);
+  --modal-footer-border: var(--color-neutral-200);
+
+  /* 11.8 确认弹窗 */
+  --confirm-icon-size: 3rem;
+  --confirm-icon-warning-color: var(--color-warning-500);
+  --confirm-icon-danger-color: var(--color-error-500);
+  --confirm-icon-info-color: var(--color-info-500);
+
+  /* ============================================
+     12. 卡片组件 (Card)
+     ============================================ */
+
+  /* 12.1 卡片内边距 */
+  --card-padding: var(--spacing-6);
+  --card-padding-sm: var(--spacing-4);
+  --card-padding-lg: var(--spacing-8);
+
+  /* 12.2 卡片圆角 */
+  --card-radius: var(--radius-xl);
+
+  /* 12.3 卡片背景与边框 */
+  --card-bg: #ffffff;
+  --card-border-color: var(--color-neutral-200);
+  --card-border-width: 1px;
+
+  /* 12.4 卡片阴影 */
+  --card-shadow: var(--shadow-sm);
+  --card-shadow-hover: var(--shadow-md);
+  --card-shadow-elevated: var(--shadow-lg);
+
+  /* 12.5 卡片头部 */
+  --card-header-padding: var(--spacing-4) var(--spacing-6);
+  --card-header-border: var(--color-neutral-100);
+
+  /* 12.6 卡片间距 */
+  --card-gap: var(--spacing-6);
+  --card-grid-min-width: 300px;
+
+  /* ============================================
+     13. 标签组件 (Tag / Badge)
+     ============================================ */
+
+  /* 13.1 标签尺寸 */
+  --tag-height-sm: 1.25rem;   /* 20px */
+  --tag-height-md: 1.5rem;    /* 24px */
+  --tag-height-lg: 1.75rem;   /* 28px */
+
+  /* 13.2 标签内边距 */
+  --tag-padding-x-sm: 0.375rem;
+  --tag-padding-x-md: 0.5rem;
+  --tag-padding-x-lg: 0.75rem;
+
+  /* 13.3 标签字体 */
+  --tag-font-size-sm: 0.6875rem;  /* 11px */
+  --tag-font-size-md: var(--font-size-xs);
+  --tag-font-size-lg: var(--font-size-sm);
+
+  /* 13.4 标签圆角 */
+  --tag-radius: var(--radius-full);
+
+  /* 13.5 标签颜色变体 */
+  --tag-default-bg: var(--color-neutral-100);
+  --tag-default-text: var(--color-neutral-600);
+  --tag-default-border: var(--color-neutral-200);
+
+  --tag-primary-bg: var(--brand-primary-50);
+  --tag-primary-text: var(--brand-primary-700);
+  --tag-primary-border: var(--brand-primary-200);
+
+  --tag-success-bg: var(--color-success-50);
+  --tag-success-text: var(--color-success-700);
+  --tag-success-border: var(--color-success-200);
+
+  --tag-warning-bg: var(--color-warning-50);
+  --tag-warning-text: var(--color-warning-700);
+  --tag-warning-border: var(--color-warning-200);
+
+  --tag-error-bg: var(--color-error-50);
+  --tag-error-text: var(--color-error-700);
+  --tag-error-border: var(--color-error-200);
+
+  --tag-info-bg: var(--color-info-50);
+  --tag-info-text: var(--color-info-700);
+  --tag-info-border: var(--color-info-200);
+
+  /* 13.6 点状标签 */
+  --tag-dot-size: 0.375rem;  /* 6px */
+  --tag-dot-gap: 0.375rem;
+
+  /* ============================================
+     14. 进度组件 (Progress)
+     ============================================ */
+
+  /* 14.1 进度条高度 */
+  --progress-height-xs: 0.25rem;  /* 4px */
+  --progress-height-sm: 0.375rem; /* 6px */
+  --progress-height-md: 0.5rem;   /* 8px */
+  --progress-height-lg: 0.75rem;  /* 12px */
+  --progress-height-xl: 1rem;     /* 16px */
+
+  /* 14.2 进度条颜色 */
+  --progress-bg: var(--color-neutral-200);
+  --progress-fill: var(--brand-primary-500);
+  --progress-fill-success: var(--color-success-500);
+  --progress-fill-warning: var(--color-warning-500);
+  --progress-fill-error: var(--color-error-500);
+
+  /* 14.3 进度条圆角 */
+  --progress-radius: var(--radius-full);
+
+  /* 14.4 进度条动画 */
+  --progress-transition: width var(--duration-slow) var(--ease-in-out);
+  --progress-indeterminate-duration: 1.5s;
+
+  /* 14.5 步骤指示器 */
+  --step-size: 2rem;          /* 32px */
+  --step-size-sm: 1.5rem;     /* 24px */
+  --step-connector-width: 2px;
+  --step-connector-color: var(--color-neutral-300);
+  --step-active-color: var(--brand-primary-500);
+  --step-completed-color: var(--color-success-500);
+  --step-number-font-size: var(--font-size-sm);
+  --step-label-font-size: var(--font-size-xs);
+
+  /* ============================================
+     15. 图标系统 (Icon)
+     ============================================ */
+
+  /* 15.1 图标尺寸 */
+  --icon-size-xs: 0.75rem;   /* 12px */
+  --icon-size-sm: 1rem;       /* 16px */
+  --icon-size-md: 1.25rem;    /* 20px */
+  --icon-size-lg: 1.5rem;     /* 24px */
+  --icon-size-xl: 2rem;       /* 32px */
+  --icon-size-2xl: 2.5rem;   /* 40px */
+  --icon-size-3xl: 3rem;     /* 48px */
+
+  /* 15.2 图标颜色 */
+  --icon-color-default: var(--color-neutral-500);
+  --icon-color-primary: var(--brand-primary-500);
+  --icon-color-accent: var(--brand-accent-500);
+  --icon-color-success: var(--color-success-500);
+  --icon-color-warning: var(--color-warning-500);
+  --icon-color-error: var(--color-error-500);
+  --icon-color-info: var(--color-info-500);
+  --icon-color-muted: var(--color-neutral-400);
+
+  /* 15.3 图标按钮 */
+  --icon-btn-size-sm: 1.75rem;  /* 28px */
+  --icon-btn-size-md: 2.25rem;  /* 36px */
+  --icon-btn-size-lg: 2.75rem;  /* 44px */
+  --icon-btn-radius: var(--radius-full);
+
+  /* ============================================
+     16. 响应式设计 (Responsive)
+     ============================================ */
+
+  /* 16.1 响应式间距调整 */
+  --responsive-padding-mobile: var(--spacing-4);
+  --responsive-padding-tablet: var(--spacing-6);
+  --responsive-padding-desktop: var(--spacing-8);
+
+  /* 16.2 响应式字体缩放 */
+  --responsive-font-scale-mobile: 0.9;
+  --responsive-font-scale-tablet: 0.95;
+  --responsive-font-scale-desktop: 1;
+
+  /* 16.3 响应式网格 */
+  --responsive-grid-cols-mobile: 1;
+  --responsive-grid-cols-tablet: 2;
+  --responsive-grid-cols-desktop: 3;
+  --responsive-grid-cols-wide: 4;
+
+  /* 16.4 响应式卡片最小宽度 */
+  --responsive-card-min-width: 280px;
+
+  /* 16.5 响应式侧边栏 */
+  --sidebar-width: 280px;
+  --sidebar-width-collapsed: 64px;
+  --sidebar-mobile-width: 100%;
+  --sidebar-transition: width var(--duration-normal) var(--ease-in-out);
+
+  /* ============================================
+     17. 测评专用组件 (Assessment Specific)
+     ============================================ */
+
+  /* 17.1 题目卡片 */
+  --question-card-padding: var(--spacing-6);
+  --question-card-radius: var(--radius-xl);
+  --question-card-bg: #ffffff;
+  --question-card-border: var(--color-neutral-200);
+  --question-card-shadow: var(--shadow-sm);
+  --question-number-size: 2.5rem;
+  --question-number-bg: var(--brand-primary-50);
+  --question-number-color: var(--brand-primary-600);
+
+  /* 17.2 选项按钮 */
+  --option-btn-padding: var(--spacing-4);
+  --option-btn-gap: var(--spacing-3);
+  --option-btn-radius: var(--radius-lg);
+  --option-btn-border: 2px solid var(--color-neutral-200);
+  --option-btn-bg: #ffffff;
+  --option-btn-hover-bg: var(--brand-primary-50);
+  --option-btn-hover-border: var(--brand-primary-300);
+  --option-btn-selected-bg: var(--brand-primary-50);
+  --option-btn-selected-border: var(--brand-primary-500);
+  --option-btn-selected-shadow: var(--shadow-primary);
+
+  /* 17.3 李克特量表 */
+  --likert-scale-gap: var(--spacing-2);
+  --likert-scale-item-size: 2.75rem;
+  --likert-scale-item-radius: var(--radius-full);
+  --likert-scale-item-bg: var(--color-neutral-100);
+  --likert-scale-item-hover-bg: var(--brand-primary-100);
+  --likert-scale-item-selected-bg: var(--brand-primary-500);
+  --likert-scale-item-selected-color: #ffffff;
+  --likert-scale-label-font-size: var(--font-size-xs);
+  --likert-scale-label-color: var(--color-neutral-500);
+
+  /* 17.4 滑块组件 */
+  --slider-track-height: 0.375rem;
+  --slider-track-bg: var(--color-neutral-200);
+  --slider-track-fill: var(--brand-primary-500);
+  --slider-thumb-size: 1.25rem;
+  --slider-thumb-bg: #ffffff;
+  --slider-thumb-border: 2px solid var(--brand-primary-500);
+  --slider-thumb-shadow: var(--shadow-md);
+  --slider-thumb-hover-scale: 1.1;
+
+  /* 17.5 测评进度条 */
+  --assessment-progress-height: 0.5rem;
+  --assessment-progress-bg: var(--color-neutral-100);
+  --assessment-progress-fill: var(--brand-primary-500);
+  --assessment-progress-radius: var(--radius-full);
+  --assessment-progress-label-size: var(--font-size-sm);
+  --assessment-progress-label-color: var(--color-neutral-600);
+
+  /* 17.6 结果展示 */
+  --result-type-badge-size: 5rem;
+  --result-type-badge-bg: linear-gradient(135deg, var(--brand-primary-500), var(--brand-accent-500));
+  --result-type-badge-text: #ffffff;
+  --result-type-badge-font-size: var(--font-size-2xl);
+  --result-type-badge-font-weight: var(--font-weight-bold);
+  --result-type-badge-shadow: var(--shadow-lg);
+
+  --result-card-padding: var(--spacing-8);
+  --result-card-radius: var(--radius-2xl);
+  --result-card-bg: #ffffff;
+  --result-card-shadow: var(--shadow-lg);
+
+  --result-dimension-bar-height: 0.5rem;
+  --result-dimension-bar-radius: var(--radius-full);
+  --result-dimension-label-size: var(--font-size-sm);
+  --result-dimension-label-weight: var(--font-weight-medium);
+
+  /* 17.7 测评计时器 */
+  --timer-font-size: var(--font-size-lg);
+  --timer-font-weight: var(--font-weight-semibold);
+  --timer-color: var(--color-neutral-600);
+  --timer-warning-color: var(--color-warning-500);
+  --timer-danger-color: var(--color-error-500);
+
+  /* 17.8 测评导航 */
+  --assessment-nav-height: 4rem;
+  --assessment-nav-bg: #ffffff;
+  --assessment-nav-border: var(--color-neutral-200);
+  --assessment-nav-shadow: var(--shadow-sm);
+  --assessment-nav-btn-gap: var(--spacing-3);
+
+  /* 17.9 测评完成动画 */
+  --completion-confetti-duration: 3s;
+  --completion-scale-duration: 0.6s;
+  --completion-fade-duration: 0.8s;
+  --completion-delay-stagger: 0.1s;
+
+  /* ============================================
+     18. 工具提示 (Tooltip)
+     ============================================ */
+
+  --tooltip-max-width: 300px;
+  --tooltip-padding-x: var(--spacing-3);
+  --tooltip-padding-y: var(--spacing-2);
+  --tooltip-bg: var(--color-neutral-800);
+  --tooltip-text: #ffffff;
+  --tooltip-radius: var(--radius-md);
+  --tooltip-font-size: var(--font-size-sm);
+  --tooltip-arrow-size: 6px;
+  --tooltip-shadow: var(--shadow-lg);
+
+  /* ============================================
+     19. Toast通知 (Toast / Notification)
+     ============================================ */
+
+  --toast-min-width: 320px;
+  --toast-max-width: 480px;
+  --toast-padding: var(--spacing-4);
+  --toast-radius: var(--radius-lg);
+  --toast-shadow: var(--shadow-lg);
+  --toast-icon-size: var(--icon-size-lg);
+  --toast-close-btn-size: var(--icon-size-sm);
+  --toast-stack-gap: var(--spacing-3);
+
+  /* ============================================
+     20. 下拉菜单 (Dropdown / Select)
+     ============================================ */
+
+  --dropdown-min-width: 160px;
+  --dropdown-max-height: 300px;
+  --dropdown-padding: var(--spacing-1);
+  --dropdown-radius: var(--radius-lg);
+  --dropdown-bg: #ffffff;
+  --dropdown-shadow: var(--shadow-lg);
+  --dropdown-border: 1px solid var(--color-neutral-200);
+
+  --dropdown-item-padding-x: var(--spacing-3);
+  --dropdown-item-padding-y: var(--spacing-2);
+  --dropdown-item-radius: var(--radius-md);
+  --dropdown-item-hover-bg: var(--color-neutral-100);
+  --dropdown-item-active-bg: var(--brand-primary-50);
+  --dropdown-item-selected-bg: var(--brand-primary-50);
+  --dropdown-item-selected-color: var(--brand-primary-600);
+  --dropdown-item-disabled-color: var(--color-neutral-400);
+
+  --dropdown-divider-color: var(--color-neutral-200);
+  --dropdown-group-label-color: var(--color-neutral-500);
+  --dropdown-group-label-font-size: var(--font-size-xs);
+
+  /* ============================================
+     21. 面包屑 (Breadcrumb)
+     ============================================ */
+
+  --breadcrumb-font-size: var(--font-size-sm);
+  --breadcrumb-item-gap: var(--spacing-2);
+  --breadcrumb-separator-color: var(--color-neutral-400);
+  --breadcrumb-separator-margin: var(--spacing-2);
+  --breadcrumb-link-color: var(--color-neutral-500);
+  --breadcrumb-link-hover-color: var(--brand-primary-500);
+  --breadcrumb-current-color: var(--color-neutral-700);
+  --breadcrumb-current-font-weight: var(--font-weight-medium);
+
+  /* ============================================
+     22. 分页 (Pagination)
+     ============================================ */
+
+  --pagination-item-size: 2.25rem;  /* 36px */
+  --pagination-item-radius: var(--radius-md);
+  --pagination-item-gap: var(--spacing-1);
+  --pagination-item-bg: #ffffff;
+  --pagination-item-border: 1px solid var(--color-neutral-200);
+  --pagination-item-hover-bg: var(--color-neutral-100);
+  --pagination-item-active-bg: var(--brand-primary-500);
+  --pagination-item-active-color: #ffffff;
+  --pagination-item-disabled-color: var(--color-neutral-400);
+  --pagination-font-size: var(--font-size-sm);
+
+  /* ============================================
+     23. 选项卡 (Tabs)
+     ============================================ */
+
+  --tabs-height: 2.75rem;
+  --tabs-padding-x: var(--spacing-4);
+  --tabs-gap: var(--spacing-1);
+  --tabs-font-size: var(--font-size-sm);
+  --tabs-font-weight: var(--font-weight-medium);
+  --tabs-border-color: var(--color-neutral-200);
+  --tabs-indicator-height: 2px;
+  --tabs-indicator-color: var(--brand-primary-500);
+  --tabs-item-color: var(--color-neutral-500);
+  --tabs-item-hover-color: var(--color-neutral-700);
+  --tabs-item-active-color: var(--brand-primary-600);
+  --tabs-item-active-bg: var(--brand-primary-50);
+
+  /* ============================================
+     24. 开关组件 (Switch / Toggle)
+     ============================================ */
+
+  --switch-width: 2.75rem;   /* 44px */
+  --switch-height: 1.5rem;    /* 24px */
+  --switch-padding: 2px;
+  --switch-thumb-size: 1.25rem;  /* 20px */
+  --switch-bg: var(--color-neutral-300);
+  --switch-checked-bg: var(--brand-primary-500);
+  --switch-disabled-bg: var(--color-neutral-200);
+  --switch-thumb-bg: #ffffff;
+  --switch-thumb-shadow: var(--shadow-sm);
+  --switch-transition: all var(--duration-fast) var(--ease-in-out);
+
+  /* ============================================
+     25. 复选框/单选框 (Checkbox / Radio)
+     ============================================ */
+
+  --checkbox-size: 1.125rem;  /* 18px */
+  --checkbox-radius: var(--radius-sm);
+  --checkbox-border: 1.5px solid var(--color-neutral-300);
+  --checkbox-bg: #ffffff;
+  --checkbox-checked-bg: var(--brand-primary-500);
+  --checkbox-checked-border: var(--brand-primary-500);
+  --checkbox-disabled-bg: var(--color-neutral-100);
+  --checkbox-disabled-border: var(--color-neutral-200);
+  --checkbox-label-gap: var(--spacing-2);
+  --checkbox-label-font-size: var(--font-size-sm);
+
+  --radio-size: 1.125rem;
+  --radio-border: 1.5px solid var(--color-neutral-300);
+  --radio-bg: #ffffff;
+  --radio-checked-border: var(--brand-primary-500);
+  --radio-inner-dot-size: 0.5rem;
+  --radio-inner-dot-color: var(--brand-primary-500);
+
+  /* ============================================
+     26. 头像 (Avatar)
+     ============================================ */
+
+  --avatar-size-xs: 1.5rem;   /* 24px */
+  --avatar-size-sm: 2rem;     /* 32px */
+  --avatar-size-md: 2.5rem;   /* 40px */
+  --avatar-size-lg: 3rem;     /* 48px */
+  --avatar-size-xl: 4rem;     /* 64px */
+  --avatar-size-2xl: 5rem;    /* 80px */
+  --avatar-radius: var(--radius-full);
+  --avatar-bg: var(--brand-primary-100);
+  --avatar-text-color: var(--brand-primary-600);
+  --avatar-font-size: var(--font-size-sm);
+  --avatar-font-weight: var(--font-weight-medium);
+  --avatar-group-overlap: -0.5rem;
+  --avatar-group-border: 2px solid #ffffff;
+
+  /* ============================================
+     27. 骨架屏 (Skeleton)
+     ============================================ */
+
+  --skeleton-bg: var(--color-neutral-200);
+  --skeleton-shimmer-bg: linear-gradient(90deg, var(--color-neutral-200) 0%, var(--color-neutral-100) 50%, var(--color-neutral-200) 100%);
+  --skeleton-shimmer-duration: 1.5s;
+  --skeleton-radius: var(--radius-md);
+  --skeleton-text-height: 0.875rem;
+  --skeleton-title-height: 1.25rem;
+  --skeleton-avatar-size: var(--avatar-size-md);
+  --skeleton-card-height: 200px;
+
+  /* ============================================
+     28. 分割线 (Divider)
+     ============================================ */
+
+  --divider-thickness: 1px;
+  --divider-color: var(--color-neutral-200);
+  --divider-margin: var(--spacing-4);
+  --divider-text-color: var(--color-neutral-500);
+  --divider-text-font-size: var(--font-size-sm);
+  --divider-text-padding: var(--spacing-3);
+
+  /* ============================================
+     29. 空状态 (Empty State)
+     ============================================ */
+
+  --empty-state-padding: var(--spacing-10);
+  --empty-state-icon-size: var(--icon-size-3xl);
+  --empty-state-icon-color: var(--color-neutral-300);
+  --empty-state-title-font-size: var(--font-size-lg);
+  --empty-state-title-color: var(--color-neutral-600);
+  --empty-state-description-font-size: var(--font-size-sm);
+  --empty-state-description-color: var(--color-neutral-500);
+  --empty-state-action-gap: var(--spacing-4);
+
+  /* ============================================
+     30. 加载状态 (Loading / Spinner)
+     ============================================ */
+
+  --spinner-size-xs: 1rem;
+  --spinner-size-sm: 1.25rem;
+  --spinner-size-md: 1.5rem;
+  --spinner-size-lg: 2rem;
+  --spinner-size-xl: 2.5rem;
+  --spinner-color: var(--brand-primary-500);
+  --spinner-track-color: var(--color-neutral-200);
+  --spinner-thickness: 2px;
+  --spinner-duration: 0.75s;
+  --loading-overlay-bg: rgb(255 255 255 / 0.8);
+  --loading-overlay-blur: 2px;
+  --loading-text-color: var(--color-neutral-500);
+  --loading-text-font-size: var(--font-size-sm);
+
+  /* ============================================
+     31. 滚动条 (Scrollbar)
+     ============================================ */
+
+  --scrollbar-width: 6px;
+  --scrollbar-track-bg: transparent;
+  --scrollbar-thumb-bg: var(--color-neutral-300);
+  --scrollbar-thumb-hover-bg: var(--color-neutral-400);
+  --scrollbar-thumb-radius: var(--radius-full);
+
+  /* ============================================
+     32. 焦点可见样式 (Focus Visible)
+     ============================================ */
+
+  --focus-ring-width: 3px;
+  --focus-ring-color: rgb(59 130 246 / 0.4);
+  --focus-ring-offset: 2px;
+  --focus-outline: 2px solid var(--brand-primary-500);
+  --focus-outline-offset: 2px;
+
+  /* ============================================
+     33. 打印样式 (Print)
+     ============================================ */
+
+  --print-bg: #ffffff;
+  --print-text-color: #000000;
+  --print-link-color: var(--brand-primary-600);
+  --print-page-margin: 1.5cm;
+  --print-font-size: 12pt;
+}

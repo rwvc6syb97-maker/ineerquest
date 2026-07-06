@@ -1,0 +1,117 @@
+# InnerQuest 本地一键起栈
+# 用法：cp deploy/env/.env.dev.example .env && docker compose up -d --build
+# 敏感值（DB密码/JWT/OSS/LLM Key/微信支付）通过 .env 注入，示例见 deploy/env/
+# blocked：真实外部凭证需人工补齐后方可连通实际第三方服务
+
+services:
+  # ---------- 后端 API（NestJS） ----------
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: innerquest/api:local
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: "3000"
+      DATABASE_URL: ${DATABASE_URL:-mysql://root:innerquest@mysql:3306/innerquest?connection_limit=10}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017}
+      MONGODB_DB: ${MONGODB_DB:-innerquest}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-innerquest_ops}
+      # blocked：以下为占位，需人工补齐真实凭证
+      OSS_REGION: ${OSS_REGION:-oss-cn-hangzhou}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-}
+      OSS_BUCKET: ${OSS_BUCKET:-innerquest}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-2h}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # ---------- 前端 Web（nginx 托管） ----------
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: innerquest/web:local
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  # ---------- MySQL 8（utf8mb4） ----------
+  mysql:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-innerquest}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-innerquest}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD:-innerquest}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------- Redis ----------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # ---------- MongoDB ----------
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  # ---------- ClickHouse ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:23-alpine
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-innerquest_ops}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  mongo_data:
+  clickhouse_data:

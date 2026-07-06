@@ -1,0 +1,13 @@
+# InnerQuest K8s 基线编排聚合
+# 用法：kubectl apply -k deploy/k8s/
+# 各环境可用 overlay 覆盖镜像 tag / 副本数 / 域名（blocked 项需先补齐）
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: innerquest
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - api-deployment.yaml
+  - web-deployment.yaml
+  - ingress.yaml

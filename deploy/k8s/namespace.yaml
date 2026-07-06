@@ -1,0 +1,7 @@
+# InnerQuest 命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: innerquest
+  labels:
+    app.kubernetes.io/part-of: innerquest

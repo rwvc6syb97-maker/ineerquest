@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InnerQuest 向内求索 | 向内求索，遇见更清晰的职业方向</title>
+    <meta name="description" content="InnerQuest 向内求索 - 基于 AI 的 MBTI 性格测评与职业规划平台。60 题约 10 分钟，免费开始，向内求索，遇见更清晰的职业方向。">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://storage.360buyimg.com/dist-dev/joycoder/fe-page-cdn/tailwindcss.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://storage.360buyimg.com/dist-dev/joycoder/fe-page-cdn/lucide.js"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans / Inter / Noto Serif SC -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============ 设计令牌还原（来自 design-tokens.css） ============ */
+        :root {
+            /* 品牌蓝 */
+            --brand-primary-50: #eff6ff;
+            --brand-primary-100: #dbeafe;
+            --brand-primary-200: #bfdbfe;
+            --brand-primary-500: #3b82f6;
+            --brand-primary-600: #2563eb;
+            --brand-primary-700: #1d4ed8;
+            --brand-primary-900: #1e3a8a;
+            --brand-primary-950: #101a39;
+            /* 唯一强调橙 */
+            --brand-accent-400: #fb923c;
+            --brand-accent-500: #f97316;
+            --brand-accent-600: #ea580c;
+            /* 族群色 */
+            --personality-analyst: #3b82f6;   /* 分析家 NT */
+            --personality-diplomat: #8b5cf6;  /* 外交家 NF */
+            --personality-sentinel: #22c55e;  /* 守护者 SJ */
+            --personality-explorer: #f97316;  /* 探险家 SP */
+            /* 中性 */
+            --color-neutral-50: #fafafa;
+            --color-neutral-100: #f5f5f5;
+            --color-neutral-200: #e5e5e5;
+            --color-neutral-300: #d4d4d4;
+            --color-neutral-400: #a3a3a3;
+            --color-neutral-500: #737373;
+            --color-neutral-600: #525252;
+            --color-neutral-700: #404040;
+            --color-neutral-800: #262626;
+            --color-neutral-900: #171717;
+            /* 字体 */
+            --font-family-display: 'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-family-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+            --font-family-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+            /* 圆角 */
+            --radius-lg: 0.5rem;
+            --radius-2xl: 1rem;
+            --radius-full: 9999px;
+            /* 阴影 */
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-accent: 0 8px 20px 0 rgb(249 115 22 / 0.28);
+            /* 缓动 */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: var(--font-family-sans);
+            background: var(--color-neutral-50);
+            color: var(--color-neutral-800);
+            line-height: 1.625;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-display { font-family: var(--font-family-display); }
+        .font-serif-cn { font-family: var(--font-family-serif); }
+
+        /* 焦点态可访问性 */
+        a:focus-visible, button:focus-visible {
+            outline: 2px solid var(--brand-accent-500);
+            outline-offset: 2px;
+            border-radius: var(--radius-lg);
+        }
+
+        /* ============ 按钮 ============ */
+        .btn { font-family: var(--font-family-display); font-weight: 600; border-radius: var(--radius-lg);
+            display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; border: none;
+            text-decoration: none; transition: transform .3s var(--ease-spring), box-shadow .3s var(--ease-out), background-color .2s ease; }
+        .btn-accent { background: var(--brand-accent-500); color: #fff; padding: 0.85rem 1.6rem; box-shadow: var(--shadow-accent); }
+        .btn-accent:hover { background: var(--brand-accent-600); transform: translateY(-3px); box-shadow: 0 14px 28px 0 rgb(249 115 22 / 0.38); }
+        .btn-accent:active { transform: translateY(-1px); }
+        .btn-ghost { background: transparent; color: var(--brand-primary-700); border: 1px solid var(--color-neutral-300); padding: 0.75rem 1.3rem; }
+        .btn-ghost:hover { background: #fff; border-color: var(--brand-primary-300, #93c5fd); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .btn-sm { padding: 0.55rem 1.1rem; font-size: 0.875rem; }
+
+        /* ============ 导航 ============ */
+        .nav { position: sticky; top: 0; z-index: 1030; backdrop-filter: saturate(180%) blur(12px);
+            background: rgba(250,250,250,0.82); border-bottom: 1px solid var(--color-neutral-200); }
+        .nav-link { color: var(--color-neutral-600); text-decoration: none; font-weight: 500; font-size: 0.95rem;
+            transition: color .2s ease; position: relative; }
+        .nav-link:hover { color: var(--brand-primary-700); }
+
+        /* ============ 卡片 ============ */
+        .card { background: #fff; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-md); transition: transform .3s var(--ease-spring), box-shadow .3s var(--ease-out); }
+        .type-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+        /* ============ 动效：① Hero 分层进场 Reveal-Stagger ============ */
+        .reveal-hero { opacity: 0; transform: translateY(24px); animation: heroIn .8s var(--ease-out) forwards; }
+        .reveal-hero.d1 { animation-delay: .1s; }
+        .reveal-hero.d2 { animation-delay: .25s; }
+        .reveal-hero.d3 { animation-delay: .4s; }
+        .reveal-hero.d4 { animation-delay: .55s; }
+        .reveal-hero.d5 { animation-delay: .7s; }
+        @keyframes heroIn { to { opacity: 1; transform: translateY(0); } }
+
+        /* ② Scroll-Reveal（IntersectionObserver 驱动） */
+        .scroll-reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
+        .scroll-reveal.is-visible { opacity: 1; transform: translateY(0); }
+        .stagger > * { transition-delay: calc(var(--i, 0) * 90ms); }
+
+        /* 罗盘缓慢旋转 */
+        .compass-rotate { animation: spin 60s linear infinite; transform-origin: center; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* 探索指引点 */
+        .scroll-hint { animation: bob 2s ease-in-out infinite; }
+        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+
+        /* ============ prefers-reduced-motion 降级 ============ */
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .reveal-hero, .scroll-reveal { animation: none !important; opacity: 1 !important; transform: none !important; transition: none !important; }
+            .compass-rotate, .scroll-hint { animation: none !important; }
+            .btn, .card, .type-card { transition: none !important; }
+            .btn-accent:hover, .btn-ghost:hover, .type-card:hover { transform: none !important; }
+        }
+
+        .container-x { max-width: 1200px; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+    </style>
+</head>
+<body>
+    <!-- ============ 顶部导航栏 ============ -->
+    <header class="nav">
+        <nav class="container-x flex items-center justify-between h-16" aria-label="主导航">
+            <a href="#hero" class="flex items-center gap-2" aria-label="InnerQuest 向内求索 首页">
+                <span class="inline-flex items-center justify-center w-9 h-9 rounded-full" style="background:var(--brand-primary-900);">
+                    <i data-lucide="compass" style="color:var(--brand-accent-500)" class="w-5 h-5"></i>
+                </span>
+                <span class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">InnerQuest<span class="font-serif-cn font-medium text-sm ml-1" style="color:var(--color-neutral-500)">向内求索</span></span>
+            </a>
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#personality-types" class="nav-link">人格类型</a>
+                <a href="#journey" class="nav-link">求索路径</a>
+                <a href="#final-cta" class="nav-link">关于</a>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="#" class="nav-link hidden sm:inline">登录</a>
+                <a href="#final-cta" class="btn btn-accent btn-sm">开始测评</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- ============ Hero 区（分屏非对称） ============ -->
+        <section id="hero" class="relative overflow-hidden" style="background:linear-gradient(180deg,#fff 0%,var(--color-neutral-50) 100%);">
+            <div class="container-x grid lg:grid-cols-12 gap-10 items-center pt-16 pb-20 md:pt-20 md:pb-28">
+                <!-- 文案侧（占 7 列，非对称） -->
+                <div class="lg:col-span-7">
+                    <span class="reveal-hero d1 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium mb-6" style="background:var(--brand-accent-500);color:#fff;background:rgba(249,115,22,0.1);color:var(--brand-accent-600);">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> AI 驱动 · MBTI 16 型全覆盖
+                    </span>
+                    <h1 class="reveal-hero d2 font-display font-extrabold tracking-tight" style="font-size:clamp(2.4rem,5vw,3.75rem);line-height:1.1;color:var(--brand-primary-950);">
+                        向内求索，<br>遇见更清晰的<span style="color:var(--brand-accent-500)">职业方向</span>
+                    </h1>
+                    <p class="reveal-hero d3 font-serif-cn mt-6 text-lg md:text-xl" style="color:var(--color-neutral-600);max-width:34rem;line-height:1.9;">
+                        「你不是在寻找一份工作，而是在认领一种属于自己的活法。」
+                    </p>
+                    <div class="reveal-hero d4 mt-9 flex flex-wrap items-center gap-4">
+                        <a href="#final-cta" class="btn btn-accent" style="font-size:1.05rem;padding:1rem 1.9rem;">
+                            <i data-lucide="play" class="w-5 h-5"></i> 免费开始测评
+                        </a>
+                        <a href="#journey" class="btn btn-ghost">了解探索路径</a>
+                    </div>
+                    <p class="reveal-hero d5 mt-5 text-sm flex flex-wrap items-center gap-x-5 gap-y-2" style="color:var(--color-neutral-500);">
+                        <span class="inline-flex items-center gap-1.5"><i data-lucide="list-checks" class="w-4 h-4"></i> 60 题</span>
+                        <span class="inline-flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4"></i> 约 10 分钟</span>
+                        <span class="inline-flex items-center gap-1.5"><i data-lucide="gift" class="w-4 h-4" style="color:var(--brand-accent-500)"></i> 完全免费</span>
+                    </p>
+                </div>
+
+                <!-- 视觉侧：星图 / 罗盘抽象 SVG（占 5 列） -->
+                <div class="reveal-hero d3 lg:col-span-5 flex justify-center">
+                    <svg viewBox="0 0 400 400" width="100%" style="max-width:420px" role="img" aria-label="星图与罗盘意象的抽象插画">
+                        <defs>
+                            <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#dbeafe" stop-opacity="0.9"/>
+                                <stop offset="100%" stop-color="#fafafa" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="200" cy="200" r="190" fill="url(#halo)"/>
+                        <!-- 星点 -->
+                        <g fill="var(--brand-primary-300)">
+                            <circle cx="60" cy="70" r="2.5"/><circle cx="330" cy="90" r="2"/>
+                            <circle cx="350" cy="260" r="3"/><circle cx="50" cy="300" r="2.2"/>
+                            <circle cx="110" cy="350" r="1.8"/><circle cx="300" cy="340" r="2.4"/>
+                        </g>
+                        <g fill="var(--brand-accent-400)">
+                            <circle cx="90" cy="150" r="2.6"/><circle cx="320" cy="180" r="2.2"/>
+                        </g>
+                        <!-- 罗盘外圈刻度（缓慢旋转） -->
+                        <g class="compass-rotate">
+                            <circle cx="200" cy="200" r="130" fill="none" stroke="var(--brand-primary-200)" stroke-width="1.5"/>
+                            <circle cx="200" cy="200" r="105" fill="none" stroke="var(--brand-primary-100)" stroke-width="1"/>
+                            <g stroke="var(--brand-primary-300)" stroke-width="1.5">
+                                <line x1="200" y1="70" x2="200" y2="85"/><line x1="200" y1="315" x2="200" y2="330"/>
+                                <line x1="70" y1="200" x2="85" y2="200"/><line x1="315" y1="200" x2="330" y2="200"/>
+                            </g>
+                        </g>
+                        <!-- 罗盘指针（橙色强调） -->
+                        <g>
+                            <polygon points="200,95 214,200 200,185 186,200" fill="var(--brand-accent-500)"/>
+                            <polygon points="200,305 214,200 200,215 186,200" fill="var(--brand-primary-500)"/>
+                            <circle cx="200" cy="200" r="12" fill="#fff" stroke="var(--brand-primary-900)" stroke-width="2"/>
+                            <circle cx="200" cy="200" r="4" fill="var(--brand-accent-500)"/>
+                        </g>
+                        <!-- 四象方位 -->
+                        <g font-family="var(--font-family-display)" font-size="13" font-weight="700" fill="var(--brand-primary-900)" text-anchor="middle">
+                            <text x="200" y="60">N</text><text x="200" y="352">S</text>
+                            <text x="52" y="205">W</text><text x="348" y="205">E</text>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+            <!-- 首屏底部内容边缘暗示可滚动 -->
+            <div class="flex justify-center pb-6">
+                <a href="#social-proof" class="scroll-hint inline-flex flex-col items-center text-sm" style="color:var(--color-neutral-400);text-decoration:none;" aria-label="向下滚动探索更多">
+                    向下探索
+                    <i data-lucide="chevron-down" class="w-5 h-5 mt-1" style="color:var(--brand-accent-500)"></i>
+                </a>
+            </div>
+        </section>
+
+        <!-- ============ 社交证明区 ============ -->
+        <section id="social-proof" class="py-16 md:py-20" style="border-top:1px solid var(--color-neutral-200);">
+            <div class="container-x">
+                <p class="scroll-reveal text-center text-sm font-medium mb-10" style="color:var(--color-neutral-500);letter-spacing:0.05em;">已有众多职场人在这里重新认识自己</p>
+                <div class="scroll-reveal stagger grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div class="card p-8 text-center" style="--i:0;">
+                        <div class="font-display font-extrabold" style="font-size:2.75rem;color:var(--brand-primary-900);">128<span style="color:var(--brand-accent-500)">万+</span></div>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">已服务用户</p>
+                    </div>
+                    <div class="card p-8 text-center" style="--i:1;">
+                        <div class="font-display font-extrabold" style="font-size:2.75rem;color:var(--brand-primary-900);">16<span style="color:var(--brand-accent-500)"> 型</span></div>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">MBTI 人格全覆盖</p>
+                    </div>
+                    <div class="card p-8 text-center" style="--i:2;">
+                        <div class="font-display font-extrabold" style="font-size:2.75rem;color:var(--brand-primary-900);">TOP<span style="color:var(--brand-accent-500)">10</span></div>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">职业匹配推荐</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 人格类型总览预览 ============ -->
+        <section id="personality-types" class="py-16 md:py-24" style="background:#fff;border-top:1px solid var(--color-neutral-200);">
+            <div class="container-x">
+                <div class="scroll-reveal max-w-2xl mb-12">
+                    <span class="font-serif-cn text-sm" style="color:var(--brand-accent-600);">Four Temperaments</span>
+                    <h2 class="font-display font-bold mt-2" style="font-size:clamp(1.75rem,3.5vw,2.25rem);color:var(--brand-primary-950);line-height:1.25;">四大族群，十六种活法</h2>
+                    <p class="mt-4" style="color:var(--color-neutral-600);">每一种人格都有独特的天赋与困境。找到你所属的族群，是向内求索的第一步。</p>
+                </div>
+                <div class="scroll-reveal stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <a href="#" class="type-card card overflow-hidden" style="--i:0;text-decoration:none;">
+                        <div style="height:4px;background:var(--personality-analyst);"></div>
+                        <div class="p-6">
+                            <span class="inline-flex items-center justify-center w-11 h-11 rounded-full mb-4" style="background:rgba(59,130,246,0.1);"><i data-lucide="brain" style="color:var(--personality-analyst)" class="w-6 h-6"></i></span>
+                            <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">分析家 NT</h3>
+                            <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">理性、独立、追求真理。INTJ / INTP / ENTJ / ENTP</p>
+                            <span class="inline-flex items-center gap-1 mt-4 text-sm font-medium" style="color:var(--personality-analyst)">查看族群 <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+                        </div>
+                    </a>
+                    <a href="#" class="type-card card overflow-hidden" style="--i:1;text-decoration:none;">
+                        <div style="height:4px;background:var(--personality-diplomat);"></div>
+                        <div class="p-6">
+                            <span class="inline-flex items-center justify-center w-11 h-11 rounded-full mb-4" style="background:rgba(139,92,246,0.1);"><i data-lucide="heart-handshake" style="color:var(--personality-diplomat)" class="w-6 h-6"></i></span>
+                            <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">外交家 NF</h3>
+                            <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">共情、理想、渴望意义。INFJ / INFP / ENFJ / ENFP</p>
+                            <span class="inline-flex items-center gap-1 mt-4 text-sm font-medium" style="color:var(--personality-diplomat)">查看族群 <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+                        </div>
+                    </a>
+                    <a href="#" class="type-card card overflow-hidden" style="--i:2;text-decoration:none;">
+                        <div style="height:4px;background:var(--personality-sentinel);"></div>
+                        <div class="p-6">
+                            <span class="inline-flex items-center justify-center w-11 h-11 rounded-full mb-4" style="background:rgba(34,197,94,0.1);"><i data-lucide="shield-check" style="color:var(--personality-sentinel)" class="w-6 h-6"></i></span>
+                            <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">守护者 SJ</h3>
+                            <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">务实、尽责、重视秩序。ISTJ / ISFJ / ESTJ / ESFJ</p>
+                            <span class="inline-flex items-center gap-1 mt-4 text-sm font-medium" style="color:var(--personality-sentinel)">查看族群 <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+                        </div>
+                    </a>
+                    <a href="#" class="type-card card overflow-hidden" style="--i:3;text-decoration:none;">
+                        <div style="height:4px;background:var(--personality-explorer);"></div>
+                        <div class="p-6">
+                            <span class="inline-flex items-center justify-center w-11 h-11 rounded-full mb-4" style="background:rgba(249,115,22,0.1);"><i data-lucide="compass" style="color:var(--personality-explorer)" class="w-6 h-6"></i></span>
+                            <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">探险家 SP</h3>
+                            <p class="mt-2 text-sm" style="color:var(--color-neutral-500);">灵活、敏锐、活在当下。ISTP / ISFP / ESTP / ESFP</p>
+                            <span class="inline-flex items-center gap-1 mt-4 text-sm font-medium" style="color:var(--personality-explorer)">查看族群 <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+                        </div>
+                    </a>
+          </div>
+            </div>
+        </section>
+
+        <!-- ============ 价值主张 / 探索路径（滚动叙事） ============ -->
+        <section id="journey" class="py-16 md:py-24" style="border-top:1px solid var(--color-neutral-200);">
+            <div class="container-x">
+                <div class="scroll-reveal max-w-2xl mb-14">
+                    <span class="font-serif-cn text-sm" style="color:var(--brand-accent-600);">Your Journey</span>
+                    <h2 class="font-display font-bold mt-2" style="font-size:clamp(1.75rem,3.5vw,2.25rem);color:var(--brand-primary-950);line-height:1.25;">三步，从认识自己到看清前路</h2>
+                </div>
+                <div class="scroll-reveal stagger grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="card p-8" style="--i:0;">
+                        <span class="font-display font-extrabold" style="font-size:1.25rem;color:var(--brand-accent-500);">01</span>
+                        <div class="mt-4 mb-4"><i data-lucide="clipboard-list" class="w-8 h-8" style="color:var(--brand-primary-600)"></i></div>
+                        <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">完成测评</h3>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-600);">60 道科学量表题，约 10 分钟，安静地与自己对话一次。</p>
+                    </div>
+                    <div class="card p-8" style="--i:1;">
+                        <span class="font-display font-extrabold" style="font-size:1.25rem;color:var(--brand-accent-500);">02</span>
+                        <div class="mt-4 mb-4"><i data-lucide="file-text" class="w-8 h-8" style="color:var(--brand-primary-600)"></i></div>
+                        <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">获取报告</h3>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-600);">AI 生成专属人格解读，看见你的优势、盲区与成长方向。</p>
+                    </div>
+                    <div class="card p-8" style="--i:2;">
+                        <span class="font-display font-extrabold" style="font-size:1.25rem;color:var(--brand-accent-500);">03</span>
+                        <div class="mt-4 mb-4"><i data-lucide="briefcase" class="w-8 h-8" style="color:var(--brand-primary-600)"></i></div>
+                        <h3 class="font-display font-bold text-lg" style="color:var(--brand-primary-950)">职业匹配</h3>
+                        <p class="mt-2 text-sm" style="color:var(--color-neutral-600);">基于人格与兴趣，推荐最契合的职业路径，附真实岗位画像。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 终局 CTA 收束区（唯一强居中） ============ -->
+        <section id="final-cta" class="py-20 md:py-28" style="background:var(--brand-primary-950);">
+            <div class="container-x text-center scroll-reveal">
+                <h2 class="font-display font-extrabold text-white" style="font-size:clamp(1.9rem,4vw,3rem);line-height:1.2;">开始你的探索</h2>
+                <p class="font-serif-cn mt-5 text-lg" style="color:rgba(255,255,255,0.7);max-width:36rem;margin-left:auto;margin-right:auto;line-height:1.9;">「答案不在远方，它一直在你自己身上等你回头。」</p>
+                <div class="mt-9 flex justify-center">
+                    <a href="#" class="btn btn-accent" style="font-size:1.1rem;padding:1.1rem 2.2rem;">
+                        <i data-lucide="rocket" class="w-5 h-5"></i> 免费开始测评
+                    </a>
+                </div>
+                <p class="mt-5 text-sm" style="color:rgba(255,255,255,0.5);">无需注册即可开始 · 60 题约 10 分钟</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- ============ 页脚 ============ -->
+    <footer style="background:var(--brand-primary-900);color:rgba(255,255,255,0.7);">
+        <div class="container-x py-14">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="col-span-2 md:col-span-1">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="compass" style="color:var(--brand-accent-500)" class="w-6 h-6"></i>
+                        <span class="font-display font-bold text-white">InnerQuest 向内求索</span>
+                    </div>
+                    <p class="text-sm" style="color:rgba(255,255,255,0.5);line-height:1.8;">向内求索，遇见更清晰的职业方向。</p>
+                </div>
+                <div>
+                    <h4 class="font-display font-semibold text-white text-sm mb-4">产品</h4>
+                    <ul class="space-y-2.5 text-sm" style="list-style:none;padding:0;margin:0;">
+                        <li><a href="#personality-types" class="nav-link" style="color:rgba(255,255,255,0.6);">人格类型</a></li>
+                        <li><a href="#journey" class="nav-link" style="color:rgba(255,255,255,0.6);">求索路径</a></li>
+                        <li><a href="#final-cta" class="nav-link" style="color:rgba(255,255,255,0.6);">开始测评</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-display font-semibold text-white text-sm mb-4">关于</h4>
+                    <ul class="space-y-2.5 text-sm" style="list-style:none;padding:0;margin:0;">
+                       <li><a href="#" class="nav-link" style="color:rgba(255,255,255,0.6);">团队介绍</a></li>
+                        <li><a href="#" class="nav-link" style="color:rgba(255,255,255,0.6);">隐私政策</a></li>
+                        <li><a href="#" class="nav-link" style="color:rgba(255,255,255,0.6);">用户协议</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-display font-semibold text-white text-sm mb-4">联系</h4>
+                    <ul class="space-y-2.5 text-sm" style="list-style:none;padding:0;margin:0;">
+                        <li><a href="#" class="nav-link" style="color:rgba(255,255,255,0.6);">意见反馈</a></li>
+                        <li><a href="#" class="nav-link" style="color:rgba(255,255,255,0.6);">商务合作</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-12 pt-6 flex flex-col md:flex-row justify-between gap-3 text-xs" style="border-top:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);">
+                <span>© 2026 InnerQuest 向内求索. All rights reserved.</span>
+                <span>备案号：京ICP备00000000号-1</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ============ 脚本：图标初始化 + Scroll-Reveal（IntersectionObserver） ============ -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.lucide) lucide.createIcons();
+
+            var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var revealEls = document.querySelectorAll('.scroll-reveal');
+
+            if (prefersReduced || !('IntersectionObserver' in window)) {
+                revealEls.forEach(function (el) { el.classList.add('is-visible'); });
+                return;
+            }
+
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        io.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+            revealEls.forEach(function (el) { io.observe(el); });
+        });
+    </script>
+</body>
+</html>

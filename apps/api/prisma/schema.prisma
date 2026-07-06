@@ -1,0 +1,913 @@
+// InnerQuest 向内求索 — Prisma Schema
+// 依据《数据库设计文档.md》33 张表 · MySQL 8.0 · InnoDB · utf8mb4
+// 通用约定：BIGINT UNSIGNED 主键 / 软删除 is_deleted / 审计字段 created_at,updated_at
+// 枚举用 Int(TINYINT) + 注释；金额用 BigInt(分) 或 Decimal(元)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ 4. 用户体系 ============
+
+/// 用主表
+model User {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userNo        String    @map("user_no") @db.Char(20)
+  nickname      String    @default("") @db.VarChar(64)
+  avatarUrl     String    @default("") @map("avatar_url") @db.VarChar(512)
+  phone         String?   @db.VarChar(20)
+  phoneCountry  String    @default("+86") @map("phone_country") @db.VarChar(8)
+  email         String?   @db.VarChar(128)
+  passwordHash  String?   @map("password_hash") @db.VarChar(255)
+  gender        Int       @default(0) @db.TinyInt
+  role          Int       @default(1) @db.TinyInt
+  adminRole     String?   @map("admin_role") @db.VarChar(32)
+  status        Int       @default(1) @db.TinyInt
+  isPaid        Int       @default(0) @map("is_paid") @db.TinyInt
+  paidExpireAt  DateTime? @map("paid_expire_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+  isDeleted     Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  oauths          UserOauth[]
+  privacySetting  UserPrivacySetting?
+  deactivations   UserDeactivation[]
+  assessmentRecords AssessmentRecord[]
+  growthPlans     GrowthPlan[]
+
+  @@unique([userNo], map: "uk_user_no")
+  @@unique([phone, phoneCountry], map: "uk_phone")
+  @@unique([email], map: "uk_email")
+  @@index([role, status], map: "idx_role_status")
+  @@index([deactivatedAt], map: "idx_deactivated_at")
+  @@index([createdAt], map: "idx_created_at")
+  @@map("user")
+}
+
+/// 管理员表（独立于用户体系）
+model Admin {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  username     String    @unique @map("username") @db.VarChar(32)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  nickname     String    @default("") @db.VarChar(64)
+  email        String?   @unique @map("email") @db.VarChar(128)
+  phone        String?   @unique @map("phone") @db.VarChar(20)
+  role         Int       @default(1) @db.TinyInt
+  status       Int       @default(1) @db.TinyInt
+  lastLoginAt  DateTime? @map("last_login_at")
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([role, status], map: "idx_admin_role_status")
+  @@map("admin")
+}
+
+/// 用户第三方授权表
+model UserOauth {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  provider   Int      @db.TinyInt
+  openId     String   @map("open_id") @db.VarChar(128)
+  unionId    String?  @map("union_id") @db.VarChar(128)
+  accessData Json?    @map("access_data")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, openId], map: "uk_provider_openid")
+  @@index([userId], map: "idx_user_id")
+  @@index([unionId], map: "idx_union_id")
+  @@map("user_oauth")
+}
+
+/// 用户隐私设置表（1:1）
+model UserPrivacySetting {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId             BigInt   @map("user_id") @db.UnsignedBigInt
+  profilePublic      Int      @default(0) @map("profile_public") @db.TinyInt
+  reportShareable    Int      @default(1) @map("report_shareable") @db.TinyInt
+  allowRecommend     Int      @default(1) @map("allow_recommend") @db.TinyInt
+  allowDataAnalysis  Int      @default(1) @map("allow_data_analysis") @db.TinyInt
+  pushNotification   Int      @default(1) @map("push_notification") @db.TinyInt
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId], map: "uk_user_id")
+  @@map("user_privacy_setting")
+}
+
+/// 账号注销申请表
+model UserDeactivation {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId      BigInt    @map("user_id") @db.UnsignedBigInt
+  reason      String?   @db.VarChar(255)
+  status      Int       @default(1) @db.TinyInt
+  applyAt     DateTime  @map("apply_at")
+  purgeAt     DateTime  @map("purge_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "idx_user_id")
+  @@index([status, purgeAt], map: "idx_status_purge")
+  @@map("user_deactivation")
+}
+
+// ============ 5. 测评体系 ============
+
+/// 测评题目表
+model AssessmentQuestion {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  version   String    @default("v1") @db.VarChar(16)
+  dimension Int       @db.TinyInt
+  content   String    @db.VarChar(512)
+  sortOrder Int       @default(0) @map("sort_order")
+  isReverse Int       @default(0) @map("is_reverse") @db.TinyInt
+  status    Int       @default(1) @db.TinyInt
+  isDeleted Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  options AssessmentOption[]
+  answers AssessmentAnswer[]
+
+  @@index([version, status, sortOrder], map: "idx_version_status_sort")
+  @@index([dimension], map: "idx_dimension")
+  @@map("assessment_question")
+}
+
+/// 测评题目选项表
+model AssessmentOption {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  questionId BigInt   @map("question_id") @db.UnsignedBigInt
+  content    String   @db.VarChar(255)
+  optionKey  String   @map("option_key") @db.VarChar(8)
+  polarity   Int      @db.TinyInt
+  score      Int      @default(1) @db.TinyInt
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  question AssessmentQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([questionId, optionKey], map: "uk_question_key")
+  @@index([questionId], map: "idx_question_id")
+  @@map("assessment_option")
+}
+
+/// 测评记录表
+model AssessmentRecord {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  recordNo        String    @map("record_no") @db.Char(24)
+  userId          BigInt    @map("user_id") @db.UnsignedBigInt
+  questionVersion String    @map("question_version") @db.VarChar(16)
+  totalQuestions  Int       @default(60) @map("total_questions") @db.SmallInt
+  status          Int       @default(1) @db.TinyInt
+  startedAt       DateTime  @map("started_at")
+  submittedAt     DateTime? @map("submitted_at")
+  isDeleted       Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user     User                 @relation(fields: [userId], references: [id])
+  answers  AssessmentAnswer[]
+  progress AssessmentProgress?
+  result   AssessmentResult?
+
+  @@unique([recordNo], map: "uk_record_no")
+  @@index([userId, status, createdAt], map: "idx_user_status_created")
+  @@index([userId, isDeleted, createdAt], map: "idx_user_deleted_created")
+  @@map("assessment_record")
+}
+
+/// 答题明细表
+model AssessmentAnswer {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  recordId   BigInt   @map("record_id") @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  questionId BigInt   @map("question_id") @db.UnsignedBigInt
+  optionId   BigInt   @map("option_id") @db.UnsignedBigInt
+  answeredAt DateTime @default(now()) @map("answered_at")
+
+  record   AssessmentRecord   @relation(fields: [recordId], references: [id])
+  question AssessmentQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([recordId, questionId], map: "uk_record_question")
+  @@index([userId], map: "idx_user_id")
+  @@map("assessment_answer")
+}
+
+/// 答题进度表
+model AssessmentProgress {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  recordId        BigInt   @map("record_id") @db.UnsignedBigInt
+  userId          BigInt   @map("user_id") @db.UnsignedBigInt
+  answeredCount   Int      @default(0) @map("answered_count") @db.SmallInt
+  currentQuestion Int      @default(1) @map("current_question") @db.SmallInt
+  draftAnswers    Json?    @map("draft_answers")
+  lastSavedAt     DateTime @default(now()) @map("last_saved_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  record AssessmentRecord @relation(fields: [recordId], references: [id])
+
+  @@unique([recordId], map: "uk_record_id")
+  @@index([userId], map: "idx_user_id")
+  @@map("assessment_progress")
+}
+
+/// 测评结果表
+model AssessmentResult {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  recordId   BigInt   @map("record_id") @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  mbtiType   String   @map("mbti_type") @db.Char(4)
+  scoreEi    Decimal  @map("score_ei") @db.Decimal(5, 2)
+  scoreSn    Decimal  @map("score_sn") @db.Decimal(5, 2)
+  scoreTf    Decimal  @map("score_tf") @db.Decimal(5, 2)
+  scoreJp    Decimal  @map("score_jp") @db.Decimal(5, 2)
+  typeGroup  Int      @map("type_group") @db.TinyInt
+  isAbnormal Int      @default(0) @map("is_abnormal") @db.TinyInt
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  record AssessmentRecord @relation(fields: [recordId], references: [id])
+  report Report?
+
+  @@unique([recordId], map: "uk_record_id")
+  @@index([userId, mbtiType], map: "idx_user_type")
+  @@index([mbtiType], map: "idx_mbti_type")
+  @@map("assessment_result")
+}
+
+// ============ 6. 报告体系 ============
+
+/// 报告主表
+model Report {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  reportNo    String    @map("report_no") @db.Char(24)
+  userId      BigInt    @map("user_id") @db.UnsignedBigInt
+  resultId    BigInt    @unique @map("result_id") @db.UnsignedBigInt
+  reportType  Int       @default(1) @map("report_type") @db.TinyInt
+  mbtiType    String    @map("mbti_type") @db.Char(4)
+  status      Int       @default(1) @db.TinyInt
+  isUnlocked  Int       @default(0) @map("is_unlocked") @db.TinyInt
+  orderId     BigInt?   @map("order_id") @db.UnsignedBigInt
+  summary     Json?
+  generatedAt DateTime? @map("generated_at")
+  expireAt    DateTime? @map("expire_at")
+  isDeleted   Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  result       AssessmentResult @relation(fields: [resultId], references: [id])
+  sections     ReportSection[]
+  shares       ReportShare[]
+  careerMatches CareerMatch[]
+
+  @@unique([reportNo], map: "uk_report_no")
+  @@index([userId, reportType, createdAt], map: "idx_user_type_created")
+  @@index([userId, isDeleted, createdAt], map: "idx_user_deleted_created")
+  @@map("report")
+}
+
+/// 报告章节表
+model ReportSection {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId   BigInt   @map("report_id") @db.UnsignedBigInt
+  sectionKey String   @map("section_key") @db.VarChar(32)
+  title      String   @db.VarChar(128)
+  content    Json
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  report Report @relation(fields: [reportId], references: [id])
+
+  @@unique([reportId, sectionKey], map: "uk_report_section")
+  @@index([reportId, sortOrder], map: "idx_report_sort")
+  @@map("report_section")
+}
+
+/// 报告分享表
+model ReportShare {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId  BigInt    @map("report_id") @db.UnsignedBigInt
+  userId    BigInt    @map("user_id") @db.UnsignedBigInt
+  shareCode String    @map("share_code") @db.Char(16)
+  posterUrl String?   @map("poster_url") @db.VarChar(512)
+  channel   Int?      @db.TinyInt
+  viewCount Int       @default(0) @map("view_count")
+  expireAt  DateTime? @map("expire_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  report Report @relation(fields: [reportId], references: [id])
+
+  @@unique([shareCode], map: "uk_share_code")
+  @@index([reportId], map: "idx_report_id")
+  @@index([userId], map: "idx_user_id")
+  @@map("report_share")
+}
+
+// ============ 7. 职业规划 ============
+
+/// 职业百��表
+model Career {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  careerCode     String    @map("career_code") @db.VarChar(32)
+  name           String    @db.VarChar(64)
+  category       String    @db.VarChar(32)
+  description    String?   @db.Text
+  responsibility String?   @db.Text
+  salaryMin      Int?      @map("salary_min")
+  salaryMax      Int?      @map("salary_max")
+  prospect       String?   @db.Text
+  suitTypes      String?   @map("suit_types") @db.VarChar(128)
+  status         Int       @default(1) @db.TinyInt
+  isDeleted      Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  skills       CareerSkill[]
+  matches      CareerMatch[]
+  gaps         SkillGapAnalysis[]
+  roadmaps     CareerRoadmap[]
+
+  @@unique([careerCode], map: "uk_career_code")
+  @@index([category, status], map: "idx_category_status")
+  @@fulltext([name, description], map: "ft_name_desc")
+  @@map("career")
+}
+
+/// 职业技能要求表
+model CareerSkill {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  careerId     BigInt   @map("career_id") @db.UnsignedBigInt
+  skillName    String   @map("skill_name") @db.VarChar(64)
+  skillType    Int      @default(1) @map("skill_type") @db.TinyInt
+  requireLevel Int      @default(3) @map("require_level") @db.TinyInt
+  weight       Decimal  @default(1.00) @db.Decimal(4, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  career Career @relation(fields: [careerId], references: [id])
+
+  @@unique([careerId, skillName], map: "uk_career_skill")
+  @@index([careerId], map: "idx_career_id")
+  @@map("career_skill")
+}
+
+/// AI 职业匹配结果表
+model CareerMatch {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId      BigInt   @map("user_id") @db.UnsignedBigInt
+  reportId    BigInt   @map("report_id") @db.UnsignedBigInt
+  careerId    BigInt   @map("career_id") @db.UnsignedBigInt
+  matchScore  Decimal  @map("match_score") @db.Decimal(5, 2)
+  rankNo      Int      @map("rank_no") @db.SmallInt
+  matchReason Json?    @map("match_reason")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  report Report @relation(fields: [reportId], references: [id])
+  career Career @relation(fields: [careerId], references: [id])
+
+  @@unique([reportId, careerId], map: "uk_report_career")
+  @@index([reportId, rankNo], map: "idx_report_rank")
+  @@index([userId], map: "idx_user_id")
+  @@map("career_match")
+}
+
+/// 技能差距分析表
+model SkillGapAnalysis {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt   @map("user_id") @db.UnsignedBigInt
+  careerId     BigInt   @map("career_id") @db.UnsignedBigInt
+  skillName    String   @map("skill_name") @db.VarChar(64)
+  requireLevel Int      @map("require_level") @db.TinyInt
+  currentLevel Int      @default(0) @map("current_level") @db.TinyInt
+  gapLevel     Int      @map("gap_level") @db.TinyInt
+  suggestion   String?  @db.VarChar(512)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  career Career @relation(fields: [careerId], references: [id])
+
+  @@index([userId, careerId], map: "idx_user_career")
+  @@map("skill_gap_analysis")
+}
+
+/// 学习资源表
+model LearningResource {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  title        String    @db.VarChar(128)
+  resourceType Int       @map("resource_type") @db.TinyInt
+  url          String?   @db.VarChar(512)
+  skillTags    String?   @map("skill_tags") @db.VarChar(255)
+  careerId     BigInt?   @map("career_id") @db.UnsignedBigInt
+  provider     String?   @db.VarChar(64)
+  status       Int       @default(1) @db.TinyInt
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([careerId, status], map: "idx_career_status")
+  @@index([resourceType, status], map: "idx_type_status")
+  @@map("learning_resource")
+}
+
+/// 职业发展路线图表
+model CareerRoadmap {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  careerId   BigInt   @map("career_id") @db.UnsignedBigInt
+  stageNo    Int      @map("stage_no") @db.TinyInt
+  stageName  String   @map("stage_name") @db.VarChar(64)
+  duration   String?  @db.VarChar(32)
+  milestones Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  career Career @relation(fields: [careerId], references: [id])
+
+  @@unique([careerId, stageNo], map: "uk_career_stage")
+  @@map("career_roadmap")
+}
+
+/// 用户收藏表
+model UserFavorite {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  targetType Int      @map("target_type") @db.TinyInt
+  targetId   BigInt   @map("target_id") @db.UnsignedBigInt
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, targetType, targetId], map: "uk_user_target")
+  @@index([userId, targetType], map: "idx_user_type")
+  @@map("user_favorite")
+}
+
+/// 成长计划表
+model GrowthPlan {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId    BigInt    @map("user_id") @db.UnsignedBigInt
+  title     String    @db.VarChar(128)
+  careerId  BigInt?   @map("career_id") @db.UnsignedBigInt
+  status    Int       @default(1) @db.TinyInt
+  progress  Int       @default(0) @db.TinyInt
+  isDeleted Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id])
+  tasks GrowthPlanTask[]
+
+  @@index([userId, status], map: "idx_user_status")
+  @@map("growth_plan")
+}
+
+/// 成长计划任务表
+model GrowthPlanTask {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  planId     BigInt    @map("plan_id") @db.UnsignedBigInt
+  content    String    @db.VarChar(255)
+  resourceId BigInt?   @map("resource_id") @db.UnsignedBigInt
+  isDone     Int       @default(0) @map("is_done") @db.TinyInt
+  doneAt     DateTime? @map("done_at")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  plan GrowthPlan @relation(fields: [planId], references: [id])
+
+  @@index([planId, sortOrder], map: "idx_plan_id")
+  @@map("growth_plan_task")
+}
+
+// ============ 8. AI 对话 ============
+
+/// AI 对话会话表
+model AiConversation {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  convNo     String    @map("conv_no") @db.Char(32)
+  userId     BigInt    @map("user_id") @db.UnsignedBigInt
+  scene      Int       @default(1) @db.TinyInt
+  bizType    Int?      @map("biz_type") @db.TinyInt
+  bizId      BigInt?   @map("biz_id") @db.UnsignedBigInt
+  title      String?   @db.VarChar(128)
+  roundCount Int       @default(0) @map("round_count") @db.UnsignedSmallInt
+  maxRound   Int       @default(50) @map("max_round") @db.UnsignedSmallInt
+  tokenUsed  Int       @default(0) @map("token_used") @db.UnsignedInt
+  status     Int       @default(1) @db.TinyInt
+  lastMsgAt  DateTime? @map("last_msg_at")
+  isDeleted  Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  messages AiMessage[]
+  summary  AiConversationSummary?
+
+  @@unique([convNo], map: "uk_conv_no")
+  @@index([userId, scene, lastMsgAt], map: "idx_user_scene")
+  @@index([bizType, bizId], map: "idx_biz")
+  @@map("ai_conversation")
+}
+
+/// AI 对话消息表
+model AiMessage {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  conversationId BigInt   @map("conversation_id") @db.UnsignedBigInt
+  userId         BigInt   @map("user_id") @db.UnsignedBigInt
+  roundNo        Int      @map("round_no") @db.UnsignedSmallInt
+  role           Int      @db.TinyInt
+  content        String   @db.MediumText
+  tokenCount     Int      @default(0) @map("token_count") @db.UnsignedInt
+  model          String?  @db.VarChar(64)
+  feedback       Int?     @db.TinyInt
+  isDeleted      Int      @default(0) @map("is_deleted") @db.TinyInt
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, roundNo], map: "idx_conv_round")
+  @@index([userId, createdAt], map: "idx_user_time")
+  @@map("ai_message")
+}
+
+/// AI 对话摘要表
+model AiConversationSummary {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  conversationId BigInt   @map("conversation_id") @db.UnsignedBigInt
+  summary        String   @db.Text
+  coveredRound   Int      @map("covered_round") @db.UnsignedSmallInt
+  tokenCount     Int      @default(0) @map("token_count") @db.UnsignedInt
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id])
+
+  @@unique([conversationId], map: "uk_conversation")
+  @@map("ai_conversation_summary")
+}
+
+// ============ 9. 辅导咨询 ============
+
+/// 辅导师表
+model Coach {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt    @map("user_id") @db.UnsignedBigInt
+  realName     String    @map("real_name") @db.VarChar(64)
+  avatar       String?   @db.VarChar(255)
+  title        String?   @db.VarChar(128)
+  intro        String?   @db.VarChar(1000)
+  expertise    Json?
+  pricePerHour BigInt    @default(0) @map("price_per_hour") @db.UnsignedBigInt
+  rating       Decimal   @default(5.00) @db.Decimal(3, 2)
+  orderCount   Int       @default(0) @map("order_count") @db.UnsignedInt
+  auditStatus  Int       @default(0) @map("audit_status") @db.TinyInt
+  status       Int       @default(1) @db.TinyInt
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  qualifications CoachQualification[]
+  schedules      CoachSchedule[]
+  orders         CoachingOrder[]
+
+  @@unique([userId], map: "uk_user_id")
+  @@index([auditStatus, status], map: "idx_audit_status")
+  @@index([rating], map: "idx_rating")
+  @@map("coach")
+}
+
+/// 辅导师资质表
+model CoachQualification {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  coachId     BigInt   @map("coach_id") @db.UnsignedBigInt
+  certType    Int      @map("cert_type") @db.TinyInt
+  certName    String   @map("cert_name") @db.VarChar(128)
+  certNo      String?  @map("cert_no") @db.VarChar(128)
+  fileUrl     String   @map("file_url") @db.VarChar(255)
+  auditStatus Int      @default(0) @map("audit_status") @db.TinyInt
+  auditRemark String?  @map("audit_remark") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  coach Coach @relation(fields: [coachId], references: [id])
+
+  @@index([coachId], map: "idx_coach_id")
+  @@map("coach_qualification")
+}
+
+/// 辅导师排期表
+model CoachSchedule {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  coachId      BigInt    @map("coach_id") @db.UnsignedBigInt
+  startTime    DateTime  @map("start_time")
+  endTime      DateTime  @map("end_time")
+  status       Int       @default(1) @db.TinyInt
+  orderId      BigInt?   @map("order_id") @db.UnsignedBigInt
+  lockExpireAt DateTime? @map("lock_expire_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  coach  Coach          @relation(fields: [coachId], references: [id])
+  orders CoachingOrder[]
+
+  @@unique([coachId, startTime], map: "uk_coach_slot")
+  @@index([status, startTime], map: "idx_status_time")
+  @@index([status, lockExpireAt], map: "idx_lock_expire")
+  @@map("coach_schedule")
+}
+
+/// 咨询订单表
+model CoachingOrder {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  orderNo        String    @map("order_no") @db.Char(32)
+  userId         BigInt    @map("user_id") @db.UnsignedBigInt
+  coachId        BigInt    @map("coach_id") @db.UnsignedBigInt
+  scheduleId     BigInt    @map("schedule_id") @db.UnsignedBigInt
+  consultType    Int       @default(1) @map("consult_type") @db.TinyInt
+  durationMin    Int       @default(60) @map("duration_min") @db.UnsignedSmallInt
+  amount         BigInt    @db.UnsignedBigInt
+  paymentOrderId BigInt?   @map("payment_order_id") @db.UnsignedBigInt
+  status         Int       @default(1) @db.TinyInt
+  payExpireAt    DateTime? @map("pay_expire_at")
+  paidAt         DateTime? @map("paid_at")
+  finishedAt     DateTime? @map("finished_at")
+  cancelReason   String?   @map("cancel_reason") @db.VarChar(255)
+  isDeleted      Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  coach    Coach            @relation(fields: [coachId], references: [id])
+  schedule CoachSchedule    @relation(fields: [scheduleId], references: [id])
+  session  CoachingSession?
+  review   CoachingReview?
+
+  @@unique([orderNo], map: "uk_order_no")
+  @@index([userId, status], map: "idx_user_status")
+  @@index([coachId, status], map: "idx_coach_status")
+  @@index([status, payExpireAt], map: "idx_pay_expire")
+  @@map("coaching_order")
+}
+
+/// 咨询会话表
+model CoachingSession {
+  id      BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  orderId   BigInt    @map("order_id") @db.UnsignedBigInt
+  startAt   DateTime? @map("start_at")
+  endAt     DateTime? @map("end_at")
+  channel   Int       @default(1) @db.TinyInt
+  recordUrl String?   @map("record_url") @db.VarChar(255)
+  msgCount  Int       @default(0) @map("msg_count") @db.UnsignedInt
+  coachNote String?   @map("coach_note") @db.Text
+  status    Int       @default(1) @db.TinyInt
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  order CoachingOrder @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId], map: "uk_order_id")
+  @@map("coaching_session")
+}
+
+/// 咨询评价表
+model CoachingReview {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  orderId     BigInt   @map("order_id") @db.UnsignedBigInt
+  userId      BigInt   @map("user_id") @db.UnsignedBigInt
+  coachId     BigInt   @map("coach_id") @db.UnsignedBigInt
+  rating      Int      @db.UnsignedTinyInt
+  content     String?  @db.VarChar(1000)
+  tags        Json?
+  isAnonymous Int      @default(0) @map("is_anonymous") @db.TinyInt
+  reply       String?  @db.VarChar(500)
+  isDeleted   Int      @default(0) @map("is_deleted") @db.TinyInt
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  order CoachingOrder @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId], map: "uk_order_id")
+  @@index([coachId, rating], map: "idx_coach_rating")
+  @@map("coaching_review")
+}
+
+// ============ 10. 支付订单 ============
+
+/// 支付订单表（多态 biz_type + biz_id）
+model PaymentOrder {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  payNo          String    @map("pay_no") @db.Char(32)
+  userId         BigInt    @map("user_id") @db.UnsignedBigInt
+  bizType        Int       @map("biz_type") @db.TinyInt
+  bizId          BigInt    @map("biz_id") @db.UnsignedBigInt
+  subject        String    @db.VarChar(128)
+  amount         BigInt    @db.UnsignedBigInt
+  paidAmount     BigInt    @default(0) @map("paid_amount") @db.UnsignedBigInt
+  currency       String    @default("CNY") @db.Char(3)
+  channel        Int?      @db.TinyInt
+  status         Int       @default(1) @db.TinyInt
+  expireAt       DateTime? @map("expire_at")
+  paidAt         DateTime? @map("paid_at")
+  refundedAmount BigInt    @default(0) @map("refunded_amount") @db.UnsignedBigInt
+  isDeleted      Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  transactions PaymentTransaction[]
+  refunds      PaymentRefund[]
+
+  @@unique([payNo], map: "uk_pay_no")
+  @@index([userId, status], map: "idx_user_status")
+  @@index([bizType, bizId], map: "idx_biz")
+  @@index([status, expireAt], map: "idx_expire")
+  @@map("payment_order")
+}
+
+/// 会员/套餐商品表
+model MembershipPlan {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code          String    @db.VarChar(32)
+  name          String    @db.VarChar(64)
+  subtitle      String?   @db.VarChar(128)
+  price         BigInt    @db.UnsignedBigInt
+  originalPrice BigInt?   @map("original_price") @db.UnsignedBigInt
+  durationDays  Int?      @map("duration_days")
+  planType      Int       @default(2) @map("plan_type") @db.TinyInt
+  benefits      Json?
+  sortOrder     Int       @default(0) @map("sort_order")
+  status        Int       @default(1) @db.TinyInt
+  isRecommended Int       @default(0) @map("is_recommended") @db.TinyInt
+  isDeleted     Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([code], map: "uk_code")
+  @@index([status, sortOrder], map: "idx_status_sort")
+  @@map("membership_plan")
+}
+
+/// 支付流水表
+model PaymentTransaction {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  payOrderId      BigInt    @map("pay_order_id") @db.UnsignedBigInt
+  channel         Int       @db.TinyInt
+  channelTradeNo  String    @map("channel_trade_no") @db.VarChar(64)
+  type            Int       @default(1) @db.TinyInt
+  amount          BigInt    @db.UnsignedBigInt
+  status          Int       @default(1) @db.TinyInt
+  rawNotify       Json?     @map("raw_notify")
+  finishedAt      DateTime? @map("finished_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  payOrder PaymentOrder @relation(fields: [payOrderId], references: [id])
+
+  @@unique([channel, channelTradeNo], map: "uk_channel_trade_no")
+  @@index([payOrderId], map: "idx_pay_order")
+  @@map("payment_transaction")
+}
+
+/// 退款单表
+model PaymentRefund {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  refundNo        String    @map("refund_no") @db.Char(32)
+  payOrderId      BigInt    @map("pay_order_id") @db.UnsignedBigInt
+  userId          BigInt    @map("user_id") @db.UnsignedBigInt
+  amount          BigInt    @db.UnsignedBigInt
+  reason          String?   @db.VarChar(255)
+  channelRefundNo String?   @map("channel_refund_no") @db.VarChar(64)
+  status          Int       @default(1) @db.TinyInt
+  operatorId      BigInt?   @map("operator_id") @db.UnsignedBigInt
+  finishedAt      DateTime? @map("finished_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  payOrder PaymentOrder @relation(fields: [payOrderId], references: [id])
+
+  @@unique([refundNo], map: "uk_refund_no")
+  @@index([payOrderId], map: "idx_pay_order")
+  @@index([userId, status], map: "idx_user_status")
+  @@map("payment_refund")
+}
+
+// ============ 11. 运营数据 ============
+
+/// 埋点事件日志表（建议 ClickHouse；此处为 MySQL 结构参考）
+model EventLog {
+  id         BigInt   @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt?  @map("user_id") @db.UnsignedBigInt
+  sessionId  String?  @map("session_id") @db.Char(32)
+  eventType  String   @map("event_type") @db.VarChar(64)
+  page       String?  @db.VarChar(128)
+  properties Json?
+  ip         String?   @db.VarChar(45)
+  ua         String?  @db.VarChar(512)
+  device     String?  @db.VarChar(64)
+  eventTime  DateTime @default(now()) @map("event_time") @db.DateTime(3)
+
+  @@id([id, eventTime])
+  @@index([userId, eventTime], map: "idx_user_time")
+  @@index([eventType, eventTime], map: "idx_event_type")
+  @@map("event_log")
+}
+/// 话题表（社区/论坛话题内容管理）
+model Topic {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  title      String    @db.VarChar(128)
+  content    String    @db.MediumText
+  category   String?   @db.VarChar(32)
+  tags       String?   @db.VarChar(255)
+  authorId   BigInt    @map("author_id") @db.UnsignedBigInt
+  viewCount  Int       @default(0) @map("view_count") @db.UnsignedInt
+  likeCount  Int       @default(0) @map("like_count") @db.UnsignedInt
+  replyCount Int       @default(0) @map("reply_count") @db.UnsignedInt
+  isPinned   Int       @default(0) @map("is_pinned") @db.TinyInt
+  auditStatus Int      @default(0) @map("audit_status") @db.TinyInt
+  status     Int       @default(1) @db.TinyInt
+  isDeleted  Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([auditStatus, status], map: "idx_audit_status")
+  @@index([authorId], map: "idx_author_id")
+  @@index([category, status], map: "idx_category_status")
+  @@index([createdAt], map: "idx_created_at")
+  @@map("topic")
+}
+
+/// 激活码表（付费套餐兑换）
+model ActivationCode {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code       String    @db.Char(16)
+  planCode   String    @map("plan_code") @db.VarChar(32)
+  status     Int       @default(0) @db.TinyInt
+  usedBy     BigInt?   @map("used_by") @db.UnsignedBigInt
+  usedAt     DateTime? @map("used_at")
+  sentTo     String?   @map("sent_to") @db.VarChar(255)
+  sentChannel Int?     @map("sent_channel") @db.TinyInt
+  expireAt   DateTime? @map("expire_at")
+  note       String?   @db.VarChar(255)
+  batchNo    String?   @map("batch_no") @db.VarChar(32)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([code], map: "uk_code")
+  @@index([planCode, status], map: "idx_plan_status")
+  @@index([usedBy], map: "idx_used_by")
+  @@index([batchNo], map: "idx_batch_no")
+  @@map("activation_code")
+}
+
+/// 文件上传记录表
+model FileUpload {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  fileNo     String    @map("file_no") @db.Char(32)
+  userId     BigInt    @map("user_id") @db.UnsignedBigInt
+  bizType    Int?      @map("biz_type") @db.TinyInt
+  fileName   String    @map("file_name") @db.VarChar(255)
+  fileExt    String    @map("file_ext") @db.VarChar(16)
+  mimeType   String    @map("mime_type") @db.VarChar(128)
+  fileSize   Int       @map("file_size") @db.UnsignedInt
+  storageUrl String    @map("storage_url") @db.VarChar(512)
+  md5        String?   @db.Char(32)
+  status     Int       @default(1) @db.TinyInt
+  isDeleted  Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@unique([fileNo], map: "uk_file_no")
+  @@index([userId, bizType], map: "idx_user_biz")
+  @@index([md5], map: "idx_md5")
+  @@map("file_upload")
+}

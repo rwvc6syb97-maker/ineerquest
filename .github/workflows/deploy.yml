@@ -36,6 +36,8 @@ jobs:
         run: npm ci --workspace apps/web
 
       - name: Build web
+        env:
+          VITE_AUTH_MOCK_MODE: true
         run: npm run build --workspace apps/web
 
       - name: Upload artifact

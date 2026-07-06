@@ -1,0 +1,783 @@
+{
+  "version": "1.0.0",
+  "agents": [
+    {
+      "agentId": "yf8ziyhr",
+      "source": "project",
+      "contentPath": "agents/产品分析智能体.md",
+      "isActive": true,
+      "ragList": [],
+      "mcpList": [
+        {
+          "name": "joycode-resources",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"@joycode-ide/resources-mcp\"\n  ],\n  \"autoApprove\": [\n    \"query_resource_list\",\n    \"get_resource_api\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "Excel",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--yes\",\n    \"@negokaz/excel-mcp-server\"\n  ],\n  \"env\": {\n    \"EXCEL_MCP_PAGING_CELLS_LIMIT\": \"4000\"\n  }\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "文档审核",
+          "scope": "user",
+          "config": "{\n  \"timeout\": 180,\n  \"url\": \"https://joyspace.jd.com/h/receive\",\n  \"type\": \"streamableHttp\",\n  \"transportType\": \"streamableHttp\",\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "timeout": 180,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "clear",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--registry=http://registry.m.jd.com\",\n    \"@jd/clear-server\"\n  ],\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-server-sequencer",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/server-sequencer\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-fetch",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/fetch\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "files",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@modelcontextprotocol/files-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@wopal-mcp-server-hotnet",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@wopal/mcp-server-hotnet\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "playwright",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@executeautomation/playwright-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "hn-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@pskill9/hn-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "duckduckgo-mcp-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@nickclyde/duckduckgo-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "热点获取",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"mcp-trends-hub@1.6.2\"\n  ],\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "mcp-pdf-reader",
+          "scope": "user",
+          "config": "{\n  \"command\": \"uvx\",\n  \"args\": [\n    \"--from\",\n    \"git+https://github.com/Safe-Swiss-Cloud-AG/mcp_pdf_reader@main\",\n    \"mcp_pdf_reader\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        }
+      ]
+    },
+    {
+      "agentId": "pqe-vu3a",
+      "source": "project",
+      "contentPath": "agents/设计规范智能体.md",
+      "isActive": true,
+      "ragList": [],
+      "mcpList": [
+        {
+          "name": "joycode-resources",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"@joycode-ide/resources-mcp\"\n  ],\n  \"autoApprove\": [\n    \"query_resource_list\",\n    \"get_resource_api\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "Excel",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--yes\",\n    \"@negokaz/excel-mcp-server\"\n  ],\n  \"env\": {\n    \"EXCEL_MCP_PAGING_CELLS_LIMIT\": \"4000\"\n  }\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "文档审核",
+          "scope": "user",
+          "config": "{\n  \"timeout\": 180,\n  \"url\": \"https://joyspace.jd.com/h/receive\",\n  \"type\": \"streamableHttp\",\n  \"transportType\": \"streamableHttp\",\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "timeout": 180,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "clear",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--registry=http://registry.m.jd.com\",\n    \"@jd/clear-server\"\n  ],\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-server-sequencer",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/server-sequencer\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-fetch",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/fetch\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "files",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@modelcontextprotocol/files-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@wopal-mcp-server-hotnet",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@wopal/mcp-server-hotnet\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "playwright",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@executeautomation/playwright-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "hn-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@pskill9/hn-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "duckduckgo-mcp-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@nickclyde/duckduckgo-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "热点获取",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"mcp-trends-hub@1.6.2\"\n  ],\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "mcp-pdf-reader",
+          "scope": "user",
+          "config": "{\n  \"command\": \"uvx\",\n  \"args\": [\n    \"--from\",\n    \"git+https://github.com/Safe-Swiss-Cloud-AG/mcp_pdf_reader@main\",\n    \"mcp_pdf_reader\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        }
+      ]
+    },
+    {
+      "agentId": "f0epj3uu",
+      "source": "project",
+      "contentPath": "agents/技术架构智能体.md",
+      "isActive": true,
+      "ragList": [],
+      "mcpList": [
+        {
+          "name": "joycode-resources",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"@joycode-ide/resources-mcp\"\n  ],\n  \"autoApprove\": [\n    \"query_resource_list\",\n    \"get_resource_api\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "Excel",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--yes\",\n    \"@negokaz/excel-mcp-server\"\n  ],\n  \"env\": {\n    \"EXCEL_MCP_PAGING_CELLS_LIMIT\": \"4000\"\n  }\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "文档审核",
+          "scope": "user",
+          "config": "{\n  \"timeout\": 180,\n  \"url\": \"https://joyspace.jd.com/h/receive\",\n  \"type\": \"streamableHttp\",\n  \"transportType\": \"streamableHttp\",\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "timeout": 180,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "clear",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--registry=http://registry.m.jd.com\",\n    \"@jd/clear-server\"\n  ],\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-server-sequencer",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/server-sequencer\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-fetch",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/fetch\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "files",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@modelcontextprotocol/files-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@wopal-mcp-server-hotnet",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@wopal/mcp-server-hotnet\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "playwright",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@executeautomation/playwright-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "hn-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@pskill9/hn-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "duckduckgo-mcp-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@nickclyde/duckduckgo-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "热点获取",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"mcp-trends-hub@1.6.2\"\n  ],\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "mcp-pdf-reader",
+          "scope": "user",
+          "config": "{\n  \"command\": \"uvx\",\n  \"args\": [\n    \"--from\",\n    \"git+https://github.com/Safe-Swiss-Cloud-AG/mcp_pdf_reader@main\",\n    \"mcp_pdf_reader\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        }
+      ]
+    },
+    {
+      "agentId": "24qxmmrn",
+      "source": "project",
+      "contentPath": "agents/数据库设计智能体.md",
+      "isActive": true,
+      "ragList": [],
+      "mcpList": [
+        {
+          "name": "joycode-resources",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"@joycode-ide/resources-mcp\"\n  ],\n  \"autoApprove\": [\n    \"query_resource_list\",\n    \"get_resource_api\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "Excel",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--yes\",\n    \"@negokaz/excel-mcp-server\"\n  ],\n  \"env\": {\n    \"EXCEL_MCP_PAGING_CELLS_LIMIT\": \"4000\"\n  }\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "文档审核",
+          "scope": "user",
+          "config": "{\n  \"timeout\": 180,\n  \"url\": \"https://joyspace.jd.com/h/receive\",\n  \"type\": \"streamableHttp\",\n  \"transportType\": \"streamableHttp\",\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "timeout": 180,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "clear",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--registry=http://registry.m.jd.com\",\n    \"@jd/clear-server\"\n  ],\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-server-sequencer",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/server-sequencer\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@smithery-ai-fetch",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/fetch\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "files",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@modelcontextprotocol/files-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "@wopal-mcp-server-hotnet",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@wopal/mcp-server-hotnet\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "playwright",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@executeautomation/playwright-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "hn-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@pskill9/hn-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "duckduckgo-mcp-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@nickclyde/duckduckgo-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "热点获取",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"mcp-trends-hub@1.6.2\"\n  ],\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        },
+        {
+          "name": "mcp-pdf-reader",
+          "scope": "user",
+          "config": "{\n  \"command\": \"uvx\",\n  \"args\": [\n    \"--from\",\n    \"git+https://github.com/Safe-Swiss-Cloud-AG/mcp_pdf_reader@main\",\n    \"mcp_pdf_reader\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false
+        }
+      ]
+    },
+    {
+      "agentId": "kkl9exrp",
+      "source": "project",
+      "contentPath": "agents/测试用例生成智能体.md",
+      "isActive": true,
+      "ragList": [],
+      "mcpList": [
+        {
+          "name": "joycode-resources",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"@joycode-ide/resources-mcp\"\n  ],\n  \"autoApprove\": [\n    \"query_resource_list\",\n    \"get_resource_api\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "Excel",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--yes\",\n    \"@negokaz/excel-mcp-server\"\n  ],\n  \"env\": {\n    \"EXCEL_MCP_PAGING_CELLS_LIMIT\": \"4000\"\n  }\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "文档审核",
+          "scope": "user",
+          "config": "{\n  \"timeout\": 180,\n  \"url\": \"https://joyspace.jd.com/h/receive\",\n  \"type\": \"streamableHttp\",\n  \"transportType\": \"streamableHttp\",\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "timeout": 180,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "clear",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"--registry=http://registry.m.jd.com\",\n    \"@jd/clear-server\"\n  ],\n  \"disabled\": true,\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "@smithery-ai-server-sequencer",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/server-sequencer\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "@smithery-ai-fetch",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@smithery-ai/fetch\",\n    \"--config\",\n    \"{}\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "files",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@modelcontextprotocol/files-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "@wopal-mcp-server-hotnet",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@wopal/mcp-server-hotnet\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "playwright",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@executeautomation/playwright-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "hn-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@pskill9/hn-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "duckduckgo-mcp-server",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"@smithery/cli@latest\",\n    \"run\",\n    \"@nickclyde/duckduckgo-mcp-server\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "热点获取",
+          "scope": "user",
+          "config": "{\n  \"command\": \"npx\",\n  \"args\": [\n    \"-y\",\n    \"mcp-trends-hub@1.6.2\"\n  ],\n  \"autoApprove\": []\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        },
+        {
+          "name": "mcp-pdf-reader",
+          "scope": "user",
+          "config": "{\n  \"command\": \"uvx\",\n  \"args\": [\n    \"--from\",\n    \"git+https://github.com/Safe-Swiss-Cloud-AG/mcp_pdf_reader@main\",\n    \"mcp_pdf_reader\"\n  ]\n}",
+          "status": "disabled",
+          "tools": [],
+          "resources": [],
+          "resourceTemplates": [],
+          "disabled": true,
+          "disabledByHigherPriority": false,
+          "isOAuth": false
+        }
+      ]
+    }
+  ]
+}

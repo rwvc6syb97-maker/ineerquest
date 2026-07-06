@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 // 代理 /api 到后端 NestJS（默认 3000 端口）
 export default defineConfig({
   plugins: [react()],
+  base: '/ineerquest/',
   server: {
     port: 5173,
     proxy: {

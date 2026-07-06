@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node 20 (with npm cache)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       # workspaces 统一安装（根 package-lock.json）

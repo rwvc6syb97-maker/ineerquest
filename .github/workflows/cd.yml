@@ -11,7 +11,6 @@ name: CD
 on:
   push:
     branches:
-      - main
       - develop
       - "release/**"
     tags:
@@ -82,6 +81,7 @@ jobs:
           registry: ${{ secrets.REGISTRY }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
+          if: ${{ secrets.REGISTRY != '' }}
 
       # 构建上下文为 monorepo 根目录（Dockerfile 内直引 packages/shared）
       - name: Build & push api image

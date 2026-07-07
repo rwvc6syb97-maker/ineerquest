@@ -1,5 +1,5 @@
 import { LlmGatewayService } from './llm-gateway.service';
-import { MockLlmProvider, OpenAiLlmProvider, LlmProvider } from './llm.provider';
+import { MockLlmProvider, OpenAiLlmProvider, OxyGentLlmProvider, LlmProvider } from './llm.provider';
 import {
   DegradeReason,
   LLM_FALLBACK_TEXT,
@@ -32,8 +32,9 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
   ) => {
     const mock = new MockLlmProvider(mockOpts);
     const openai = new OpenAiLlmProvider();
-    const svc = new LlmGatewayService(redis, mock, openai);
-    return { svc, redis, mock, openai };
+    const oxygent = new OxyGentLlmProvider();
+    const svc = new LlmGatewayService(redis, mock, openai, oxygent);
+    return { svc, redis, mock, openai, oxygent };
   };
 
   afterEach(() => {
@@ -106,7 +107,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
         },
       };
       const redis = makeRedis();
-      const svc = new LlmGatewayService(redis, flaky as any, new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, flaky as any, new OpenAiLlmProvider(), new OxyGentLlmProvider());
 
       jest.useFakeTimers();
       const collect = (async () => {
@@ -137,7 +138,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
         },
       };
       const redis = makeRedis();
-      const svc = new LlmGatewayService(redis, slow as any, new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, slow as any, new OpenAiLlmProvider(), new OxyGentLlmProvider());
 
       jest.useFakeTimers();
       const collect = (async () => {
@@ -178,7 +179,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
     it('超过窗口上限：触发限流 → 降级返回兜底文案', async () => {
       // incr 直接返回超过上限的计数
       const redis = makeRedis({ incr: jest.fn(async () => LLM_RATE_LIMIT.MAX_PER_WINDOW + 1) });
-      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0 }), new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0 }), new OpenAiLlmProvider(), new OxyGentLlmProvider());
       const res = await svc.chat({ prompt: { user: 'q' }, callerId: 'u-hot' });
       expect(res.degraded).toBe(true);
       expect(res.degradeReason).toBe(DegradeReason.RATE_LIMITED);
@@ -187,7 +188,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
 
     it('首次调用设置窗口过期（expire 被调用一次）', async () => {
       const redis = makeRedis();
-      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0 }), new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0 }), new OpenAiLlmProvider(), new OxyGentLlmProvider());
       await svc.chat({ prompt: { user: 'q' }, callerId: 'u2', scene: 's1' });
       expect(redis.raw.expire).toHaveBeenCalledTimes(1);
     });
@@ -198,7 +199,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
           throw new Error('redis down');
         }),
       });
-      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0, fixedText: 'STILL_OK' }), new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0, fixedText: 'STILL_OK' }), new OpenAiLlmProvider(), new OxyGentLlmProvider());
       const res = await svc.chat({ prompt: { user: 'q' }, callerId: 'u3' });
       expect(res.text).toBe('STILL_OK'); // 放行成功
       expect(res.degraded).toBe(false);
@@ -206,7 +207,7 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
 
     it('无 callerId：不限流直接放行', async () => {
       const redis = makeRedis({ incr: jest.fn() });
-      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0, fixedText: 'A' }), new OpenAiLlmProvider());
+      const svc = new LlmGatewayService(redis, new MockLlmProvider({ tokenDelayMs: 0, fixedText: 'A' }), new OpenAiLlmProvider(), new OxyGentLlmProvider());
       const res = await svc.chat({ prompt: { user: 'q' } });
       expect(res.text).toBe('A');
       expect(redis.raw.incr).not.toHaveBeenCalled();

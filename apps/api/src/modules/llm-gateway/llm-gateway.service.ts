@@ -12,7 +12,7 @@ import {
   LLM_TIMEOUT_POLICY,
   LlmProviderName,
 } from './llm-gateway.constants';
-import { LlmProvider, MockLlmProvider, OpenAiLlmProvider } from './llm.provider';
+import { LlmProvider, MockLlmProvider, OpenAiLlmProvider, OxyGentLlmProvider } from './llm.provider';
 
 /**
  * T3-01/T3-02/T3-03 · LLM 网关统一出。
@@ -40,8 +40,11 @@ export class LlmGatewayService {
     this.providers.set(LlmProviderName.OXYGENT, oxygentProvider);
   }
 
-  /** 默认 provider：真实通道启用时用 openai，否则回退 mock（不阻塞）。 */
+  /** 默认 provider：OxyGent > OpenAI > Mock（优先级递减）。 */
   private get defaultProvider(): LlmProviderName {
+    const oxygentEnabled = (process.env.OXYGENT_ENABLED ?? 'false').toLowerCase() === 'true';
+    if (oxygentEnabled) return LlmProviderName.OXYGENT;
+    
     const flag = (process.env.LLM_PROVIDER_ENABLED ?? 'false').toLowerCase() === 'true';
     const key = process.env.LLM_API_KEY ?? '';
     if (flag && key && key !== 'CHANGE_ME') return LlmProviderName.OPENAI;

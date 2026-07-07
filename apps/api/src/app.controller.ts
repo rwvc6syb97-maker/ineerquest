@@ -51,11 +51,20 @@ export class AppController {
       modules: MOUNTED_MODULES,
       moduleCount: MOUNTED_MODULES.length,
       infra: {
-        mysql, // 由 PrismaService.ping() 探针返回（DATABASE_URL 未就绪时降级 false）
+        mysql,
         redis,
         mongo,
         clickhouse,
         oss: this.oss.isReady(),
+      },
+      env: {
+        DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+        JWT_SECRET: process.env.JWT_SECRET && process.env.JWT_SECRET !== 'CHANGE_ME' ? 'SET' : 'NOT_SET',
+        USE_MOCK_REDIS: process.env.USE_MOCK_REDIS ?? 'NOT_SET',
+        LLM_PROVIDER_ENABLED: process.env.LLM_PROVIDER_ENABLED ?? 'NOT_SET',
+        LLM_API_KEY: process.env.LLM_API_KEY && process.env.LLM_API_KEY !== 'CHANGE_ME' ? 'SET' : 'NOT_SET',
+        NODE_ENV: process.env.NODE_ENV ?? 'NOT_SET',
+        PORT: process.env.PORT ?? 'NOT_SET',
       },
     };
   }

@@ -92,7 +92,7 @@ export class OpenAiLlmProvider implements LlmProvider {
 
     const baseUrl = (process.env.LLM_BASE_URL ?? '').replace(/\/$/, '');
     const apiKey = process.env.LLM_API_KEY ?? '';
-    const url = `${baseUrl}/chat/completions`;
+    const url = process.env.LLM_API_URL ?? `${baseUrl}/chat/completions`;
 
     this.logger.debug(`LLM call: model=${model} msgs=${messages.length} url=${url}`);
 

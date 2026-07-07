@@ -17,6 +17,7 @@
         "NODE_ENV": "production",
         "PORT": "3000",
         "TZ": "Asia/Shanghai",
+        "USE_MOCK_REDIS": "true",
         "CORS_ORIGIN": "https://innerquest.online",
         "JWT_SECRET": "innerquest-production-secret-key-2026",
         "JWT_ACCESS_TTL": "2h",

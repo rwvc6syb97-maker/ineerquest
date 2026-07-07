@@ -33,9 +33,11 @@ export class LlmGatewayService {
     private readonly redis: RedisService,
     private readonly mockProvider: MockLlmProvider,
     private readonly openaiProvider: OpenAiLlmProvider,
+    private readonly oxygentProvider: OxyGentLlmProvider,
   ) {
     this.providers.set(LlmProviderName.MOCK, mockProvider);
     this.providers.set(LlmProviderName.OPENAI, openaiProvider);
+    this.providers.set(LlmProviderName.OXYGENT, oxygentProvider);
   }
 
   /** 默认 provider：真实通道启用时用 openai，否则回退 mock（不阻塞）。 */

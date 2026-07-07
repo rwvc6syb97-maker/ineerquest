@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LlmGatewayController } from './llm-gateway.controller';
 import { LlmGatewayService } from './llm-gateway.service';
-import { MockLlmProvider, OpenAiLlmProvider } from './llm.provider';
+import { MockLlmProvider, OpenAiLlmProvider, OxyGentLlmProvider } from './llm.provider';
 
 /**
  * AI 网关 LLMGateway（T3-01~T3-03）：
@@ -15,6 +15,7 @@ import { MockLlmProvider, OpenAiLlmProvider } from './llm.provider';
     LlmGatewayService,
     { provide: MockLlmProvider, useFactory: () => new MockLlmProvider() },
     OpenAiLlmProvider,
+    OxyGentLlmProvider,
   ],
   exports: [LlmGatewayService],
 })

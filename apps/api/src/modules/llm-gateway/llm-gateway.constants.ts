@@ -10,6 +10,8 @@ export enum LlmProviderName {
   MOCK = 'mock',
   /** 真实 provider（blocked：LLM_API_KEY/LLM_BASE_URL 为 CHANGE_ME 占位，见待办清单） */
   OPENAI = 'openai',
+  /** OxyGent 多智能体框架 provider（通过 Python 微服务调用） */
+  OXYGENT = 'oxygent',
 }
 
 /** Prompt 分层角色：system / role / context / user（可配置分层编排）。 */

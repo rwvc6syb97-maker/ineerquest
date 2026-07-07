@@ -9,5 +9,6 @@ resources:
   - configmap.yaml
   - secret.yaml
   - api-deployment.yaml
+  - oxygent-deployment.yaml
   - web-deployment.yaml
   - ingress.yaml

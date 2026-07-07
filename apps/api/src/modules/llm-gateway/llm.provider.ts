@@ -117,14 +117,12 @@ export class OpenAiLlmProvider implements LlmProvider {
       throw new Error(`LLM API error ${response.status}: ${errText.slice(0, 100)}`);
     }
 
-    // 解析 SSE 流
     const reader = response.body;
     if (!reader) throw new Error('LLM response body is null');
 
     const decoder = new TextDecoder();
     let buffer = '';
 
-    // Node.js ReadableStream 异步迭代
     for await (const chunk of reader as unknown as AsyncIterable<Uint8Array>) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split('\n');
@@ -144,6 +142,80 @@ export class OpenAiLlmProvider implements LlmProvider {
           // 跳过非标准 SSE 行
         }
       }
+    }
+  }
+}
+
+@Injectable()
+export class OxyGentLlmProvider implements LlmProvider {
+  readonly name = LlmProviderName.OXYGENT;
+  private readonly logger = new Logger(OxyGentLlmProvider.name);
+
+  private get oxygentUrl(): string {
+    return (process.env.OXYGENT_URL ?? 'http://localhost:8001').replace(/\/$/, '');
+  }
+
+  private get enabled(): boolean {
+    const flag = (process.env.OXYGENT_ENABLED ?? 'false').toLowerCase() === 'true';
+    return flag;
+  }
+
+  async *chatStream(messages: ChatMessage[], model: string): AsyncIterable<string> {
+    if (!this.enabled) {
+      this.logger.warn('OxyGentLlmProvider disabled(blocked): OXYGENT_ENABLED is false');
+      throw new Error('oxygent provider disabled(blocked): OXYGENT_ENABLED is false');
+    }
+
+    const url = `${this.oxygentUrl}/chat/stream`;
+    this.logger.debug(`OxyGent call: model=${model} msgs=${messages.length} url=${url}`);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          model,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => 'unknown');
+        this.logger.error(`OxyGent API error status=${response.status}: ${errText.slice(0, 200)}`);
+        throw new Error(`OxyGent API error ${response.status}: ${errText.slice(0, 100)}`);
+      }
+
+      const reader = response.body;
+      if (!reader) throw new Error('OxyGent response body is null');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      for await (const chunk of reader as unknown as AsyncIterable<Uint8Array>) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+
+          try {
+            const json = JSON.parse(data);
+            if (json.done && !json.delta) return;
+            if (json.delta) yield json.delta;
+          } catch {
+            // 跳过非标准 SSE 行
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.error(`OxyGent provider error: ${(err as Error).message}`);
+      throw err;
     }
   }
 }

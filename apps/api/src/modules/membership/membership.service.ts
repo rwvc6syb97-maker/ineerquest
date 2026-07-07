@@ -77,7 +77,7 @@ export class MembershipService {
         originalPrice: dto.originalPrice != null ? BigInt(dto.originalPrice) : null,
         durationDays: dto.durationDays ?? null,
         planType: dto.planType ?? 2,
-        benefits: dto.benefits ?? undefined,
+        benefits: dto.benefits as any,
         sortOrder: dto.sortOrder ?? 0,
         isRecommended: dto.isRecommended ?? 0,
         // 新建默认下架，需显式上架后游客方可见
@@ -98,7 +98,7 @@ export class MembershipService {
       data.originalPrice = dto.originalPrice != null ? BigInt(dto.originalPrice) : null;
     if (dto.durationDays !== undefined) data.durationDays = dto.durationDays ?? null;
     if (dto.planType !== undefined) data.planType = dto.planType;
-    if (dto.benefits !== undefined) data.benefits = dto.benefits ?? undefined;
+    if (dto.benefits !== undefined) data.benefits = dto.benefits as any;
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
     if (dto.isRecommended !== undefined) data.isRecommended = dto.isRecommended;
 

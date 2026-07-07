@@ -147,8 +147,8 @@ export class AdminAnalyticsService {
         _count: { _all: true },
       });
       const counts = new Map(grouped.map((g) => [g.eventType, g._count._all]));
-      const started = counts.get('assessment_start') ?? 0;
-      const submitted = counts.get('assessment_submit') ?? 0;
+      const started = (counts.get('assessment_start') ?? 0) as number;
+      const submitted = (counts.get('assessment_submit') ?? 0) as number;
       return {
         source,
         days,

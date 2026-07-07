@@ -263,7 +263,9 @@ export class AssessmentService {
       where: { id: { in: optionIds } },
       select: { id: true, polarity: true, score: true },
     });
-    const optMap = new Map(options.map((o) => [o.id.toString(), o]));
+    const optMap = new Map<string, { id: bigint; polarity: number; score: number }>(
+      options.map((o) => [o.id.toString(), o]),
+    );
 
     const scored: ScoredAnswer[] = answers.map((a) => {
       const opt = optMap.get(a.optionId.toString());

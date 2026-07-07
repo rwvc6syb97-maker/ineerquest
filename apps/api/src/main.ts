@@ -12,6 +12,17 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
 
+  app.enableCors({
+    origin: [
+      'https://innerquest.online',
+      'https://www.innerquest.online',
+      'http://localhost:5173',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
   // Swagger（OpenAPI）交互式文档，挂载在路由注册阶段，不依赖 DB 连接。
   const swaggerConfig = new DocumentBuilder()
     .setTitle('InnerQuest API')

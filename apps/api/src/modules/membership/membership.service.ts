@@ -77,7 +77,7 @@ export class MembershipService {
         originalPrice: dto.originalPrice != null ? BigInt(dto.originalPrice) : null,
         durationDays: dto.durationDays ?? null,
         planType: dto.planType ?? 2,
-        benefits: (dto.benefits ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        benefits: dto.benefits ?? null,
         sortOrder: dto.sortOrder ?? 0,
         isRecommended: dto.isRecommended ?? 0,
         // 新建默认下架，需显式上架后游客方可见

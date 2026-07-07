@@ -48,7 +48,7 @@ export class CareerService {
   async list(params: { category?: string; page?: number; pageSize?: number }) {
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, params.pageSize ?? 20));
-    const where: Prisma.CareerWhereInput = {
+    const where = {
       isDeleted: 0,
       status: 1,
       ...(params.category ? { category: params.category } : {}),
@@ -162,7 +162,7 @@ export class CareerService {
             userId: BigInt(userId),
             reportId: report.id,
             careerId: x.career.id,
-            matchScore: new Prisma.Decimal(x.score),
+            matchScore: x.score,
             rankNo: idx + 1,
             matchReason: { mbtiType, matched: true } as object,
           })),

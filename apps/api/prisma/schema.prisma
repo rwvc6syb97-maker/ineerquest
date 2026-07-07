@@ -911,3 +911,29 @@ model FileUpload {
   @@index([md5], map: "idx_md5")
   @@map("file_upload")
 }
+
+/// 缓存 KV 表（替代 Redis 字符串/计数/TTL/黑名单/分布式锁）
+model CacheKv {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  cacheKey  String    @unique(map: "uk_cache_key") @map("cache_key") @db.VarChar(255)
+  cacheVal  String    @map("cache_val") @db.MediumText
+  expireAt  DateTime? @map("expire_at") @db.DateTime(3)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([expireAt], map: "idx_expire_at")
+  @@map("cache_kv")
+}
+
+/// 缓存有序集合表（替代 Redis ZSET，支付延迟关单队列等）
+model CacheZset {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  zkey      String   @map("zkey") @db.VarChar(255)
+  member    String   @map("member") @db.VarChar(255)
+  score     BigInt   @map("score")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([zkey, member], map: "uk_zkey_member")
+  @@index([zkey, score], map: "idx_zkey_score")
+  @@map("cache_zset")
+}

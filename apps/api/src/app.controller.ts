@@ -40,7 +40,7 @@ export class AppController {
   @Public()
   @Get('health')
   async health(): Promise<Record<string, unknown>> {
-    const [mysql, redis, mongo, clickhouse] = await Promise.all([
+    const [mysql, cacheDb, mongo, clickhouse] = await Promise.all([
       this.prisma.ping().catch(() => false),
       this.redis.ping().catch(() => false),
       this.mongo.ping().catch(() => false),
@@ -52,7 +52,7 @@ export class AppController {
       moduleCount: MOUNTED_MODULES.length,
       infra: {
         mysql,
-        redis,
+        cacheDb,
         mongo,
         clickhouse,
         oss: this.oss.isReady(),
@@ -60,7 +60,6 @@ export class AppController {
       env: {
         DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
         JWT_SECRET: process.env.JWT_SECRET && process.env.JWT_SECRET !== 'CHANGE_ME' ? 'SET' : 'NOT_SET',
-        USE_MOCK_REDIS: process.env.USE_MOCK_REDIS ?? 'NOT_SET',
         LLM_PROVIDER_ENABLED: process.env.LLM_PROVIDER_ENABLED ?? 'NOT_SET',
         LLM_API_KEY: process.env.LLM_API_KEY && process.env.LLM_API_KEY !== 'CHANGE_ME' ? 'SET' : 'NOT_SET',
         NODE_ENV: process.env.NODE_ENV ?? 'NOT_SET',

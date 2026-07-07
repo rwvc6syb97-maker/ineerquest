@@ -18,12 +18,28 @@
         "PORT": "3000",
         "TZ": "Asia/Shanghai",
         "CORS_ORIGIN": "https://innerquest.online",
+        "JWT_SECRET": "innerquest-production-secret-key-2026",
         "JWT_ACCESS_TTL": "2h",
         "JWT_REFRESH_TTL": "30d",
-        "LLM_PROVIDER_ENABLED": "true",
+        "JWT_ACCESS_TTL_SEC": "7200",
+        "JWT_REFRESH_TTL_SEC": "2592000",
+        "JWT_ADMIN_REFRESH_TTL_SEC": "28800",
+        "LLM_PROVIDER_ENABLED": "false",
         "LLM_MODEL": "deepseek-chat",
         "LLM_BASE_URL": "https://api.deepseek.com/v1",
-        "OXYGENT_ENABLED": "false"
+        "OXYGENT_ENABLED": "false",
+        "SMS_PROVIDER_ENABLED": "false",
+        "WECHAT_OAUTH_ENABLED": "false",
+        "MONGODB_URI": "",
+        "MONGODB_DB": "innerquest",
+        "CLICKHOUSE_URL": "",
+        "CLICKHOUSE_USER": "default",
+        "CLICKHOUSE_PASSWORD": "",
+        "CLICKHOUSE_DB": "innerquest_ops",
+        "OSS_REGION": "oss-cn-hangzhou",
+        "OSS_ACCESS_KEY_ID": "",
+        "OSS_ACCESS_KEY_SECRET": "",
+        "OSS_BUCKET": "innerquest"
       }
     }
   }

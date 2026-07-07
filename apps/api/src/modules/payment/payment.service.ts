@@ -320,7 +320,7 @@ export class PaymentService implements OnModuleInit {
             type: TransactionType.PAY,
             amount: BigInt(body.amount),
             status: TransactionStatus.SUCCESS,
-            rawNotify: body as unknown as object,
+            rawNotify: body as any,
             finishedAt: new Date(),
           },
         });

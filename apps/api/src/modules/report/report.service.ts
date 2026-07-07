@@ -143,7 +143,7 @@ export class ReportService {
           mbtiType: result.mbtiType,
           status: ReportStatus.READY,
           isUnlocked: 0,
-          summary: { mbtiType: result.mbtiType, scores } as object,
+          summary: { mbtiType: result.mbtiType, scores } as any,
           generatedAt: new Date(),
         },
       });
@@ -152,7 +152,7 @@ export class ReportService {
           reportId: r.id,
           sectionKey: s.sectionKey,
           title: s.title,
-          content: s.content as object,
+          content: s.content as any,
           sortOrder: s.sortOrder,
         })),
       });

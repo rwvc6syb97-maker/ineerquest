@@ -164,7 +164,7 @@ export class CareerService {
             careerId: x.career.id,
             matchScore: x.score,
             rankNo: idx + 1,
-            matchReason: { mbtiType, matched: true } as object,
+            matchReason: { mbtiType, matched: true } as any,
           })),
           skipDuplicates: true,
         }),

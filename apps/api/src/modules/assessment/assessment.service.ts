@@ -195,13 +195,13 @@ export class AssessmentService {
         userId: BigInt(userId),
         answeredCount,
         currentQuestion: answeredCount + 1,
-        draftAnswers: answers as unknown as object,
+        draftAnswers: answers as any,
         lastSavedAt: new Date(),
       },
       update: {
         answeredCount,
         currentQuestion: answeredCount + 1,
-        draftAnswers: answers as unknown as object,
+        draftAnswers: answers as any,
         lastSavedAt: new Date(),
       },
     });

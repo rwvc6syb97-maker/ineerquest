@@ -61,7 +61,7 @@ export class AnalyticsService {
           sessionId: evt.sessionId ?? null,
           eventType: evt.eventType,
           page: evt.page ?? null,
-          properties: (evt.properties ?? undefined) as object | undefined,
+          properties: evt.properties as any,
           ua: evt.ua ?? null,
           device: evt.device ?? null,
           eventTime: new Date(),

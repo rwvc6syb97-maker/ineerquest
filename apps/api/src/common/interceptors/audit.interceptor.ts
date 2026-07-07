@@ -100,7 +100,7 @@ export class AuditInterceptor implements NestInterceptor {
         userId: operatorId ? BigInt(operatorId) : null,
         eventType: ADMIN_OP_EVENT,
         page: req.originalUrl?.slice(0, 128),
-        properties: properties as object,
+        properties: properties as any,
         ua: (req.headers['user-agent'] as string)?.slice(0, 512) ?? null,
         eventTime: new Date(),
       },

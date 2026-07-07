@@ -1,5 +1,5 @@
-# InnerQuest Ingress（Freenom + Cloudflare 配置）
-# 域名：innerquest.tk（需在 Cloudflare 中添加 DNS A 记录指向负载均衡器）
+# InnerQuest Ingress（innerquest.online）
+# 域名：innerquest.online（需在 Cloudflare 中添加 DNS A 记录指向负载均衡器）
 # TLS：使用 Cloudflare Origin CA 证书，secretName: innerquest-tls
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -18,11 +18,11 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - innerquest.tk
-        - api.innerquest.tk
+        - innerquest.online
+        - api.innerquest.online
       secretName: innerquest-tls
   rules:
-    - host: api.innerquest.tk
+    - host: api.innerquest.online
       http:
         paths:
           - path: /
@@ -32,7 +32,7 @@ spec:
                 name: api-svc
                 port:
                   number: 3000
-    - host: innerquest.tk
+    - host: innerquest.online
       http:
         paths:
           - path: /

@@ -17,7 +17,7 @@
         "NODE_ENV": "production",
         "PORT": "3000",
         "TZ": "Asia/Shanghai",
-        "CORS_ORIGIN": "https://innerquest.tk",
+        "CORS_ORIGIN": "https://innerquest.online",
         "JWT_ACCESS_TTL": "2h",
         "JWT_REFRESH_TTL": "30d",
         "LLM_PROVIDER_ENABLED": "true",

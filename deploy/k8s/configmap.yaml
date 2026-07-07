@@ -35,7 +35,7 @@ data:
   LLM_MODEL: "deepseek-chat"
 
   # ===== 邮件（Resend from 地址） =====
-  RESEND_FROM: "InnerQuest <noreply@你的域名.com>"
+  RESEND_FROM: "InnerQuest <noreply@innerquest.online>"
 
   # ===== 功能开关 =====
   SMS_PROVIDER_ENABLED: "false"       # V1.1 开通

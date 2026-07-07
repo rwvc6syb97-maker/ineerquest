@@ -34,8 +34,8 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
 imports: [
     CorsModule.forRoot({
       origin: [
-        'https://innerquest.tk',
-        'https://www.innerquest.tk',
+        'https://innerquest.online',
+        'https://www.innerquest.online',
         'http://localhost:5173',
       ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

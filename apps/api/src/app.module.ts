@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, CorsModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 
@@ -32,6 +32,16 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
 
 @Module({
 imports: [
+    CorsModule.forRoot({
+      origin: [
+        'https://innerquest.tk',
+        'https://www.innerquest.tk',
+        'http://localhost:5173',
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    }),
     InfraModule, // 基础设施连接层（全局）
     AnalyticsModule, // 埋点服务（全局）：事件上报 event_log + ClickHouse 降级（T1-23）
     UserModule, // 1. 用户服务：认证、资料、隐私、注销
@@ -68,7 +78,6 @@ imports: [
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    // 第1层 Trace：注入/透传 traceId，作用于全部路由
     consumer.apply(TraceMiddleware).forRoutes('*');
   }
 }

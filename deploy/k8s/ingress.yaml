@@ -1,6 +1,6 @@
-# InnerQuest Ingress（占位）
-# blocked：域名 / TLS 证书 / ingressClassName 需按环境补齐
-# 路由策略：/api 前缀 -> api-svc:3000；其余 -> web-svc:80（SPA）
+# InnerQuest Ingress（Freenom + Cloudflare 配置）
+# 域名：innerquest.tk（需在 Cloudflare 中添加 DNS A 记录指向负载均衡器）
+# TLS：使用 Cloudflare Origin CA 证书，secretName: innerquest-tls
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,28 +9,32 @@ metadata:
   labels:
     app.kubernetes.io/part-of: innerquest
   annotations:
-    # blocked：按实际 Ingress Controller 调整（nginx/traefik/云厂商）
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/client-max-body-size: "50m"
 spec:
-  # blocked：ingressClassName 需按集群补齐
   ingressClassName: nginx
-  # blocked：TLS 证书 secret 需人工补齐
-  # tls:
-  #   - hosts:
-  #       - innerquest.example.com
-  #     secretName: innerquest-tls
+  tls:
+    - hosts:
+        - innerquest.tk
+        - api.innerquest.tk
+      secretName: innerquest-tls
   rules:
-    # blocked：host 需按环境替换真实域名
-    - host: innerquest.example.com
+    - host: api.innerquest.tk
       http:
         paths:
-          - path: /api
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: api-svc
                 port:
                   number: 3000
+    - host: innerquest.tk
+      http:
+        paths:
           - path: /
             pathType: Prefix
             backend:

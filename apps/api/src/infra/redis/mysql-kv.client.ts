@@ -82,8 +82,10 @@ export class MysqlKvClient {
       });
       return 'OK';
     } catch (err) {
-      this.logger.warn(`set(${key}) failed: ${(err as Error).message}`);
-      return null;
+      // 关键：写入异常(如表缺失/连接失败)必须抛出，
+      // 不能返回 null —— 否则会被上层 NX 逻辑误判为“键已存在/限流命中”。
+      this.logger.error(`set(${key}) failed: ${(err as Error).message}`);
+      throw err;
     }
   }
 

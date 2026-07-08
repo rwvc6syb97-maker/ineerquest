@@ -43,10 +43,15 @@ jobs:
 
       # Prisma Client 生成（后端 build/tsc 依赖）
       - name: Prisma generate (api)
+        env:
+          DATABASE_URL: "mysql://user:pass@localhost:3306/innerquest"
         run: npm --workspace apps/api run prisma:generate
 
       # 后端 schema 静态校验
+      # validate 仅做静态校验，不真正连库；提供占位 DATABASE_URL 以满足 env() 解析
       - name: Prisma validate (api)
+        env:
+          DATABASE_URL: "mysql://user:pass@localhost:3306/innerquest"
         run: npm --workspace apps/api run prisma:validate
 
       # Lint：根脚本聚合各 workspace 的 lint（--if-present）

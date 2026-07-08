@@ -9,7 +9,7 @@
         "context": "."
       },
       "deploy": {
-        "startCommand": "npx prisma migrate deploy && node dist/main.js",
+        "startCommand": "npx prisma migrate deploy && npx prisma db push --skip-generate --accept-data-loss && node dist/main.js",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 3
       },

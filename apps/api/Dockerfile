@@ -65,4 +65,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 WORKDIR /app/apps/api
 # 启动前执行数据库迁移（自动创建 cache_kv/cache_zset 等表），再拉起服务
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]

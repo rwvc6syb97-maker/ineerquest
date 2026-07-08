@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { Logger } from '@nestjs/common';
+import { Public } from '../../common/guards/auth.guard';
 
 @ApiTags('后台-运营')
 @Controller('admin')
@@ -14,7 +15,8 @@ export class OpsController {
     return { code: 0, message: 'ops module ready', data: { module: 'ops' }, traceId: randomUUID() };
   }
 
-  /** POST /admin/seed 触发数据库种子填充（仅生产环境应急使用） */
+  /** POST /admin/seed 触发数据库种子填充（仅生产环境应急使用，无需认证） */
+  @Public()
   @Post('seed')
   async runSeed() {
     try {

@@ -45,6 +45,22 @@ export class EmailLoginDto {
   password!: string;
 }
 
+/** 发送邮箱验证码 */
+export class SendEmailCodeDto {
+  @IsEmail({}, { message: '邮箱格式不正确' })
+  email!: string;
+}
+
+/** 邮箱+验证码登录 */
+export class EmailCodeLoginDto {
+  @IsEmail({}, { message: '邮箱格式不正确' })
+  email!: string;
+
+  @IsString()
+  @Length(6, 6, { message: '验证码为 6 位数字' })
+  code!: string;
+}
+
 /** T1-04 刷新 Token */
 export class RefreshDto {
   @IsString()

@@ -1,16 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { Collection } from 'mongodb';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { MongoService } from '../../infra/mongo/mongo.service';
 import { BizCode, BizException } from '../../common/response';
-import {
-  COACHING_MESSAGE_COLLECTION,
-  CoachingMessageDoc,
-  MsgSenderRole,
-  RELIABILITY,
-  ServerMessage,
-} from './realtime.constants';
+import { MsgSenderRole, RELIABILITY, ServerMessage } from './realtime.constants';
 
 /** 会话鉴权结果：房间归属校验通过后返回订单双方 id + 当前发送者角色 */
 export interface SessionAuthResult {
@@ -23,9 +15,9 @@ export interface SessionAuthResult {
 /**
  * T4-05/T4-06 · 辅导消息存储与会话鉴权服务。
  *
- * 消息流存储策略与阶段3 ai_message 保持一致：消息落 MongoDB（集合 coaching_message），
- * 缺 Mongo 时降级为进程内内存态（blocked，不落库不阻断，单实例可读补发）。
- * seq 游标按 sessionId 单调递增，供 T4-06 断线补发对齐。
+ * 消息流存储策略与阶段3 ai_message 保持一致：消息落 MySQL（表 coaching_message），
+ * seq 游标按 sessionId 单调递增（sessionId+seq 联合唯一约束保证并发唯一），
+ * 供 T4-06 断线补发对齐。
  *
  * 会话房间归属：按 CoachingSession → CoachingOrder 关联校验 userId / coachId，
  * 仅订单双方可进入房间；缺 MySQL 时降级放行并标 blocked（见待办清单）。
@@ -34,15 +26,10 @@ export interface SessionAuthResult {
 export class CoachingMessageService {
   private readonly logger = new Logger(CoachingMessageService.name);
 
-  /** 内存兜底：sessionId → 消息列表（Mongo 不可用时的单实例存储） */
-  private readonly memStore = new Map<string, ServerMessage[]>();
-  /** 内存兜底：sessionId → 当前最大 seq */
-  private readonly memSeq = new Map<string, number>();
+  /** seq 并发冲突时的最大重试次数 */
+  private static readonly MAX_SEQ_RETRY = 5;
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly mongo: MongoService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // ============ 会话房间鉴权（T4-05） ============
 
@@ -85,36 +72,28 @@ export class CoachingMessageService {
     }
   }
 
-  // ============ Mongo 消息流读写（降级安全） ============
+  // ============ MySQL 消息流读写（降级安全） ============
 
-  private collection(): Collection<CoachingMessageDoc> | null {
-    try {
-      return this.mongo.getDb().collection<CoachingMessageDoc>(COACHING_MESSAGE_COLLECTION);
-    } catch (err) {
-      this.logger.warn(`mongo coaching message store degraded(blocked): ${(err as Error).message}`);
-      return null;
-    }
-  }
-
-  /** 取会话当前最大 seq（游标）。Mongo 不可用时读内存态。 */
+  /** 取会话当前最大 seq（游标）。MySQL 不可用时返回 0。 */
   async currentSeq(sessionId: string): Promise<number> {
-    const col = this.collection();
-    if (!col) {
-      return this.memSeq.get(sessionId) ?? 0;
-    }
     try {
-      const last = await col.find({ sessionId }).sort({ seq: -1 }).limit(1).toArray();
-      return last.length ? last[0].seq : 0;
+      const last = await this.prisma.coachingMessage.findFirst({
+        where: { sessionId: BigInt(sessionId) },
+        orderBy: { seq: 'desc' },
+        select: { seq: true },
+      });
+      return last ? last.seq : 0;
     } catch (err) {
       this.logger.warn(`currentSeq degraded(blocked): ${(err as Error).message}`);
-      return this.memSeq.get(sessionId) ?? 0;
+      return 0;
     }
   }
 
   /**
    * 落库一条消息并分配 seq（服务端权威游标）。
+   * seq = 当前最大 + 1；sessionId+seq 联合唯一，冲突则重试（有限次）。
    * 返回统一的 ServerMessage（用于广播 + ACK 回执）。
-   * Mongo 不可用时写内存态（blocked，不阻断）。
+   * MySQL 不可用时返回内存态消息（blocked，不阻断广播）。
    */
   async appendMessage(input: {
     sessionId: string;
@@ -123,66 +102,94 @@ export class CoachingMessageService {
     senderRole: MsgSenderRole;
     content: string;
   }): Promise<ServerMessage> {
+    const serverMsgId = randomUUID();
+    const ts = Date.now();
+
+    for (let attempt = 0; attempt < CoachingMessageService.MAX_SEQ_RETRY; attempt++) {
+      const seq = (await this.currentSeq(input.sessionId)) + 1;
+      try {
+        await this.prisma.coachingMessage.create({
+          data: {
+            sessionId: BigInt(input.sessionId),
+            seq,
+            serverMsgId,
+            clientMsgId: input.clientMsgId,
+            senderId: BigInt(input.senderId),
+            senderRole: input.senderRole,
+            content: input.content,
+            ts: BigInt(ts),
+          },
+        });
+        await this.bumpMsgCount(input.sessionId);
+        return {
+          seq,
+          serverMsgId,
+          clientMsgId: input.clientMsgId,
+          sessionId: input.sessionId,
+          senderId: input.senderId,
+          senderRole: input.senderRole,
+          content: input.content,
+          ts,
+        };
+      } catch (err) {
+        // 唯一约束冲突（P2002）→ seq 被并发占用，重试分配新 seq
+        if ((err as { code?: string }).code === 'P2002') {
+          continue;
+        }
+        this.logger.warn(`appendMessage degraded(blocked): ${(err as Error).message}`);
+        // 非冲突异常（缺库等）→ 返回内存态消息，不阻断广播
+        return {
+          seq,
+          serverMsgId,
+          clientMsgId: input.clientMsgId,
+          sessionId: input.sessionId,
+          senderId: input.senderId,
+          senderRole: input.senderRole,
+          content: input.content,
+          ts,
+        };
+      }
+    }
+
+    // 重试耗尽：以最新 seq 兜底返回（不再落库，避免风暴）
     const seq = (await this.currentSeq(input.sessionId)) + 1;
-    const msg: ServerMessage = {
+    this.logger.warn(`appendMessage seq retry exhausted for session ${input.sessionId}`);
+    return {
       seq,
-      serverMsgId: randomUUID(),
+      serverMsgId,
       clientMsgId: input.clientMsgId,
       sessionId: input.sessionId,
       senderId: input.senderId,
       senderRole: input.senderRole,
       content: input.content,
-      ts: Date.now(),
+      ts,
     };
-
-    const col = this.collection();
-    if (col) {
-      try {
-        await col.insertOne({ ...msg });
-        await this.bumpMsgCount(input.sessionId);
-        return msg;
-      } catch (err) {
-        this.logger.warn(`appendMessage degraded(blocked): ${(err as Error).message}`);
-      }
-    }
-    // 内存兜底
-    const list = this.memStore.get(input.sessionId) ?? [];
-    list.push(msg);
-    this.memStore.set(input.sessionId, list);
-    this.memSeq.set(input.sessionId, seq);
-    return msg;
   }
 
   /**
    * T4-06 断线补发：拉取 seq > fromSeq 的遗漏消息（有上限，避免风暴）。
-   * Mongo 不可用时读内存态。
+   * MySQL 不可用时返回空数组。
    */
   async messagesAfter(sessionId: string, fromSeq: number): Promise<ServerMessage[]> {
-    const col = this.collection();
-    if (!col) {
-      const list = this.memStore.get(sessionId) ?? [];
-      return list.filter((m) => m.seq > fromSeq).slice(0, RELIABILITY.MAX_REPLAY);
-    }
     try {
-      const docs = await col
-        .find({ sessionId, seq: { $gt: fromSeq } })
-        .sort({ seq: 1 })
-        .limit(RELIABILITY.MAX_REPLAY)
-        .toArray();
-      return docs.map((d) => ({
+      const rows = await this.prisma.coachingMessage.findMany({
+        where: { sessionId: BigInt(sessionId), seq: { gt: fromSeq } },
+        orderBy: { seq: 'asc' },
+        take: RELIABILITY.MAX_REPLAY,
+      });
+      return rows.map((d) => ({
         seq: d.seq,
         serverMsgId: d.serverMsgId,
         clientMsgId: d.clientMsgId,
-        sessionId: d.sessionId,
-        senderId: d.senderId,
-        senderRole: d.senderRole,
+        sessionId: d.sessionId.toString(),
+        senderId: d.senderId.toString(),
+        senderRole: d.senderRole as MsgSenderRole,
         content: d.content,
-        ts: d.ts,
+        ts: Number(d.ts),
       }));
     } catch (err) {
       this.logger.warn(`messagesAfter degraded(blocked): ${(err as Error).message}`);
-      const list = this.memStore.get(sessionId) ?? [];
-      return list.filter((m) => m.seq > fromSeq).slice(0, RELIABILITY.MAX_REPLAY);
+      return [];
     }
   }
 

@@ -1,7 +1,7 @@
 /**
- * P29 登录页：手机号验证码 + 邮箱密码 双模式登录
+ * P29 登录页：手机号验证码 + 邮箱验证码 双模式登录
  * - SMS 模式：手机号 + 验证码，60s 倒计时防重复发码
- * - Email 模式：邮箱 + 密码登录，支持注册新账号
+ * - Email 模式：邮箱 + 验证码，自动注册
  * - 登录成功后按 redirect 参数回跳，默认 /app
  */
 import { useState, useRef, useEffect } from 'react';
@@ -21,19 +21,16 @@ interface SmsForm {
 
 interface EmailForm {
   email: string;
-  password: string;
-  nickname?: string;
+  code: string;
 }
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const loginBySms = useAuthStore((s) => s.loginBySms);
-  const loginByEmail = useAuthStore((s) => s.loginByEmail);
-  const registerByEmail = useAuthStore((s) => s.registerByEmail);
+  const loginByEmailCode = useAuthStore((s) => s.loginByEmailCode);
 
   const [mode, setMode] = useState<AuthMode>('sms');
-  const [isRegister, setIsRegister] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [sending, setSending] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval>>();
@@ -51,9 +48,10 @@ export function LoginPage() {
   const {
     register: emailReg,
     handleSubmit: emailSubmit,
+    getValues: emailGet,
     setError: emailSetErr,
     formState: { errors: emailErrors, isSubmitting: emailSubmitting },
-  } = useForm<EmailForm>({ defaultValues: { email: '', password: '', nickname: '' } });
+  } = useForm<EmailForm>({ defaultValues: { email: '', code: '' } });
 
   useEffect(() => () => clearInterval(timer.current), []);
 
@@ -92,6 +90,28 @@ export function LoginPage() {
     }
   };
 
+  const onSendEmailCode = async () => {
+    const email = emailGet('email');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      emailSetErr('email', { message: '请输入正确的邮箱地址' });
+      return;
+    }
+    if (isMockAuthEnabled()) {
+      startCountdown();
+      return;
+    }
+    setSending(true);
+    try {
+      await authApi.sendEmailCode(email);
+      startCountdown();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : '验证码发送失败';
+      emailSetErr('root', { message: msg });
+    } finally {
+      setSending(false);
+    }
+  };
+
   const onSmsSubmit = smsSubmit(async (values) => {
     try {
       await loginBySms(values.phone, values.code);
@@ -105,15 +125,11 @@ export function LoginPage() {
 
   const onEmailSubmit = emailSubmit(async (values) => {
     try {
-      if (isRegister) {
-        await registerByEmail(values.email, values.password, values.nickname || undefined);
-      } else {
-        await loginByEmail(values.email, values.password);
-      }
+      await loginByEmailCode(values.email, values.code);
       const redirect = params.get('redirect');
       navigate(redirect ? decodeURIComponent(redirect) : '/app', { replace: true });
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (isRegister ? '注册失败，请重试' : '登录失败，请重试');
+      const msg = err instanceof ApiError ? err.message : '登录失败，请重试';
       emailSetErr('root', { message: msg });
     }
   });
@@ -196,22 +212,9 @@ export function LoginPage() {
         </form>
       )}
 
-      {/* Email Login/Register Form */}
+      {/* Email Login Form */}
       {mode === 'email' && (
         <form onSubmit={onEmailSubmit} noValidate className="mt-4 flex flex-col gap-4">
-          {isRegister && (
-            <div>
-              <label htmlFor="nickname" className="mb-1 block text-sm text-slate-600">昵称（选填）</label>
-              <input
-                id="nickname"
-                type="text"
-                placeholder="给自己取个名字"
-                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                {...emailReg('nickname', { maxLength: 64 })}
-              />
-            </div>
-          )}
-
           <div>
             <label htmlFor="email" className="mb-1 block text-sm text-slate-600">邮箱</label>
             <input
@@ -228,34 +231,42 @@ export function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm text-slate-600">密码</label>
-            <input
-              id="password"
-              type="password"
-              placeholder={isRegister ? '至少 6 位密码' : '请输入密码'}
-              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-              {...emailReg('password', {
-                required: '请输入密码',
-                minLength: { value: 6, message: '密码至少 6 位' },
-              })}
-            />
-            {emailErrors.password && <span className="mt-1 block text-xs text-red-500" role="alert">{emailErrors.password.message}</span>}
+            <label htmlFor="email-code" className="mb-1 block text-sm text-slate-600">验证码</label>
+            <div className="flex gap-2">
+              <input
+                id="email-code"
+                inputMode="numeric"
+                placeholder="6 位验证码"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                {...emailReg('code', {
+                  required: '请输入验证码',
+                  pattern: { value: /^\d{4,6}$/, message: '验证码格式不正确' },
+                })}
+              />
+              <button
+                type="button"
+                onClick={onSendEmailCode}
+                disabled={countdown > 0 || sending}
+                className="shrink-0 rounded-lg border px-3 text-sm font-medium disabled:opacity-50"
+                style={{ color: COLORS.brand, borderColor: COLORS.brand }}
+              >
+                {countdown > 0 ? `${countdown}s` : sending ? '发送中' : '获取验证码'}
+              </button>
+            </div>
+            {emailErrors.code && <span className="mt-1 block text-xs text-red-500" role="alert">{emailErrors.code.message}</span>}
           </div>
 
           {emailErrors.root && <p className="text-sm text-red-500" role="alert">{emailErrors.root.message}</p>}
 
           <SpringButton type="submit" disabled={emailSubmitting} className="w-full">
-            {emailSubmitting ? (isRegister ? '注册中…' : '登录中…') : (isRegister ? '注册' : '登录')}
+            {emailSubmitting ? '登录中…' : '登录 / 注册'}
           </SpringButton>
 
-          <button
-            type="button"
-            onClick={() => { setIsRegister(!isRegister); emailSetErr('root', { message: '' }); }}
-            className="text-center text-sm"
-            style={{ color: COLORS.brand }}
-          >
-            {isRegister ? '已有账号？去登录' : '没有账号？去注册'}
-          </button>
+          {isMockAuthEnabled() && (
+            <p className="text-xs text-slate-400 text-center">
+              开发模式：邮箱 test@innerquest.local + 验证码 888888 直接登录
+            </p>
+          )}
         </form>
       )}
     </div>

@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { SmsCodeService } from './sms-code.service';
 import { SmsProvider } from './sms.provider';
+import { EmailCodeService } from './email-code.service';
+import { EmailProvider } from './email.provider';
 
 /**
  * AuthModule — 认证链（T1-01~T1-04）。
@@ -17,7 +19,9 @@ import { SmsProvider } from './sms.provider';
     TokenService,
     SmsCodeService,
     SmsProvider,
+    EmailCodeService,
+    EmailProvider,
   ],
-  exports: [TokenService, SmsCodeService, AuthService],
+  exports: [TokenService, SmsCodeService, AuthService, EmailCodeService],
 })
 export class AuthModule {}

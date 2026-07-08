@@ -691,10 +691,31 @@ model CoachingSession {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  order CoachingOrder @relation(fields: [orderId], references: [id])
+  order    CoachingOrder     @relation(fields: [orderId], references: [id])
+  messages CoachingMessage[]
 
   @@unique([orderId], map: "uk_order_id")
   @@map("coaching_session")
+}
+
+/// 辅导会话消息表（实时消息流，seq 会话内单调递增）
+model CoachingMessage {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  sessionId   BigInt   @map("session_id") @db.UnsignedBigInt
+  seq         Int      @db.UnsignedInt
+  serverMsgId String   @map("server_msg_id") @db.Char(36)
+  clientMsgId String   @map("client_msg_id") @db.VarChar(64)
+  senderId    BigInt   @map("sender_id") @db.UnsignedBigInt
+  senderRole  String   @map("sender_role") @db.VarChar(16)
+  content     String   @db.MediumText
+  ts        BigInt   @db.UnsignedBigInt
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session CoachingSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, seq], map: "uk_session_seq")
+  @@index([sessionId, seq], map: "idx_session_seq")
+  @@map("coaching_message")
 }
 
 /// 咨询评价表

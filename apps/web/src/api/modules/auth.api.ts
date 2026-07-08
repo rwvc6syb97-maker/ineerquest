@@ -74,3 +74,23 @@ export async function logout(): Promise<void> {
   await request<void>({ url: '/auth/logout', method: 'POST' }).catch(() => undefined);
   clearTokens();
 }
+
+/** 发送邮箱验证码 */
+export async function sendEmailCode(email: string): Promise<{ ttl: number; blocked?: boolean; devCode?: string }> {
+  return request<{ ttl: number; blocked?: boolean; devCode?: string }>({
+    url: '/auth/email/code/send',
+    method: 'POST',
+    data: { email },
+  });
+}
+
+/** 邮箱验证码登录（自动注册）：成功后写入 Token */
+export async function loginByEmailCode(email: string, code: string): Promise<LoginResult> {
+  const data = await request<LoginResult>({
+    url: '/auth/email/code/login',
+    method: 'POST',
+    data: { email, code },
+  });
+  setTokens(data.accessToken, data.refreshToken);
+  return data;
+}

@@ -73,6 +73,8 @@ interface AuthState {
   registerByEmail: (email: string, password: string, nickname?: string) => Promise<void>;
   /** 邮箱+密码登录 */
   loginByEmail: (email: string, password: string) => Promise<void>;
+  /** 邮箱验证码登录（自动注册） */
+  loginByEmailCode: (email: string, code: string) => Promise<void>;
   /** 登出：清 Token + 清状态 */
   logout: () => Promise<void>;
   setUser: (user: UserProfile | null) => void;
@@ -167,6 +169,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     await authApi.loginByEmail(email, password);
+    const user = await userApi.getProfile();
+    set({ user });
+  },
+
+  loginByEmailCode: async (email, code) => {
+    if (isMockAuthEnabled()) {
+      const user = buildMockUser(email);
+      setTokens('mock_access_token', 'mock_refresh_token');
+      saveMockUser(user);
+      set({ user });
+      return;
+    }
+
+    await authApi.loginByEmailCode(email, code);
     const user = await userApi.getProfile();
     set({ user });
   },

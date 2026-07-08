@@ -13,9 +13,7 @@ data:
   PORT: "3000"
 
   # ===== 集群内服务地址 =====
-  REDIS_URL: "redis://redis:6379/0"
-  MONGODB_URI: "mongodb://mongo:27017"
-  MONGODB_DB: "innerquest"
+  # 缓存/限流/配额/锁已改用 MySQL(cache_kv / cache_zset)，无需 Redis
   CLICKHOUSE_URL: "http://clickhouse:8123"
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_DB: "innerquest_ops"
@@ -35,6 +33,8 @@ data:
   LLM_MODEL: "deepseek-chat"
 
   # ===== 邮件（Resend from 地址） =====
+  EMAIL_PROVIDER_ENABLED: "true"      # true=真实发送；false=mock 仅打日志
+  EMAIL_SUBJECT: "【向内求索】您的验证码"
   RESEND_FROM: "InnerQuest <noreply@innerquest.online>"
 
   # ===== 功能开关 =====

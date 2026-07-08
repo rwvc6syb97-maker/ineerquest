@@ -1,36 +1,69 @@
 import { Injectable, Logger } from '@nestjs/common';
+import Dysmsapi, { SendSmsRequest } from '@alicloud/dysmsapi20170525';
+import * as OpenApi from '@alicloud/openapi-client';
+import * as Util from '@alicloud/tea-util';
 
 /**
- * SmsProvider — 外部短信通道适配器。
- *
- * blocked：真实短信通道（阿里云/腾讯云 SMS）资质未开通，
- * 此处以 mock 占位，仅打印日志并返回成功，
- * 限流与验证码 TTL 逻辑在 SmsCodeService 中为真实实现。
- * 待人工补齐通道凭证后，替换 send() 内部为真实 SDK 调用即可。
+ * SmsProvider — 阿里云短信通道适配器。
+ * 当 SMS_PROVIDER_ENABLED=true 时使用阿里云 dysmsapi 真实发送；
+ * 否则走 mock 占位，仅打印日志并返回成功。
+ * 限流与验证码 TTL 逻辑在 SmsCodeService 中。
  */
 @Injectable()
 export class SmsProvider {
   private readonly logger = new Logger(SmsProvider.name);
-
-  /** 是否已接入真实通道（由 env 控制，默认 false → mock） */
   private readonly enabled = process.env.SMS_PROVIDER_ENABLED === 'true';
+  private client: Dysmsapi;
 
-  /**
-   * 发送验证码短信。
-   * @returns 是否发送成功（mock 恒 true）
-   */
+  constructor() {
+    if (this.enabled) {
+      const config = new OpenApi.Config({
+        accessKeyId: process.env.SMS_ACCESS_KEY_ID,
+        accessKeySecret: process.env.SMS_ACCESS_KEY_SECRET,
+        endpoint: 'dysmsapi.aliyuncs.com',
+      });
+      this.client = new Dysmsapi(config);
+    }
+  }
+
   async send(phone: string, code: string): Promise<boolean> {
     if (!this.enabled) {
-      // blocked：mock 通道
-      this.logger.warn(
-        `[SMS MOCK][blocked] 通道未开通，占位发送。phone=${this.mask(phone)} code=${code}`,
-      );
+      this.logger.warn(`[SMS MOCK] 通道未开通，占位发送。phone=${this.mask(phone)} code=${code}`);
       return true;
     }
-    // TODO(blocked): 接入真实短信 SDK（阿里云 dysmsapi / 腾讯云 sms），
-    // 使用模板 ID 与签名下发，失败重试与错误码映射由通道方定义。
-    this.logger.log(`[SMS] 真实通道发送 phone=${this.mask(phone)}`);
-    return true;
+
+    const signName = process.env.SMS_SIGN_NAME;
+    const templateCode = process.env.SMS_TEMPLATE_CODE;
+
+    if (!signName || !templateCode) {
+      this.logger.error('[SMS] 缺少 SMS_SIGN_NAME 或 SMS_TEMPLATE_CODE 环境变量');
+      return false;
+    }
+
+    const request = new SendSmsRequest({
+      phoneNumbers: phone,
+      signName,
+      templateCode,
+      templateParam: JSON.stringify({ code }),
+    });
+
+    const runtime = new Util.RuntimeOptions({});
+
+    try {
+      const resp = await this.client.sendSmsWithOptions(request, runtime);
+      const body = resp.body;
+      if (body?.code === 'OK') {
+        this.logger.log(`[SMS] 发送成功 phone=${this.mask(phone)} requestId=${body.requestId}`);
+        return true;
+      }
+      this.logger.error(
+        `[SMS] 发送失败 phone=${this.mask(phone)} code=${body?.code} message=${body?.message}`,
+      );
+      return false;
+    } catch (err) {
+      this.logger.error(`[SMS] SDK异常 phone=${this.mask(phone)}`, err?.message || err);
+      return false;
+    }
   }
 
   private mask(phone: string): string {

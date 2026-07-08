@@ -5,8 +5,9 @@ import { Public } from '../../../common/guards/auth.guard';
 import { getTraceId } from '../../../common/middleware/trace.middleware';
 import { ok } from '../../../common/response';
 import { SmsCodeService } from './sms-code.service';
+import { EmailCodeService } from './email-code.service';
 import { AuthService } from './auth.service';
-import { SendSmsDto, LoginDto, EmailRegisterDto, EmailLoginDto, RefreshDto } from './auth.dto';
+import { SendSmsDto, LoginDto, EmailRegisterDto, EmailLoginDto, RefreshDto, SendEmailCodeDto, EmailCodeLoginDto } from './auth.dto';
 
 /**
  * AuthController — 认证链接口（T1-01~T1-04）。
@@ -18,6 +19,7 @@ import { SendSmsDto, LoginDto, EmailRegisterDto, EmailLoginDto, RefreshDto } fro
 export class AuthController {
   constructor(
     private readonly smsCode: SmsCodeService,
+    private readonly emailCode: EmailCodeService,
     private readonly auth: AuthService,
   ) {}
 
@@ -77,5 +79,23 @@ export class AuthController {
     const accessToken = (authorization || '').replace(/^Bearer\s+/i, '') || undefined;
     await this.auth.logout(accessToken, body?.refreshToken);
     return ok({ loggedOut: true }, traceId, '已登出');
+  }
+
+  /** 邮箱验证码发送 POST /api/v1/auth/email/code/send */
+  @Public()
+  @Post('email/code/send')
+  async sendEmailCode(@Body() dto: SendEmailCodeDto, @Req() req: Request) {
+    const traceId = getTraceId(req);
+    const result = await this.emailCode.send(dto.email);
+    return ok(result, traceId, '验证码已发送');
+  }
+
+  /** 邮箱验证码登录 POST /api/v1/auth/email/code/login（自动注册） */
+  @Public()
+  @Post('email/code/login')
+  async loginByEmailCode(@Body() dto: EmailCodeLoginDto, @Req() req: Request) {
+    const traceId = getTraceId(req);
+    const tokens = await this.auth.loginByEmailCode(dto.email, dto.code);
+    return ok(tokens, traceId, '登录成功');
   }
 }

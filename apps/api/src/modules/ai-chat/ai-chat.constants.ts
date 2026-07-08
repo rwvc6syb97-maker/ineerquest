@@ -4,8 +4,8 @@
  * 《技术架构设计文档.md》AI 对话（≤50 轮、SSE 流式、上下文压缩），
  * 错误码 50001/50002 见 common/response.ts BizCode。
  *
- * 约束：会话元数据落 MySQL(Prisma ai_conversation)；消息流落 MongoDB(集合 ai_message)；
- * 缺 Redis/Mongo 实例时降级放行（标 blocked，见《阶段3-人工调试待办清单.md》）。
+ * 约束：会话元数据与消息流均落 MySQL(Prisma ai_conversation / ai_message)；
+ * 缺 Redis/MySQL 实例时降级放行（标 blocked，见《阶段3-人工调试待办清单.md》）。
  */
 
 /** 会话状态：1 进行中 2 已结束 3 已达上限。 */
@@ -28,9 +28,6 @@ export enum MessageRole {
   ASSISTANT = 2,
   SYSTEM = 3,
 }
-
-/** MongoDB 消息集合名（消息流落 Mongo）。 */
-export const AI_MESSAGE_COLLECTION = 'ai_message';
 
 /** T3-07 单会话最大轮次（≤50）。超出返回 50002。 */
 export const MAX_ROUND = 50;
@@ -74,7 +71,7 @@ export interface ConversationView {
   createdAt: Date;
 }
 
-/** 消息对外视图（Mongo 文档投影）。 */
+/** 消息对外视图。 */
 export interface MessageView {
   roundNo: number;
   role: number;
@@ -83,7 +80,7 @@ export interface MessageView {
   createdAt: Date;
 }
 
-/** Mongo 消息文档结构。 */
+/** 消息写入结构（映射 MySQL ai_message）。 */
 export interface MessageDoc {
   conversationId: string;
   userId: string;

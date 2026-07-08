@@ -3,6 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
 import { SmsCodeService } from './sms-code.service';
+import { EmailCodeService } from './email-code.service';
 import { TokenService, TokenPair } from './token.service';
 import { BizCode, BizException } from '../../../common/response';
 
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly smsCode: SmsCodeService,
     private readonly token: TokenService,
+    private readonly emailCode: EmailCodeService,
   ) {}
 
   private toView(u: {
@@ -180,6 +182,51 @@ export class AuthService {
     const pair = this.token.issuePair(user.id.toString());
     await this.touchLogin(user.id.toString());
     return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user: this.toView(user) };
+  }
+
+  /** 按邮箱查找或创建用户（邮箱验证码登录自动注册） */
+  private async findOrCreateByEmail(email: string): Promise<AuthUserView> {
+    const normalized = email.toLowerCase();
+    let user = await this.prisma.user.findFirst({
+      where: { email: normalized, isDeleted: 0 },
+    });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          userNo: this.genUserNo(),
+          email: normalized,
+          nickname: normalized.split('@')[0],
+        },
+      });
+    }
+    return this.toView(user);
+  }
+
+  /**
+   * 邮箱+验证码登录：校验验证码 → 查找或自动注�用户 → 签发双 Token。
+   * 封禁账号返回 20002。
+   *
+   * 测试后门：非生产环境下，固定测试邮箱 test@innerquest.local + 验证码 888888
+   * 永久有效，跳过邮件校验，方便前端联调。生产环境该后门自动失效。
+   */
+  static readonly TEST_EMAIL = 'test@innerquest.local';
+
+  async loginByEmailCode(email: string, code: string): Promise<LoginResult> {
+    const isProd = process.env.NODE_ENV === 'production';
+    const isTestAccount =
+      !isProd && email.toLowerCase() === AuthService.TEST_EMAIL && code === AuthService.TEST_CODE;
+
+    if (!isTestAccount) {
+      const valid = await this.emailCode.verify(email, code);
+      if (!valid) {
+        throw new BizException(BizCode.EMAIL_CODE_INVALID, '验证码错误或已过期');
+      }
+    }
+    const user = await this.findOrCreateByEmail(email);
+    this.assertNotBanned(user.status);
+    const pair = this.token.issuePair(user.id);
+    await this.touchLogin(user.id);
+    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user };
   }
 
   /** bcrypt-sha256 风格的密码哈希（PBKDF2 简化版：salt + sha256 iter） */

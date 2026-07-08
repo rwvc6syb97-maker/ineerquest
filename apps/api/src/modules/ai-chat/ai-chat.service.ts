@@ -1,15 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { Collection } from 'mongodb';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
-import { MongoService } from '../../infra/mongo/mongo.service';
 import { BizCode, CommonCode, BizException } from '../../common/response';
 import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 import { ContextService } from './context.service';
 import {
   AI_CHAT_SYSTEM_PROMPT,
-  AI_MESSAGE_COLLECTION,
   ConversationScene,
   ConversationStatus,
   ConversationView,
@@ -27,11 +24,11 @@ import { ChatStreamChunk } from '../llm-gateway/llm-gateway.constants';
 /**
  * T3-04 / T3-05 / T3-07 · AI 对话服务。
  *
- *  - T3-04 会话 CRUD：会话元数据落 MySQL(ai_conversation)，消息流落 MongoDB(集合 ai_message)。
+ *  - T3-04 会话 CRUD：会话元数据落 MySQL(ai_conversation)，消息流落 MySQL(表 ai_message)。
  *  - T3-05 发送消息 SSE：streamMessage() 产出 ChatStreamChunk，逐 token；done 由 controller 转 event:done。
  *  - T3-07 50 轮 + 每日配额：Redis 计数，超 50 轮抛 50002(AI_ROUND_LIMIT)，超配额抛 50001(AI_QUOTA_LIMIT)。
  *
- * 降级：缺 Mongo → 消息不落库但流式仍返回（标 blocked）；缺 Redis → 配额放行（标 blocked）；
+ * 降级：缺 MySQL → 消息不落库但流式仍返回（标 blocked）；缺 Redis → 配额放行（标 blocked）；
  *       缺 MySQL → CRUD 抛错由上层捕获，属外部实连 blocked。
  */
 @Injectable()
@@ -41,7 +38,6 @@ export class AiChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly mongo: MongoService,
     private readonly llm: LlmGatewayService,
     private readonly context: ContextService,
   ) {}
@@ -91,7 +87,7 @@ export class AiChatService {
     return { convNo };
   }
 
-  /** 会话消息列表（Mongo 流，按 roundNo 升序）。 */
+  /** 会话消息列表（MySQL 流，按 roundNo 升序）。 */
   async listMessages(userId: string, convNo: string): Promise<MessageView[]> {
     const conv = await this.mustOwnConversation(userId, convNo);
     return this.readMessages(conv.id.toString());
@@ -128,28 +124,17 @@ export class AiChatService {
     };
   }
 
-  // ============ Mongo 消息流读写（降级安全） ============
+  // ============ 消息流读写（MySQL ai_message，降级安全） ============
 
-  private messageCollection(): Collection<MessageDoc> | null {
-    try {
-      return this.mongo.getDb().collection<MessageDoc>(AI_MESSAGE_COLLECTION);
-    } catch (err) {
-      this.logger.warn(`mongo message store degraded(blocked): ${(err as Error).message}`);
-      return null;
-    }
-  }
-
-  /** 读会话消息（Mongo，降级为空数组）。 */
+  /** 读会话消息（MySQL，降级为空数组）。 */
   private async readMessages(conversationId: string): Promise<MessageView[]> {
-    const col = this.messageCollection();
-    if (!col) return [];
     try {
-      const docs = await col
-        .find({ conversationId })
-        .sort({ roundNo: 1, role: 1 })
-        .limit(1000)
-        .toArray();
-      return docs.map((d) => ({
+      const rows = await this.prisma.aiMessage.findMany({
+        where: { conversationId: BigInt(conversationId), isDeleted: 0 },
+        orderBy: [{ roundNo: 'asc' }, { role: 'asc' }],
+        take: 1000,
+      });
+      return rows.map((d) => ({
         roundNo: d.roundNo,
         role: d.role,
         content: d.content,
@@ -162,12 +147,20 @@ export class AiChatService {
     }
   }
 
-  /** 写一条消息（Mongo，降级为不落库不阻断）。 */
+  /** 写一条消息（MySQL，降级为不落库不阻断）。 */
   private async writeMessage(doc: MessageDoc): Promise<void> {
-    const col = this.messageCollection();
-    if (!col) return;
     try {
-      await col.insertOne(doc);
+      await this.prisma.aiMessage.create({
+        data: {
+          conversationId: BigInt(doc.conversationId),
+          userId: BigInt(doc.userId),
+          roundNo: doc.roundNo,
+          role: doc.role,
+          content: doc.content,
+          tokenCount: doc.tokenCount,
+          model: doc.model,
+        },
+      });
     } catch (err) {
       this.logger.warn(`write message degraded(blocked): ${(err as Error).message}`);
     }
@@ -223,7 +216,7 @@ export class AiChatService {
 
     const nextRound = conv.roundCount + 1;
 
-    // 落用户消息（Mongo）
+    // 落用户消息（MySQL）
     await this.writeMessage({
       conversationId,
       userId,
@@ -265,7 +258,7 @@ export class AiChatService {
       }
     }
 
-    // 落 AI 回复消息（Mongo）
+    // 落 AI 回复消息（MySQL）
     await this.writeMessage({
       conversationId,
       userId,

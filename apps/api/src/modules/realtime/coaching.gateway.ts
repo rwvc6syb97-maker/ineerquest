@@ -44,7 +44,7 @@ interface PendingAck {
  * T4-05：
  *  - 握手鉴权：handleConnection 校验 JWT（复用 TokenService.verifyActive），未授权断开连接；
  *  - 房间模型：按 coachingSessionId 分房（coachingRoom），辅导师与用户加入同一 room 收发；
- *  - 消息落库：经 CoachingMessageService 落 Mongo（缺库降级内存，blocked），再向 room 广播（Redis Adapter 跨实例）。
+ *  - 消息落库：经 CoachingMessageService 落 MySQL（缺库降级内存，blocked），再向 room 广播（Redis Adapter 跨实例）。
  *
  * T4-06：
  *  - ACK 重发：下行消息带 seq，超时未收到客户端 coaching:ack 则重发（有限次数 MAX_RESEND）；

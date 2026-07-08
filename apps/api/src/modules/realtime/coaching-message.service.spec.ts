@@ -3,8 +3,8 @@ import { MsgSenderRole } from './realtime.constants';
 import { BizCode, BizException } from '../../common/response';
 
 /**
- * CoachingMessageService 单测:纯确定性,Prisma/Mongo 全部内存 mock 替身,无网络/DB 依赖。
- * 覆盖:会话鉴权(归属/非法/越权/缺 MySQL 降级)、seq 游标分配、断线补发过滤、Mongo 缺失内存兜底。
+ * CoachingMessageService 单测:纯确定性,Prisma 全部内存 mock 替身,无网络/DB 依赖。
+ * 覆盖:会话鉴权(归属/非法/越权/缺 MySQL 降级)、seq 游标分配、断线补发过滤、缺库降级兜底。
  */
 describe('CoachingMessageService (T4-05/T4-06)', () => {
   const makeSession = (userId: bigint, coachId: bigint) => ({
@@ -12,26 +12,47 @@ describe('CoachingMessageService (T4-05/T4-06)', () => {
     order: { userId, coachId },
   });
 
-  const build = (opts: { prisma?: any; mongoThrows?: boolean } = {}) => {
+  /**
+   * Prisma mock:coachingMessage 用内存数组模拟 sessionId+seq 存储,
+   * findFirst 取最大 seq、findMany 过滤断线补发、create 落库。
+   */
+  const build = (opts: { prisma?: any; dbDown?: boolean } = {}) => {
+    const store: any[] = [];
     const prisma: any = {
       coachingSession: {
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
       },
+      coachingMessage: {
+        findFirst: jest.fn(async ({ where }: any) => {
+          if (opts.dbDown) throw new Error('db down');
+          const list = store
+            .filter((m) => m.sessionId === where.sessionId.toString())
+            .sort((a, b) => b.seq - a.seq);
+          return list.length ? { seq: list[0].seq } : null;
+        }),
+        findMany: jest.fn(async ({ where }: any) => {
+          if (opts.dbDown) throw new Error('db down');
+          return store
+            .filter((m) => m.sessionId === where.sessionId.toString() && m.seq > where.seq.gt)
+            .sort((a, b) => a.seq - b.seq)
+            .map((m) => ({
+              ...m,
+              sessionId: BigInt(m.sessionId),
+              senderId: BigInt(m.senderId),
+              ts: BigInt(m.ts),
+            }));
+        }),
+        create: jest.fn(async ({ data }: any) => {
+          if (opts.dbDown) throw new Error('db down');
+          store.push({ ...data, sessionId: data.sessionId.toString(), senderId: data.senderId.toString(), ts: Number(data.ts) });
+          return {};
+        }),
+      },
       ...(opts.prisma ?? {}),
     };
-    const mongo: any = {
-      getDb: jest.fn(() => {
-        if (opts.mongoThrows) throw new Error('mongo down');
-        return { collection: jest.fn(() => collection) };
-      }),
-    };
-    const collection: any = {
-      find: jest.fn(),
-      insertOne: jest.fn().mockResolvedValue({}),
-    };
-    const svc = new CoachingMessageService(prisma, mongo);
-    return { svc, prisma, mongo, collection };
+    const svc = new CoachingMessageService(prisma);
+    return { svc, prisma, store };
   };
 
   describe('authorizeSession 会话鉴权 (T4-05)', () => {
@@ -77,18 +98,18 @@ describe('CoachingMessageService (T4-05/T4-06)', () => {
     });
   });
 
-  describe('appendMessage + currentSeq + messagesAfter (内存兜底路径)', () => {
-    it('Mongo 缺失时写内存态,seq 单调递增', async () => {
-      const { svc } = build({ mongoThrows: true });
+  describe('appendMessage + currentSeq + messagesAfter (MySQL 存储路径)', () => {
+    it('落库并分配 seq,单调递增,bumpMsgCount', async () => {
+      const { svc, prisma } = build();
       const m1 = await svc.appendMessage({
-        sessionId: 's1',
+        sessionId: '100',
         clientMsgId: 'c1',
         senderId: '7',
         senderRole: MsgSenderRole.USER,
         content: 'hello',
       });
       const m2 = await svc.appendMessage({
-        sessionId: 's1',
+        sessionId: '100',
         clientMsgId: 'c2',
         senderId: '7',
         senderRole: MsgSenderRole.USER,
@@ -97,39 +118,29 @@ describe('CoachingMessageService (T4-05/T4-06)', () => {
       expect(m1.seq).toBe(1);
       expect(m2.seq).toBe(2);
       expect(m1.serverMsgId).toBeTruthy();
-      expect(await svc.currentSeq('s1')).toBe(2);
+      expect(await svc.currentSeq('100')).toBe(2);
+      expect(prisma.coachingSession.update).toHaveBeenCalledTimes(2);
     });
 
     it('messagesAfter 只返回 seq > fromSeq 的消息(断线补发)', async () => {
-      const { svc } = build({ mongoThrows: true });
+      const { svc } = build();
       for (const c of ['c1', 'c2', 'c3']) {
         await svc.appendMessage({
-          sessionId: 's2',
+          sessionId: '200',
           clientMsgId: c,
           senderId: '7',
           senderRole: MsgSenderRole.USER,
           content: c,
         });
       }
-      const missed = await svc.messagesAfter('s2', 1);
-      expect(missed.map((m) => m.seq)).toEqual([2, 3]);
+      const missed = await svc.messagesAfter('200', 1);
+expect(missed.map((m) => m.seq)).toEqual([2, 3]);
     });
 
-    it('Mongo 可用时落库并 bumpMsgCount', async () => {
-      const { svc, prisma, collection } = build();
-      collection.find.mockReturnValue({
-        sort: () => ({ limit: () => ({ toArray: async () => [] }) }),
-      });
-      const m = await svc.appendMessage({
-        sessionId: '100',
-        clientMsgId: 'c1',
-        senderId: '7',
-        senderRole: MsgSenderRole.USER,
-        content: 'hi',
-      });
-      expect(m.seq).toBe(1);
-      expect(collection.insertOne).toHaveBeenCalledTimes(1);
-      expect(prisma.coachingSession.update).toHaveBeenCalledTimes(1);
+    it('缺 MySQL 时 currentSeq 返回 0、messagesAfter 返回空数组(降级)', async () => {
+      const { svc } = build({ dbDown: true });
+      expect(await svc.currentSeq('300')).toBe(0);
+      expect(await svc.messagesAfter('300', 0)).toEqual([]);
     });
   });
 });

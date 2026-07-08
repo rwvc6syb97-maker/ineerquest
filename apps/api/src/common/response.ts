@@ -27,6 +27,10 @@ export const BizCode = {
   EMAIL_ALREADY_REGISTERED: 20006,
   /** 登录凭据错误（邮箱密码不匹配等） */
   LOGIN_FAILED: 20007,
+  /** 邮箱验证码发送过于频繁（1 次/60s） */
+  EMAIL_RATE_LIMITED: 20008,
+  /** 邮箱验证码错误或已过期 */
+  EMAIL_CODE_INVALID: 20009,
   /** 测评记录不存在或无权访问 */
   ASSESSMENT_RECORD_NOT_FOUND: 30001,
   /** 答卷不完整，无法提交计分 */

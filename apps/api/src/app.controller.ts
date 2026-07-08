@@ -3,7 +3,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { Public } from './common/guards/auth.guard';
 import { PrismaService } from './infra/prisma/prisma.service';
 import { RedisService } from './infra/redis/redis.service';
-import { MongoService } from './infra/mongo/mongo.service';
 import { ClickHouseService } from './infra/clickhouse/clickhouse.service';
 import { OssService } from './infra/oss/oss.service';
 
@@ -27,7 +26,6 @@ export class AppController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly mongo: MongoService,
     private readonly clickhouse: ClickHouseService,
     private readonly oss: OssService,
   ) {}
@@ -40,10 +38,9 @@ export class AppController {
   @Public()
   @Get('health')
   async health(): Promise<Record<string, unknown>> {
-    const [mysql, cacheDb, mongo, clickhouse] = await Promise.all([
+    const [mysql, cacheDb, clickhouse] = await Promise.all([
       this.prisma.ping().catch(() => false),
       this.redis.ping().catch(() => false),
-      this.mongo.ping().catch(() => false),
       this.clickhouse.ping().catch(() => false),
     ]);
     return {
@@ -53,7 +50,6 @@ export class AppController {
       infra: {
         mysql,
         cacheDb,
-        mongo,
         clickhouse,
         oss: this.oss.isReady(),
       },

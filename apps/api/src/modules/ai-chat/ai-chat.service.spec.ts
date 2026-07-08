@@ -4,7 +4,7 @@ import { ConversationScene, ConversationStatus, MAX_ROUND, DAILY_QUOTA } from '.
 import type { ChatStreamChunk } from '../llm-gateway/llm-gateway.constants';
 
 /**
- * T3-04 / T3-05 / T3-07 · AiChatService 单测（纯内存 mock，无真实 DB/Redis/Mongo/网络）。
+ * T3-04 / T3-05 / T3-07 · AiChatService 单测（纯内存 mock，无真实 DB/Redis/网络）。
  *
  * 逐条验收断言：
  *  - T3-04 会话 CRUD：创建/列表/删除/归属校验（非本人 → NOT_FOUND）
@@ -42,6 +42,10 @@ describe('AiChatService (T3-04/05/07)', () => {
         findUnique: jest.fn(async () => row),
         update: jest.fn(async () => row),
       },
+      aiMessage: {
+        create: jest.fn(async () => ({})),
+        findMany: jest.fn(async () => []),
+      },
     } as any;
   };
 
@@ -49,18 +53,6 @@ describe('AiChatService (T3-04/05/07)', () => {
   const makeRedis = (start = 0) => {
     let n = start;
     return { raw: { incr: jest.fn(async () => ++n), expire: jest.fn(async () => 1) } } as any;
-  };
-
-  /** Mongo mock：内存集合。 */
-  const makeMongo = (docs: any[] = []) => {
-    const store = [...docs];
-    const col = {
-      find: jest.fn(() => ({
-        sort: () => ({ limit: () => ({ toArray: async () => store.slice() }) }),
-      })),
-      insertOne: jest.fn(async (d: any) => store.push(d)),
-    };
-    return { store, mongo: { getDb: () => ({ collection: () => col }) } as any };
   };
 
   /** LLM 网关 mock：chatStream 产两块 + done；chat 返回摘要文本。 */
@@ -81,14 +73,13 @@ describe('AiChatService (T3-04/05/07)', () => {
       ),
     }) as any;
 
-  const build = (opts?: { prisma?: any; redis?: any; mongo?: any; llm?: any; context?: any }) => {
+  const build = (opts?: { prisma?: any; redis?: any; llm?: any; context?: any }) => {
     const prisma = opts?.prisma ?? makePrisma();
     const redis = opts?.redis ?? makeRedis();
-    const { mongo } = makeMongo();
     const llm = opts?.llm ?? makeLlm();
     const context = opts?.context ?? makeContext();
-    const svc = new AiChatService(prisma, redis, opts?.mongo ?? mongo, llm, context);
-    return { svc, prisma, redis, mongo, llm, context };
+    const svc = new AiChatService(prisma, redis, llm, context);
+    return { svc, prisma, redis, llm, context };
   };
 
   // ============ T3-04 会话 CRUD ============

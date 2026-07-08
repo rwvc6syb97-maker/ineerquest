@@ -13,19 +13,12 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_started
-      mongo:
-        condition: service_started
       clickhouse:
         condition: service_started
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: "3000"
       DATABASE_URL: ${DATABASE_URL:-mysql://root:innerquest@mysql:3306/innerquest?connection_limit=10}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017}
-      MONGODB_DB: ${MONGODB_DB:-innerquest}
       CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
@@ -74,24 +67,6 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # ---------- Redis ----------
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-  # ---------- MongoDB ----------
-  mongo:
-    image: mongo:6
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    restart: unless-stopped
-
   # ---------- ClickHouse ----------
   clickhouse:
     image: clickhouse/clickhouse-server:23-alpine
@@ -112,6 +87,4 @@ services:
 
 volumes:
   mysql_data:
-  redis_data:
-  mongo_data:
   clickhouse_data:

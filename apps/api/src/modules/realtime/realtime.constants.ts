@@ -8,9 +8,6 @@
 /** 辅导实时通信命名空间（namespace） */
 export const COACHING_NAMESPACE = '/ws/coaching';
 
-/** 辅导消息 Mongo 集合名（与阶段3 ai_message 消息流保持一致的存储策略） */
-export const COACHING_MESSAGE_COLLECTION = 'coaching_message';
-
 /** 房间名前缀：按 coachingSessionId 分房，辅导师与用户加入同一 room */
 export function coachingRoom(sessionId: string): string {
   return `coaching:${sessionId}`;
@@ -63,18 +60,6 @@ export interface ServerMessage {
   /** 文本内容 */
   content: string;
   /** 服务端落库时间戳（ms） */
-  ts: number;
-}
-
-/** Mongo 消息文档 shape */
-export interface CoachingMessageDoc {
-  sessionId: string;
-  seq: number;
-  serverMsgId: string;
-  clientMsgId: string;
-  senderId: string;
-  senderRole: MsgSenderRole;
-  content: string;
   ts: number;
 }
 

@@ -15,6 +15,7 @@
       },
       "env": {
         "NODE_ENV": "production",
+        "DATABASE_URL": "mysql://root:axvBXYMBSrcFhccsmcTKRUxVFTFRHbmm@mysql.railway.internal:3306/railway",
         "PORT": "3000",
         "TZ": "Asia/Shanghai",
         "CORS_ORIGIN": "https://innerquest.online",

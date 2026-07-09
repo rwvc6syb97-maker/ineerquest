@@ -13,7 +13,7 @@
  */
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { assessmentApi } from '../api';
-import type { Question, AssessmentResult } from '../api/modules/assessment.api';
+import type { QuestionBank, AssessmentResult } from '../api/modules/assessment.api';
 
 export const assessmentKeys = {
   questions: (v: string) => ['assessment', 'questions', v] as const,
@@ -23,7 +23,7 @@ export const assessmentKeys = {
 
 /** 取题：直连后端，失败抛 ApiError 交页面错误态 */
 export function useQuestions(version = 'v2') {
-  return useQuery<Question[]>({
+  return useQuery<QuestionBank>({
     queryKey: assessmentKeys.questions(version),
     queryFn: () => assessmentApi.getQuestions(version),
     staleTime: 30 * 60 * 1000,

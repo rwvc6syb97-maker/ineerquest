@@ -21,10 +21,10 @@ const PAGE_SIZE = 10;
 
 export function ResumePage() {
   const navigate = useNavigate();
-  const { data: questions = [] } = useQuestions('v1');
+  const { data: bank } = useQuestions('v2');
   const { hasDraft, answeredCount, page, reset } = useAssessmentStore();
 
-  const total = questions.length || 40;
+  const total = bank?.total || bank?.questions?.length || 40;
   const answered = answeredCount();
   const draft = hasDraft();
   const percent = total ? Math.round((answered / total) * 100) : 0;

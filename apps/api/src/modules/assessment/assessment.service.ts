@@ -10,6 +10,7 @@ import {
   DRAFT_REDIS_PREFIX,
   DRAFT_REDIS_TTL_SEC,
   RecordStatus,
+  ASSESSMENT_DIMENSION_POLES,
 } from './assessment.constants';
 import { AnswerItemDto } from './assessment.dto';
 
@@ -53,7 +54,7 @@ export class AssessmentService {
    */
   async getQuestions(version?: string, dimension?: number) {
     const ver = version || DEFAULT_QUESTION_VERSION;
-    const questions = await this.prisma.assessmentQuestion.findMany({
+    const rows = await this.prisma.assessmentQuestion.findMany({
       where: {
         version: ver,
         status: 1,
@@ -66,32 +67,33 @@ export class AssessmentService {
       },
     });
 
-    // 按维度分组组织
-    const grouped: Record<string, unknown[]> = { EI: [], SN: [], TF: [], JP: [] };
-    for (const q of questions) {
-      const key = (DimensionKey as Record<number, string>)[q.dimension];
-      if (!key) continue;
-      grouped[key].push({
-        id: q.id.toString(),
-        dimension: q.dimension,
-        content: q.content,
-        sortOrder: q.sortOrder,
-        isReverse: q.isReverse,
-        options: q.options.map((o) => ({
-          id: o.id.toString(),
-          optionKey: o.optionKey,
-          content: o.content,
-          polarity: o.polarity,
-          score: o.score,
-          sortOrder: o.sortOrder,
-        })),
-      });
-    }
+    // 扁平数组（契约 v2.2 P0）：dimension number → 字符串键映射后下发，不暴露 number
+    const questions = rows
+      .map((q) => {
+        const dimKey = (DimensionKey as Record<number, string>)[q.dimension];
+        if (!dimKey) return null;
+        return {
+          id: q.id.toString(),
+          dimension: dimKey,
+          content: q.content,
+          sortOrder: q.sortOrder,
+          isReverse: q.isReverse,
+          options: q.options.map((o) => ({
+            id: o.id.toString(),
+            optionKey: o.optionKey,
+            content: o.content,
+            polarity: o.polarity,
+            score: o.score,
+            sortOrder: o.sortOrder,
+          })),
+        };
+      })
+      .filter((q): q is NonNullable<typeof q> => q !== null);
 
     return {
       version: ver,
       total: questions.length,
-      dimensions: grouped,
+      questions,
     };
   }
 
@@ -132,7 +134,7 @@ export class AssessmentService {
       questionVersion: record.questionVersion,
       totalQuestions: record.totalQuestions,
       status: record.status,
-      startedAt: record.startedAt,
+      startedAt: record.startedAt ? record.startedAt.toISOString() : null,
     };
   }
 
@@ -320,20 +322,47 @@ export class AssessmentService {
 
   private formatResult(
     recordNo: string,
-    r: { mbtiType: string; scoreEi: unknown; scoreSn: unknown; scoreTf: unknown; scoreJp: unknown; typeGroup: number; isAbnormal: number; recordId: bigint },
+    r: {
+      id?: bigint;
+      mbtiType: string;
+      scoreEi: unknown;
+      scoreSn: unknown;
+      scoreTf: unknown;
+      scoreJp: unknown;
+      typeGroup: number;
+      isAbnormal: number;
+      recordId: bigint;
+      updatedAt?: Date | null;
+      createdAt?: Date | null;
+    },
   ) {
+    // 维度得分数组，结构对齐报告概览 ReportOverview.dimensions（left/right/score）
+    const scoreMap: Record<'EI' | 'SN' | 'TF' | 'JP', number> = {
+      EI: Number(r.scoreEi),
+      SN: Number(r.scoreSn),
+      TF: Number(r.scoreTf),
+      JP: Number(r.scoreJp),
+    };
+    const dimensions = ASSESSMENT_DIMENSION_POLES.map((p) => ({
+      dimension: p.dimension,
+      left: p.left,
+      right: p.right,
+      score: Math.round(Math.max(0, Math.min(100, scoreMap[p.dimension] || 0))),
+    }));
+
+    // completedAt：ISO8601 UTC（契约 v2.2 P2），优先取计分落库时间
+    const completedAtSrc = r.updatedAt ?? r.createdAt ?? null;
+
     return {
+      resultId: r.id ? r.id.toString() : '',
       recordNo,
       recordId: r.recordId.toString(),
       mbtiType: r.mbtiType,
-      scores: {
-        EI: Number(r.scoreEi),
-        SN: Number(r.scoreSn),
-        TF: Number(r.scoreTf),
-        JP: Number(r.scoreJp),
-      },
+      dimensions,
+      summary: `${r.mbtiType} 测评已完成，以下为各维度倾向得分。`,
       typeGroup: r.typeGroup,
       isAbnormal: r.isAbnormal === 1,
+      completedAt: completedAtSrc ? completedAtSrc.toISOString() : null,
     };
   }
 
@@ -353,8 +382,8 @@ export class AssessmentService {
       totalQuestions: r.totalQuestions,
       status: r.status,
       mbtiType: r.result?.mbtiType ?? null,
-      startedAt: r.startedAt,
-      submittedAt: r.submittedAt,
+      startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+      submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
     }));
   }
 

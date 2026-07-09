@@ -61,7 +61,7 @@ BLOCKED  →  READY  →  IN_PROGRESS  →  REVIEW  →  VERIFIED  →  DONE
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T1 | 前端去除 usePayment/useCoaching/usePrivacy/useCareerPlan/useSkillGap/useLearningResources/useFavorites 无条件 mock fallback，失败改错误态 | au-orwo5 | qp52lwfz | 后端接口就绪 | P0 | READY | DONE ✅(PM验收:目标hooks无残留fallback,失败抛ApiError+页面错误态,build通过;遗留P2:usePayment订单缓存待后端GET订单接口后迁移) |
 | T2 | 测评链路拆本地兜底，切真实 records 接口 | au-orwo5 | qp52lwfz | s19lr0dt(assessment) | P1 | READY | DONE ✅(PM验收:useAssessment拆除isMockAuthEnabled短路/MOCK_QUESTIONS回退/localScore本地评分/iq_result_落地,5个hook直调assessmentApi失败抛ApiError;3页面去本地临时recordId兜底改错误态;接口路径逐项对齐后端controller,ASSESSMENT_INCOMPLETE=4202前后端一致;tsc通过。修正api注释旧码30002→4202) |
-| T3 | 逐环节端到端联调核对字段契约一致 | qp52lwfz | atyb1n4m | T1,T2 | P0 | READY | READY(T1/T2已DONE,前置满足) |
+| T3 | 逐环节端到端联调核对字段契约一致 | qp52lwfz | atyb1n4m | T1,T2 | P0 | READY | REJECTED(联调发现P0:测评题库结构前后端不一致致QuizPage崩溃-后端返回{version,total,dimensions:{EI:[]...}}对象,前端按Question[]数组消费q.slice/q.length/q.options→TypeError;伴随P1结果字段scores vs dimensions、P2时间格式不统一。禁止上线,须修复P0回归复测。结构分歧待PM裁定权威结构) |
 | T4 | 配置并验证 AI 对话真实 LLM 通道 | s19lr0dt | qp52lwfz | LLM Key 就绪 | P1 | BLOCKED | BLOCKED |
 | T5 | 生产环境关闭后台 mock 登录（前端+后端） | au-orwo5 / s19lr0dt | qp52lwfz | — | P1 | READY | READY |
 | T6 | shared 错误码对齐后端契约 v2.0 | au-orwo5 | qp52lwfz | — | P2 | READY | DONE ✅(PM验收:码值与后端response.ts逐项一致,SUCCESS判定正确,build通过) |

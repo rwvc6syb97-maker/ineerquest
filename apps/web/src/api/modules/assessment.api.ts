@@ -14,14 +14,34 @@ import type { Paginated } from '@innerquest/shared';
 /** MBTI 维度 */
 export type Dimension = 'EI' | 'SN' | 'TF' | 'JP';
 
-/** 题目 */
+/** 题目选项（后端权威出参 v2.2） */
+export interface QuestionOption {
+  id: string;
+  optionKey: string;
+  content: string;
+  polarity: number;
+  score: number;
+  sortOrder: number;
+}
+
+/** 题目（后端权威出参 v2.2） */
 export interface Question {
   id: string;
+  /** 维度：字符串枚举，非 number */
   dimension: Dimension;
   /** 题干 */
   content: string;
+  sortOrder: number;
+  isReverse: number;
   /** 选项 */
-  options: { id: string; value: number; label: string }[];
+  options: QuestionOption[];
+}
+
+/** 题库（GET /assessments/questions 返回 data，v2.2 权威出参） */
+export interface QuestionBank {
+  version: string;
+  total: number;
+  questions: Question[];
 }
 
 /** 单题作答 */
@@ -41,18 +61,25 @@ export interface AssessmentRecord {
   updatedAt: string;
 }
 
-/** 计分结果 */
+/** 计分结果（POST submit / GET result 返回 data，v2.2 权威出参） */
 export interface AssessmentResult {
+  resultId: string;
+  recordNo: string;
   recordId: string;
+  /** 4 字母 MBTI 类型，如 'ENFJ' */
   mbtiType: string;
-  /** 四维度倾向百分比（0-100，越大越偏后者） */
-  dimensions: Record<Dimension, { left: string; right: string; score: number }>;
-  createdAt: string;
+  /** 四维度倾向，固定 4 项（EI/SN/TF/JP），数组形式 */
+  dimensions: { dimension: Dimension; left: string; right: string; score: number }[];
+  summary: string;
+  typeGroup: number;
+  isAbnormal: boolean;
+  /** ISO8601 UTC（带 Z），展示需本地化转东八区 */
+  completedAt: string;
 }
 
 /** 取题（可按版本） */
-export function getQuestions(version = 'v1'): Promise<Question[]> {
-  return request<Question[]>({
+export function getQuestions(version = 'v2'): Promise<QuestionBank> {
+  return request<QuestionBank>({
     url: '/assessments/questions',
     method: 'GET',
     params: { version },
@@ -60,7 +87,7 @@ export function getQuestions(version = 'v1'): Promise<Question[]> {
 }
 
 /** 创建测评记录（进入答题时调用） */
-export function createRecord(version = 'v1'): Promise<AssessmentRecord> {
+export function createRecord(version = 'v2'): Promise<AssessmentRecord> {
   return request<AssessmentRecord>({
     url: '/assessments/records',
     method: 'POST',

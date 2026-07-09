@@ -109,13 +109,22 @@ const GROUPS: { dim: Dimension; items: Item[] }[] = [
 ];
 
 /** 由 pole 生成 5 个李克特选项（pole=2 时整体翻转极性）。 */
-function buildOptions(pole: 1 | 2): { id: string; value: number; label: string }[] {
+function buildOptions(
+  pole: 1 | 2,
+): { id: string; optionKey: string; content: string; polarity: number; score: number; sortOrder: number }[] {
   return LIKERT_LABELS.map((label, i) => {
     const base = FORWARD_MAP[i];
-    const polarity = base.score === 0 ? base.polarity 
+    const polarity = base.score === 0 ? base.polarity
       : pole === 1 ? base.polarity : base.polarity === 1 ? 2 : 1;
     const value = encodeValue(polarity, base.score);
-    return { id: `opt-${value}`, value, label };
+    return {
+      id: `opt-${value}`,
+      optionKey: String.fromCharCode(65 + i),
+      content: label,
+      polarity,
+      score: base.score,
+      sortOrder: i + 1,
+    };
   });
 }
 
@@ -130,6 +139,8 @@ export const MOCK_QUESTIONS: Question[] = GROUPS.flatMap((g) =>
       id: `mq-${g.dim}-${seq}`,
       dimension: g.dim,
       content: it.content,
+      sortOrder: seq,
+      isReverse: it.pole === 2 ? 1 : 0,
       options: buildOptions(it.pole),
     };
     return q;

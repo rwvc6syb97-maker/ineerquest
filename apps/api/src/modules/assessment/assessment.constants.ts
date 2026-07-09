@@ -81,3 +81,18 @@ export const MBTI_TYPES = [
 /** Redis 草稿 key 前缀与 TTL（断点续答缓存）。 */
 export const DRAFT_REDIS_PREFIX = 'assessment:draft:';
 export const DRAFT_REDIS_TTL_SEC = 60 * 60 * 24 * 7; // 7 天
+
+/**
+ * 结果查询维度两极标签（契约 v2.2 P1）：结构对齐报告概览 ReportOverview.dimensions。
+ * left=偏向低分极，right=偏向高分极；score 取 assessment_result 各维度得分（0~100）。
+ */
+export const ASSESSMENT_DIMENSION_POLES: Array<{
+  dimension: 'EI' | 'SN' | 'TF' | 'JP';
+  left: string;
+  right: string;
+}> = [
+  { dimension: 'EI', left: '内向 I', right: '外向 E' },
+  { dimension: 'SN', left: '实感 S', right: '直觉 N' },
+  { dimension: 'TF', left: '思考 T', right: '情感 F' },
+  { dimension: 'JP', left: '判断 J', right: '知觉 P' },
+];

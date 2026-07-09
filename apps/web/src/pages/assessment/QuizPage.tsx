@@ -33,7 +33,8 @@ const DIMENSION_COLOR: Record<Dimension, string> = {
 
 export function QuizPage() {
   const navigate = useNavigate();
-  const { data: questions = [], isLoading, isError, refetch } = useQuestions('v2');
+  const { data: bank, isLoading, isError, refetch } = useQuestions('v2');
+  const questions = bank?.questions ?? [];
   const { recordId, answers, page, answer, setPage, answeredCount, toAnswers } =
     useAssessmentStore();
   const saveAnswers = useSaveAnswers();
@@ -149,8 +150,8 @@ export function QuizPage() {
                         key={opt.id}
                         type="button"
                         aria-pressed={selected}
-                        aria-label={opt.label}
-                        title={opt.label}
+                        aria-label={opt.content}
+                        title={opt.content}
                         onClick={() => answer(q.id, opt.id)}
                         className="flex flex-1 items-center justify-center rounded-full py-1 transition-transform duration-fast ease-spring focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                         style={{ transform: selected ? 'scale(1.12)' : 'scale(1)' }}

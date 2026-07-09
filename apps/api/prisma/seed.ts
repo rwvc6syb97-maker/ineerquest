@@ -245,6 +245,9 @@ async function main(): Promise<void> {
     });
     if (olds.length) {
       const ids = olds.map((q) => q.id);
+      // 删除顺序须遵循外键依赖：assessment_answer 同时引用 question_id 与 option_id，
+      // 故必须先删 answer，再删 option，最后删 question，否则触发 P2003 外键约束（存在用户作答时）。
+      await tx.assessmentAnswer.deleteMany({ where: { questionId: { in: ids } } });
       await tx.assessmentOption.deleteMany({ where: { questionId: { in: ids } } });
       await tx.assessmentQuestion.deleteMany({ where: { id: { in: ids } } });
       console.log(`[seed] 已清除旧题 ${olds.length} 道`);

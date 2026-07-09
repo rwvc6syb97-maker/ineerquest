@@ -104,13 +104,24 @@ export function LoginPage() {
     }
   };
 
+  // 登录成功后跳转：优先前端路由跳转；下一帧若 URL 仍停在登录页，
+  // 说明 navigate 被状态更新/守卫时序吞掉，则回退为整页导航强制跳转。
+  const goAfterLogin = (target: string) => {
+    navigate(target, { replace: true });
+    setTimeout(() => {
+      if (window.location.pathname.startsWith('/auth/login')) {
+        window.location.assign(target);
+      }
+    }, 50);
+  };
+
   const onSmsSubmit = smsSubmit(async (values) => {
     try {
       const isNewUser = await loginBySms(values.phone, values.code);
       const redirect = params.get('redirect');
       // 新注册用户引导至套餐页，否则按 redirect 回跳，默认 /app
       const target = isNewUser ? '/app/me/plan' : redirect ? decodeURIComponent(redirect) : '/app';
-      navigate(target, { replace: true });
+      goAfterLogin(target);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : '登录失败，请重试';
       smsSetErr('root', { message: msg });
@@ -122,7 +133,7 @@ export function LoginPage() {
       const isNewUser = await loginByEmailCode(values.email, values.code);
       const redirect = params.get('redirect');
       const target = isNewUser ? '/app/me/plan' : redirect ? decodeURIComponent(redirect) : '/app';
-      navigate(target, { replace: true });
+      goAfterLogin(target);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : '登录失败，请重试';
       emailSetErr('root', { message: msg });

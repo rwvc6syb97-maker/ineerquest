@@ -37,7 +37,10 @@ jobs:
 
       - name: Build web
         env:
-          VITE_AUTH_MOCK_MODE: true
+          # 关闭前端 mock 模式，走真实后端接口
+          VITE_AUTH_MOCK_MODE: false
+          # 显式注入真实后端地址，确保 GitHub Pages 构建打向线上 API
+          VITE_API_BASE_URL: https://innerquestapi-production.up.railway.app/api/v1
         run: npm run build --workspace apps/web
 
       - name: Upload artifact

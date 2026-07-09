@@ -28,7 +28,8 @@ export interface Paginated<T> {
  * 后续各阶段补充完整码表。
  */
 export const BizCode = {
-  SUCCESS: 0,
+  /** 成功（契约 v2.0：code=200，与后端 common/response.ts 严格一致） */
+  SUCCESS: 200,
   /** 短信验证码发送过于频繁（1 次/60s） */
   SMS_RATE_LIMITED: 20001,
   /** 账号被封禁 */

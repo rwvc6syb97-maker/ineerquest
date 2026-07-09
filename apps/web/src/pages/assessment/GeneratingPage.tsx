@@ -23,12 +23,6 @@ import { SpringButton } from '../../components/system/SpringButton';
 const STEPS = ['归集你的作答', '计算四维度倾向', '匹配人格类型', '生成个性化洞察'];
 const TIMEOUT_MS = 15000;
 
-/** 无后端兜底：由本地答案粗略推导一个 MBTI 类型 */
-function localMbti(): string {
-  const letters = ['EI', 'SN', 'TF', 'JP'].map((d) => d[Math.random() > 0.5 ? 0 : 1]);
-  return letters.join('');
-}
-
 /** 罗盘 / 星图加载意象：外圈刻度 + 缓慢旋转指针 + 星点 */
 function CompassLoader() {
   return (
@@ -107,11 +101,8 @@ export function GeneratingPage() {
           return;
         }
       }
-      // TODO(blocked)：无后端兜底——本地生成结果 id，联调接入后删除
-      const localId = recordId;
-      setResultId(localId);
-      localStorage.setItem(`iq_result_${localId}`, localMbti());
-      setTimeout(() => navigate(`/app/report/${localId}`, { replace: true }), 800);
+      // 其他错误：不再本地兜底，展示通用错误态供用户重试
+      setError('生成失败，请稍后重试');
     }
   }, [recordId, navigate, submit, setResultId]);
 

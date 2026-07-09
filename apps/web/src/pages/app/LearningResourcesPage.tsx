@@ -2,11 +2,11 @@
  * P17 学习资源推荐页（/app/learning/resources）
  * -------------------------------------------------------------
  * 按技能标签筛选的学习资源卡片墙（课程 / 书籍 / 文章 / 视频）。
- * 数据 hook useLearningResources，失败自动 mock fallback。
+ * 数据 hook useLearningResources，失败呈现错误态并支持重试。
  */
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, Tag, SectionHeading, Reveal, RevealItem, EmptyState } from '../../components';
+import { Card, Tag, SectionHeading, Reveal, RevealItem, EmptyState, SpringButton } from '../../components';
 import { COLORS } from '../../theme/tokens';
 import { useLearningResources } from '../../hooks/useCareerPlan';
 import type { ResourceType } from '../../api/modules/career-plan.api';
@@ -29,7 +29,7 @@ export function LearningResourcesPage() {
   const [params] = useSearchParams();
   const skill = params.get('skill') || undefined;
   const careerId = params.get('careerId') || undefined;
-  const { data: resources = [], isLoading } = useLearningResources({ skill, careerId });
+  const { data: resources = [], isLoading, isError, refetch } = useLearningResources({ skill, careerId });
 
   const [typeFilter, setTypeFilter] = useState<ResourceType | '全部'>('全部');
   const [tagFilter, setTagFilter] = useState<string>('全部');
@@ -100,6 +100,15 @@ export function LearningResourcesPage() {
       {/* 资源卡片墙 */}
       {isLoading ? (
         <p className="mt-10 text-center text-sm text-neutral-400">加载中…</p>
+      ) : isError ? (
+        <div className="mt-8">
+          <EmptyState
+            icon="compass"
+            title="资源加载失败"
+            description="可能是网络或服务异常，请稍后重试。"
+            action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+          />
+        </div>
       ) : filtered.length === 0 ? (
         <div className="mt-8">
           <EmptyState icon="search" title="没有匹配的资源" description="试试切换类型或技能标签。" />

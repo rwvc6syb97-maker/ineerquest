@@ -2,7 +2,7 @@
  * P19 辅导师列表（/app/coaching/coaches）
  * -------------------------------------------------------------
  * 浏览与筛选辅导师：领域 Chip 筛选 + 关键词搜索 + 评分/价格展示。
- * 卡片点击进入 P20 详情。数据 hook useCoaches（含 mock 兜底）。
+ * 卡片点击进入 P20 详情。数据 hook useCoaches（失败呈现错误态并支持重试）。
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import {
   Reveal,
   RevealItem,
   EmptyState,
+  SpringButton,
 } from '../../components';
 import { COLORS } from '../../theme/tokens';
 
@@ -42,7 +43,7 @@ function Stars({ rating }: { rating: number }) {
 
 export function CoachListPage() {
   const navigate = useNavigate();
-  const { data: coaches = [], isLoading } = useCoaches();
+  const { data: coaches = [], isLoading, isError, refetch } = useCoaches();
 
   const [keyword, setKeyword] = useState('');
   const [activeDomain, setActiveDomain] = useState<string>('全部');
@@ -113,6 +114,15 @@ export function CoachListPage() {
       {/* 结果区 */}
       {isLoading ? (
         <p className="mt-12 text-center font-serif text-neutral-400">加载辅导师…</p>
+      ) : isError ? (
+        <div className="mt-10">
+          <EmptyState
+            icon="compass"
+            title="辅导师加载失败"
+            description="可能是网络或服务异常，请稍后重试。"
+            action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+          />
+        </div>
       ) : list.length === 0 ? (
         <div className="mt-10">
           <EmptyState

@@ -2,7 +2,7 @@
  * P20 辅导师详情（/app/coaching/coaches/:coachId）
  * -------------------------------------------------------------
  * 辅导师资料、擅长领域、精选评价、可约提示。底部 CTA 进入 P21 预约。
- * 60002 停止接单：禁用预约按钮并提示。数据 hook useCoachDetail（mock 兜底）。
+ * 60002 停止接单：禁用预约按钮并提示。数据 hook useCoachDetail（失败呈现错误态并支持重试）。
  */
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCoachDetail } from '../../hooks/useCoaching';
@@ -15,6 +15,7 @@ import {
   RevealItem,
   SpringButton,
   BackButton,
+  EmptyState,
 } from '../../components';
 import { COLORS } from '../../theme/tokens';
 
@@ -41,10 +42,24 @@ function Stars({ rating, size = 3.5 }: { rating: number; size?: number }) {
 export function CoachDetailPage() {
   const { coachId = '' } = useParams();
   const navigate = useNavigate();
-  const { data: coach, isLoading } = useCoachDetail(coachId);
+  const { data: coach, isLoading, isError, refetch } = useCoachDetail(coachId);
 
-  if (isLoading || !coach) {
+  if (isLoading) {
     return <p className="mt-20 text-center font-serif text-neutral-400">加载辅导师资料…</p>;
+  }
+
+  if (isError || !coach) {
+    return (
+      <section className="mx-auto max-w-3xl pb-28">
+        <BackButton to="/app/coaching/coaches" label="返回辅导师列表" className="mb-4" />
+        <EmptyState
+          icon="compass"
+          title="辅导师资料加载失败"
+          description="可能是网络或服务异常，请稍后重试。"
+          action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+        />
+      </section>
+    );
   }
 
   return (

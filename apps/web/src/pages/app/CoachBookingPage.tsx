@@ -5,7 +5,7 @@
  * 错误码：
  *   60001 时段已占用 -> 刷新排期并提示，禁用该时段
  *   60002 停止接单   -> 提示并禁用提交
- * 数据 hook：useCoachDetail / useCoachSchedule / useBookCoaching（mock 兜底）。
+ * 数据 hook：useCoachDetail / useCoachSchedule / useBookCoaching（失败呈现错误态并支持重试）。
  */
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -30,7 +30,7 @@ export function CoachBookingPage() {
   const { coachId = '' } = useParams();
   const navigate = useNavigate();
   const { data: coach } = useCoachDetail(coachId);
-  const { data: slots = [], isLoading, refetch } = useCoachSchedule(coachId);
+  const { data: slots = [], isLoading, isError, refetch } = useCoachSchedule(coachId);
   const book = useBookCoaching();
 
   const [selectedSlot, setSelectedSlot] = useState<string>('');
@@ -99,6 +99,11 @@ export function CoachBookingPage() {
         <SectionHeading size="md" title="选择时段" />
         {isLoading ? (
           <p className="mt-4 text-sm text-neutral-400">加载可约时段…</p>
+        ) : isError ? (
+          <div className="mt-4 flex flex-col items-start gap-3 rounded-lg bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-600">时段加载失败，请稍后重试。</p>
+            <SpringButton variant="ghost" onClick={() => refetch()}>重新加载</SpringButton>
+          </div>
         ) : grouped.length === 0 ? (
           <p className="mt-4 text-sm text-neutral-400">近期暂无可约时段。</p>
         ) : (

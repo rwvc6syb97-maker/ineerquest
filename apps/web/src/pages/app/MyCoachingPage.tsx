@@ -2,7 +2,7 @@
  * P26 我的辅导（/app/coaching/orders）
  * -------------------------------------------------------------
  * 展示咨询订单列表：状态标签、进入会话（P22）、已完成未评价可弹评价表单。
- * 数据 hook：useCoachingOrders / useReviewCoaching（mock 兜底）。
+ * 数据 hook：useCoachingOrders / useReviewCoaching（失败呈现错误态并支持重试）。
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -161,7 +161,7 @@ function OrderCard({
 
 export function MyCoachingPage() {
   const navigate = useNavigate();
-  const { data: orders = [], isLoading } = useCoachingOrders();
+  const { data: orders = [], isLoading, isError, refetch } = useCoachingOrders();
   const [reviewing, setReviewing] = useState<CoachingOrder | null>(null);
 
   const enterSession = (o: CoachingOrder) => {
@@ -179,6 +179,14 @@ export function MyCoachingPage() {
 
       {isLoading ? (
         <p className="mt-8 text-sm text-neutral-400">加载订单中…</p>
+      ) : isError ? (
+        <EmptyState
+          className="mt-10"
+          icon="compass"
+          title="订单加载失败"
+          description="可能是网络或服务异常，请稍后重试。"
+          action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+        />
       ) : orders.length === 0 ? (
         <EmptyState
           className="mt-10"

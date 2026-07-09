@@ -68,7 +68,7 @@ export function SettingsPage() {
   }, []);
 
   // —— 隐私设置 ——
-  const { data: privacy } = usePrivacy();
+  const { data: privacy, isLoading: privacyLoading, isError: privacyError, refetch: refetchPrivacy } = usePrivacy();
   const updatePrivacy = useUpdatePrivacy();
   const [pendingKey, setPendingKey] = useState<keyof PrivacySetting | null>(null);
 
@@ -140,21 +140,36 @@ export function SettingsPage() {
       {/* 隐私设置 */}
       <Card padding="lg" className="mt-4">
         <h2 className="text-sm font-semibold text-neutral-700">隐私设置</h2>
-        <ul className="mt-4 space-y-4">
-          {PRIVACY_ITEMS.map((item) => (
-            <li key={item.key} className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-neutral-800">{item.label}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-neutral-400">{item.desc}</p>
-              </div>
-              <Switch
-                checked={privacy?.[item.key] ?? false}
-                disabled={pendingKey === item.key}
-                onChange={(v) => handleTogglePrivacy(item.key, v)}
-              />
-            </li>
-          ))}
-        </ul>
+        {privacyLoading ? (
+          <p className="mt-4 text-sm text-neutral-400">隐私设置加载中…</p>
+        ) : privacyError ? (
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <p className="text-sm text-red-500">隐私设置加载失败，请稍后重试。</p>
+            <button
+              type="button"
+              onClick={() => void refetchPrivacy()}
+              className="shrink-0 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+            >
+              重试
+            </button>
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-4">
+            {PRIVACY_ITEMS.map((item) => (
+              <li key={item.key} className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-neutral-800">{item.label}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-neutral-400">{item.desc}</p>
+                </div>
+                <Switch
+                  checked={privacy?.[item.key] ?? false}
+                  disabled={pendingKey === item.key}
+                  onChange={(v) => handleTogglePrivacy(item.key, v)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       {/* 隐私条款入口 */}

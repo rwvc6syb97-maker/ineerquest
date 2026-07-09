@@ -23,7 +23,7 @@ export interface UserProfile {
   avatar?: string;
 }
 
-/** 隐私设置（对齐后端设计文档 §8/§10：GET/PUT /users/me/privacy） */
+/** 隐私设置（对齐后端契约：GET/PATCH /users/me/privacy） */
 export interface PrivacySetting {
   /** 资料是否对外公开 */
   profilePublic: boolean;
@@ -74,7 +74,7 @@ export function getPrivacy(): Promise<PrivacySetting> {
 export function updatePrivacy(payload: Partial<PrivacySetting>): Promise<PrivacySetting> {
   return request<PrivacySetting>({
     url: '/users/me/privacy',
-    method: 'PUT',
+    method: 'PATCH',
     data: payload,
   });
 }
@@ -82,8 +82,16 @@ export function updatePrivacy(payload: Partial<PrivacySetting>): Promise<Privacy
 /** 申请账户注销：进入冷静期，期间登录可撤销 */
 export function deactivateAccount(reason: string): Promise<DeactivateResult> {
   return request<DeactivateResult>({
-    url: '/users/me/deactivate',
+    url: '/users/me/deactivation',
     method: 'POST',
     data: { reason },
+  });
+}
+
+/** 撤销注销申请：冷静期内可撤销 */
+export function cancelDeactivation(): Promise<void> {
+  return request<void>({
+    url: '/users/me/deactivation',
+    method: 'DELETE',
   });
 }

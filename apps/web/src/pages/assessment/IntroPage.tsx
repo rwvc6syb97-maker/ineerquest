@@ -41,11 +41,10 @@ export function IntroPage() {
     try {
       const record = await createRecord.mutateAsync('v2');
       setRecordId(record.id);
+      navigate('/assessment/quiz');
     } catch {
-      // TODO(blocked)：无后端兜底——本地生成临时 recordId，联调接入后端后可移除
-      setRecordId(`local-${Date.now()}`);
+      // 创建记录失败：不再本地兜底，错误提示交由 createRecord.isError 呈现，用户可重试
     }
-    navigate('/assessment/quiz');
   };
 
   return (
@@ -115,6 +114,11 @@ export function IntroPage() {
               <StatPill label="已有草稿" value="可续答" tone="brand" />
             )}
           </div>
+          {createRecord.isError && (
+            <p className="text-sm text-brand-accent-600">
+              测评启动失败，请检查网络后重试。
+            </p>
+          )}
           {draft && (
             <div className="flex items-center gap-4 text-xs text-neutral-400">
               <button

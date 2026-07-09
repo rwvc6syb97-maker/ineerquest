@@ -1,9 +1,11 @@
 /**
  * 支付订单相关 React Query hooks（T2-08 / T2-09 / T2-11）
  *
- * 由于后端暂未提供 GET /payments/orders(/:id)，本地以 localStorage 维护订单缓存，
- * 支撑订单列表/详情页展示与关单倒计时。无真实后端时下单/支付走 mock fallback。
- * TODO(blocked)：联调后端 GET 订单接口后删除本地缓存与 mock fallback（见 阶段2 待办清单）。
+ * 下单/支付/解锁一律走后端真实接口，失败时抛出真实 ApiError（如金额不符 70003），
+ * 交由调用方（CheckoutPage 的 onError）呈现错误态，禁止用 mock 假订单覆盖。
+ * 由于后端暂未提供 GET /payments/orders(/:id)，仅订单列表/详情以 localStorage 缓存
+ * 支撑展示与关单倒计时（此为既有设计，非"接口失败即 mock"）。
+ * TODO(blocked)：联调后端 GET 订单接口后迁移订单列表/详情为服务端数据源。
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentApi } from '../api';
@@ -46,36 +48,13 @@ export function upsertOrderCache(order: PaymentOrder): void {
   writeCache(list);
 }
 
-/** 构造 mock 订单（无后端兜底） */
-function mockOrder(bizType: number, bizId: string): PaymentOrder {
-  const now = Date.now();
-  return {
-    id: `mock-${now}`,
-    payNo: `PAYMOCK${now}`,
-    bizType,
-    bizId,
-    subject: bizType === 3 ? 'InnerQuest 会员套餐（mock）' : `报告解锁（mock）`,
-    amount: 990,
-    status: OrderStatus.PENDING,
-    statusLabel: 'pending',
-    channel: null,
-    expireAt: new Date(now + 15 * 60 * 1000).toISOString(),
-    paidAt: null,
-  };
-}
-
 // ============ 创建订单 ============
 
-/** 多态下单：失败走 mock fallback，并写入本地缓存 */
+/** 多态下单：失败抛 ApiError（交由页面 onError 呈现），成功写入本地缓存 */
 export function useCreateOrder() {
   return useMutation<PaymentOrder, unknown, { bizType: number; bizId: string }>({
     mutationFn: async ({ bizType, bizId }) => {
-      let order: PaymentOrder;
-      try {
-        order = await paymentApi.createOrder(bizType, bizId);
-      } catch {
-        order = mockOrder(bizType, bizId); // 无后端兜底
-      }
+      const order = await paymentApi.createOrder(bizType, bizId);
       upsertOrderCache(order);
       return order;
     },
@@ -84,29 +63,11 @@ export function useCreateOrder() {
 
 // ============ 发起支付 ============
 
-/** 发起支付：金额不符 70003 由 ApiError 上抛；mock 通道直接返回成功参数 */
+/** 发起支付：失败抛 ApiError（如金额不符 70003），交由页面 onError 呈现 */
 export function usePayOrder() {
   const qc = useQueryClient();
   return useMutation<PrepayResult, unknown, { orderId: string; channel?: number }>({
-    mutationFn: async ({ orderId, channel }) => {
-      try {
-        return await paymentApi.payOrder(orderId, channel);
-      } catch (err) {
-        // mock fallback：仅当订单为本地 mock 时兜底，其余错误(如 70003)上抛
-        if (orderId.startsWith('mock-')) {
-          return {
-            orderId,
-            payNo: `PAYMOCK${Date.now()}`,
-            amount: 990,
-            channel: channel ?? 1,
-            prepayId: `mockprepay${Date.now()}`,
-            payParams: {},
-            mock: true,
-          };
-        }
-        throw err;
-      }
-    },
+    mutationFn: ({ orderId, channel }) => paymentApi.payOrder(orderId, channel),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: paymentKeys.orders });
     },
@@ -169,17 +130,11 @@ export function useOrder(orderId: string) {
 
 // ============ 报告解锁（支付成功后放开付费段） ============
 
-/** 支付成功后解锁报告付费段 */
+/** 支付成功后解锁报告付费段（失败抛 ApiError，交由页面 onError 呈现） */
 export function useUnlockReport() {
   const qc = useQueryClient();
   return useMutation<unknown, unknown, string>({
-    mutationFn: async (reportId: string) => {
-      try {
-        return await reportApi.unlockReport(reportId);
-      } catch {
-        return { unlocked: true, mock: true }; // 无后端兜底
-      }
-    },
+    mutationFn: (reportId: string) => reportApi.unlockReport(reportId),
     onSuccess: (_d, reportId) => {
       // 与 useReport 的 queryKey 对齐（report/detail/:id），放行 RequirePaid
       qc.invalidateQueries({ queryKey: ['report', 'detail', reportId] });

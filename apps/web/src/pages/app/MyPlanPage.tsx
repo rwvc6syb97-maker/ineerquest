@@ -3,7 +3,7 @@
  * -------------------------------------------------------------
  * 复用 GET /growth/plan（careerPlanApi.getGrowthPlans）与 useGrowthPlans hook。
  * 展示成长计划任务列表 + 完成打卡（careerPlanApi.toggleGrowthTask，失败则本地乐观更新）+ 进度。
- * 数据请求失败自动回退 mock（见 useCareerPlan）；加载/空态用 EmptyState 兜底。
+ * 数据请求失败呈现错误态并支持重试（见 useCareerPlan）；加载/空态用 EmptyState 兜底。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<GrowthPlan['status'], string> = {
 
 export function MyPlanPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useGrowthPlans();
+  const { data, isLoading, isError, refetch } = useGrowthPlans();
   const [plans, setPlans] = useState<GrowthPlan[]>([]);
 
   useEffect(() => {
@@ -82,6 +82,15 @@ export function MyPlanPage() {
 
       {isLoading ? (
         <p className="mt-10 text-center font-serif text-neutral-400">计划加载中…</p>
+      ) : isError ? (
+        <div className="mt-8">
+          <EmptyState
+            icon="compass"
+            title="计划加载失败"
+            description="可能是网络或服务异常，请稍后重试。"
+            action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+          />
+        </div>
       ) : plans.length === 0 ? (
         <div className="mt-8">
           <EmptyState

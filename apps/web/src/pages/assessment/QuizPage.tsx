@@ -33,7 +33,7 @@ const DIMENSION_COLOR: Record<Dimension, string> = {
 
 export function QuizPage() {
   const navigate = useNavigate();
-  const { data: questions = [], isLoading } = useQuestions('v2');
+  const { data: questions = [], isLoading, isError, refetch } = useQuestions('v2');
   const { recordId, answers, page, answer, setPage, answeredCount, toAnswers } =
     useAssessmentStore();
   const saveAnswers = useSaveAnswers();
@@ -50,8 +50,8 @@ export function QuizPage() {
   const isLastPage = page >= totalPages - 1;
 
   const syncDraft = () => {
-    // TODO(blocked)：本地临时 recordId 不同步后端，接入后端后统一走 PATCH answers
-    if (recordId && !recordId.startsWith('local-')) {
+    // 翻页时保存草稿到后端；失败静默（�地 store 已持久化，下次可续答重试）
+    if (recordId) {
       saveAnswers.mutate({ recordId, answers: toAnswers() });
     }
   };
@@ -59,6 +59,11 @@ export function QuizPage() {
   const next = () => {
     syncDraft();
     if (isLastPage) {
+      if (!recordId) {
+        // 无有效 recordId（未成功创建记录）——回说明页重新开始
+        navigate('/assessment', { replace: true });
+        return;
+      }
       navigate('/assessment/generating');
     } else {
       setPage(page + 1);
@@ -75,6 +80,19 @@ export function QuizPage() {
 
   if (isLoading) {
     return <p className="py-16 text-center text-sm text-neutral-400">题目加载中…</p>;
+  }
+
+  if (isError) {
+    return (
+      <div className="py-16 text-center">
+        <p className="text-sm text-neutral-500">题目加载失败，可能是网络或服务异常。</p>
+        <div className="mt-4 flex justify-center">
+          <SpringButton variant="primary" onClick={() => void refetch()} className="w-40">
+            重新加载
+          </SpringButton>
+        </div>
+      </div>
+    );
   }
 
   return (

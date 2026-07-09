@@ -7,14 +7,14 @@
  * 数据 hook useSkillGap，失败自动 mock fallback。
  */
 import { useParams } from 'react-router-dom';
-import { Card, Tag, SectionHeading, Reveal, RevealItem } from '../../components';
+import { Card, Tag, SectionHeading, Reveal, RevealItem, EmptyState, SpringButton } from '../../components';
 import { RadarChart, type DimItem } from '../../components';
 import { COLORS } from '../../theme/tokens';
 import { useSkillGap } from '../../hooks/useCareerPlan';
 
 export function SkillsGapPage() {
   const { careerId = '' } = useParams();
-  const { data, isLoading } = useSkillGap(careerId);
+  const { data, isLoading, isError, refetch } = useSkillGap(careerId);
 
   // 将技能项映射为雷达图维度（score = 当前水平占要求的比例，居中在 50）
   const radarData: DimItem[] = (data?.items ?? []).map((it) => ({
@@ -35,6 +35,19 @@ export function SkillsGapPage() {
 
       {isLoading ? (
         <p className="mt-10 text-center text-sm text-neutral-400">分析中…</p>
+      ) : isError ? (
+        <div className="mt-10">
+          <EmptyState
+            icon="search"
+            title="技能差距分析加载失败"
+            description="可能是网络波动或服务繁忙，请稍后重试。"
+            action={
+              <SpringButton variant="primary" onClick={() => void refetch()}>
+                重试
+              </SpringButton>
+            }
+          />
+        </div>
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-[300px_1fr]">
           {/* 雷达概览 */}

@@ -76,8 +76,12 @@ export function CheckoutPage() {
           if (reportId) {
             try {
               await unlock.mutateAsync(reportId); // 放开付费段
-            } catch {
-              /* 兜底已在 hook 内处理 */
+            } catch (err) {
+              // 解锁失败：呈现错误并跳失败页，禁止静默放行
+              const msg = (err as { message?: string })?.message ?? '解锁失败，请稍后重试';
+              setErrorMsg(msg);
+              gotoResult('fail');
+              return;
             }
           }
           gotoResult('success');

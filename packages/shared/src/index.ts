@@ -5,7 +5,7 @@
 
 /** 统一 API 响应结构（贯穿所有服务） */
 export interface ApiResponse<T = unknown> {
-  /** 业务状态码：0 表示成功，其余见 BizCode */
+  /** 业务状态码：200 表示成功，其余见 BizCode（对齐后端契约 v2.0） */
   code: number;
   /** 提示信息 */
   message: string;
@@ -24,34 +24,63 @@ export interface Paginated<T> {
 }
 
 /**
- * 业务错误码基线（对齐计划文档 2.2 全局边界约束）
- * 后续各阶段补充完整码表。
+ * 业务错误码基线（对齐后端契约 v2.0，与 apps/api/src/common/response.ts 严格一致）
+ * 【错误码分段】200 成功 / 40xx 通用 / 41xx 认证账号域 / 42xx 测评域 / 43xx 报告域
+ *   / 44xx 职业域 / 45xx AI 对话域 / 46xx 激活码域 / 47xx 辅导预约域 / 48xx 运营后台域
+ *   / 50xx 系统第三方 / 9001 全局限流
  */
 export const BizCode = {
   /** 成功（契约 v2.0：code=200，与后端 common/response.ts 严格一致） */
   SUCCESS: 200,
-  /** 短信验证码发送过于频繁（1 次/60s） */
-  SMS_RATE_LIMITED: 20001,
-  /** 账号被封禁 */
-  ACCOUNT_BANNED: 20002,
-  /** 验证码错误或已过期 */
-  SMS_CODE_INVALID: 20003,
-  /** Token 无效或已过期（含黑名单命中） */
-  TOKEN_INVALID: 20004,
-  /** 账号处于注销冷静期 */
-  ACCOUNT_DEACTIVATING: 20005,
-  /** OAuth 授权交换失败 */
-  OAUTH_EXCHANGE_FAILED: 20006,
-  /** 测评记录不存在或无权访问 */
-  ASSESSMENT_RECORD_NOT_FOUND: 30001,
-  /** 答卷不完整，无法提交计分 */
-  ASSESSMENT_INCOMPLETE: 30002,
-  /** 测评记录状态非法（如已提交后重复提交） */
-  ASSESSMENT_STATUS_INVALID: 30003,
-  /** 全局限流 100 次/分/用户 */
-  RATE_LIMITED: 90001,
-  /** 文件超限（≤10MB PDF/DOCX） */
-  FILE_TOO_LARGE: 90003,
+
+  // ============ 通用错误 40xx ============
+  /** 参数校验失败：入参缺失/类型错误/格式不合法 */
+  BAD_REQUEST: 4000,
+  /** 参数超长：字段超过最大长度限制 */
+  PARAM_TOO_LONG: 4001,
+  /** 请求体为空或非法 JSON */
+  EMPTY_BODY: 4002,
+ /** 未登录或登录已过期：无 Token / accessToken 失效 */
+  UNAUTHORIZED: 4010,
+  /** Token 无效：签名错误 / 已加入黑名单 */
+  TOKEN_INVALID: 4011,
+  /** refreshToken 失效：刷新令牌过期或被吊销 */
+  REFRESH_TOKEN_INVALID: 4012,
+  /** 无权限访问：越权 / 角色不足 */
+  FORBIDDEN: 4030,
+  /** 资源不存在：目标记录不存在或已软删除 */
+  NOT_FOUND: 4040,
+  /** 重复提交：幂等键命中 / 唯一约束冲突 */
+  DUPLICATE_SUBMIT: 4090,
+
+  // ============ 认证账号域 41xx ============
+  /** 验证码错误或已过期（短信/邮箱通用） */
+  SMS_CODE_INVALID: 4101,
+  /** 验证码发送过于频繁（60s 内重复发送，短信/邮箱通用） */
+  SMS_RATE_LIMITED: 4102,
+  /** 账号或密码错误：邮箱登录凭证不符 */
+  LOGIN_FAILED: 4103,
+  /** 邮箱已注册：注册时唯一约束冲突 */
+  EMAIL_ALREADY_REGISTERED: 4104,
+  /** 账号已被封禁：user.status=2 */
+  ACCOUNT_BANNED: 4105,
+  /** 账号处于注销冷静期：已申请注销未撤销 */
+  ACCOUNT_DEACTIVATING: 4106,
+  /** 密码强度不足：不满足 8~32 位含字母数字 */
+  PASSWORD_TOO_WEAK: 4107,
+
+  // ============ 测评域 42xx ============
+  /** 题库版本已失效：提交时版本与当前不符 */
+  ASSESSMENT_VERSION_INVALID: 4201,
+  /** 答卷不完整：缺题或某维度��量不达标 */
+  ASSESSMENT_INCOMPLETE: 4202,
+  /** 测评记录不存在：recordId 无效/非本人 */
+  ASSESSMENT_RECORD_NOT_FOUND: 4203,
+  /** 测评已提交，不可修改 */
+  ASSESSMENT_STATUS_INVALID: 4204,
+  /** 选项与题目不匹配：optionId 不属于该 questionId */
+  ASSESSMENT_OPTION_MISMATCH: 4205,
+
   // ============ 报告域 43xx ============
   /** 报告未生成：结果尚未产出报告 */
   REPORT_NOT_GENERATED: 4301,
@@ -63,20 +92,106 @@ export const BizCode = {
   REPORT_GENERATE_FAILED: 4304,
   /** 章节不存在：sectionKey 非法 */
   REPORT_SECTION_NOT_FOUND: 4305,
-  /** 每日 ≤ 3 份报告：报告生成次数达上限 */
+  /** 报告每日下载/生成上限（报告域独立码，后端别名映射 4306） */
   REPORT_DAILY_LIMIT: 4306,
-  /** AI 对话 ≤ 50 轮 */
-  AI_ROUND_LIMIT: 50002,
-  /** AI 每日配额 */
-  AI_QUOTA_LIMIT: 50001,
-  /** 支付 15 分钟关单 */
-  ORDER_CLOSED: 70001,
-  /** 支付回调幂等冲突 */
-  PAYMENT_DUP_CALLBACK: 70002,
-  /** 支付金额不符 */
-  PAYMENT_AMOUNT_MISMATCH: 70003,
-  /** 会员套餐已下架，无法下单 */
-  MEMBERSHIP_PLAN_OFFLINE: 70004,
+
+  // ============ 职业域 44xx ============
+  /** 无可用测评结果：用户未完成测评，无法推荐 */
+  CAREER_NO_ASSESSMENT: 4401,
+  /** 职业不存在：careerId 无效/已下架 */
+  CAREER_NOT_FOUND: 4402,
+  /** 已收藏：重复收藏 */
+  CAREER_ALREADY_FAVORITED: 4403,
+  /** 技能差距需登录并完成测评：缺档案数据 */
+  CAREER_SKILL_GAP_NEED_ASSESSMENT: 4404,
+
+  // ============ AI 对话域 45xx ============
+  /** 超出每日对话配额：used ≥ dailyLimit */
+  AI_QUOTA_LIMIT: 4501,
+  /** 会话已达 50 轮上限：round ≥ 50 */
+  AI_ROUND_LIMIT: 4502,
+  /** 会话不存在：id 无效/非本人 */
+  AI_SESSION_INVALID: 4503,
+  /** 消息内容超长：content > 2000 */
+  AI_CONTENT_TOO_LONG: 4504,
+  /** AI 生成失败：Agnes AI 返回异常 */
+  AI_GENERATE_FAILED: 4505,
+  /** AI 响应超时：上游超时（映射 5003） */
+  AI_TIMEOUT: 4506,
+
+  // ============ 激活码兑换域 46xx ============
+  /** 激活码无效：不存在/格式错误 */
+  ACTIVATION_CODE_INVALID: 4601,
+  /** 激活码已被使用：已核销 */
+  ACTIVATION_CODE_USED: 4602,
+  /** 激活码已过期：超有效期 */
+  ACTIVATION_CODE_EXPIRED: 4603,
+  /** 激活码已作废：被后台禁用 */
+  ACTIVATION_CODE_DISABLED: 4604,
+  /** 当前会员等级更高，无需降级兑换 */
+  MEMBERSHIP_LEVEL_HIGHER: 4605,
+
+  // ============ 辅导预约域 47xx ============
+  /** 时段已被占用：并发抢占，锁失败 */
+  COACH_SLOT_TAKEN: 4701,
+  /** 规划师停止接单：coach.status≠1 */
+  COACH_NOT_ACCEPTING: 4702,
+  /** 会员权限不足：非辅导会员预约 */
+  COACH_MEMBERSHIP_REQUIRED: 4703,
+  /** 订单不存在：id 无效/非本人 */
+  COACH_ORDER_NOT_FOUND: 4704,
+  /** 订单状态不允许该操作 */
+  COACH_ORDER_STATUS_INVALID: 4705,
+  /** 已评价，不可重复 */
+  COACH_ALREADY_REVIEWED: 4706,
+  /** 时段不存在或已过期：scheduleId 失效 */
+  COACH_SLOT_NOT_FOUND: 4707,
+
+  // ============ 运营后台域 48xx ============
+  /** 后台账号或密码错误：登录失败 */
+  ADMIN_LOGIN_FAILED: 4801,
+  /** 权限点不足：RBAC 校验失败 */
+  ADMIN_PERMISSION_DENIED: 4802,
+  /** 目标记录被引用，无法删除 */
+  ADMIN_RECORD_REFERENCED: 4803,
+  /** 批量数量超限：count>1000 */
+  ADMIN_BATCH_LIMIT: 4804,
+  /** 敏感操作需二次确认：缺 confirm 标记 */
+  ADMIN_CONFIRM_REQUIRED: 4805,
+
+  // ============ 系统/第三方 50xx ============
+  /** 系统内部错误：未捕获异常 */
+  INTERNAL_ERROR: 5000,
+  /** 数据库操作失败：DB 连接/事务异常 */
+  DB_ERROR: 5001,
+  /** 第三方服务调用失败：Agnes AI/短信/OSS 调用异常 */
+  THIRD_PARTY_ERROR: 5002,
+  /** 上游服务超时：第三方响应超时 */
+  UPSTREAM_TIMEOUT: 5003,
+
+  // ============ 全局限流 9001 ============
+  /** 请求过于频繁：命中限流令牌桶 */
+  RATE_LIMITED: 9001,
+
+  // ============ 兼容别名（历史常量名 → 契约码，与后端 response.ts 别名段一致）============
+  /** 邮箱验证码错误或已过期（复用 4101） */
+  EMAIL_CODE_INVALID: 4101,
+  /** 邮箱验证码发送过于频繁（复用 4102） */
+  EMAIL_RATE_LIMITED: 4102,
+  /** OAuth 授权交换失败（后端未单列，映射通用参数错误 4000） */
+  OAUTH_EXCHANGE_FAILED: 4000,
+  /** 文件超限（后端未单列，映射参数校验 4000） */
+  FILE_TOO_LARGE: 4000,
+  /** 订单不存在或无权访问（复用辅导订单 4704） */
+  ORDER_NOT_FOUND: 4704,
+  /** 订单已关闭/状态不允许（复用 4705） */
+  ORDER_CLOSED: 4705,
+  /** 重复支付（幂等/重复提交 4090） */
+  PAYMENT_DUP_CALLBACK: 4090,
+  /** 支付金额与订单不符（参数校验域 4000） */
+  PAYMENT_AMOUNT_MISMATCH: 4000,
+  /** 会员套餐已下架（资源不存在 4040） */
+  MEMBERSHIP_PLAN_OFFLINE: 4040,
 } as const;
 
 export type BizCodeValue = (typeof BizCode)[keyof typeof BizCode];
@@ -94,7 +209,6 @@ export const BizMessage: Record<number, string> = {
   [BizCode.ASSESSMENT_INCOMPLETE]: '答卷未完成，请完成全部题目后再提交',
   [BizCode.ASSESSMENT_STATUS_INVALID]: '测评记录状态非法',
   [BizCode.RATE_LIMITED]: '请求过于频繁，请稍后再试',
-  [BizCode.FILE_TOO_LARGE]: '文件超出大小限制',
   [BizCode.REPORT_NOT_GENERATED]: '报告尚未生成，请先完成测评',
   [BizCode.REPORT_LOCKED]: '该段落需解锁后查看',
   [BizCode.REPORT_GENERATING]: '报告正在生成中，请稍后查看',
@@ -105,17 +219,16 @@ export const BizMessage: Record<number, string> = {
   [BizCode.AI_QUOTA_LIMIT]: 'AI 使用配额已用尽',
   [BizCode.ORDER_CLOSED]: '订单已关闭',
   [BizCode.PAYMENT_DUP_CALLBACK]: '支付回调重复',
-  [BizCode.PAYMENT_AMOUNT_MISMATCH]: '支付金额不符，请刷新订单后重试',
   [BizCode.MEMBERSHIP_PLAN_OFFLINE]: '该套餐已下架，请选择其他套餐',
 };
 
-/** 通用失败码（HTTP 层映射用） */
+/** 通用失败码（对齐后端契约 v2.0，直接映射 BizCode 契约码） */
 export const CommonCode = {
-  BAD_REQUEST: 40000,
-  UNAUTHORIZED: 40100,
-  FORBIDDEN: 40300,
-  NOT_FOUND: 40400,
-  INTERNAL_ERROR: 50000,
+  BAD_REQUEST: BizCode.BAD_REQUEST,
+  UNAUTHORIZED: BizCode.UNAUTHORIZED,
+  FORBIDDEN: BizCode.FORBIDDEN,
+  NOT_FOUND: BizCode.NOT_FOUND,
+  INTERNAL_ERROR: BizCode.INTERNAL_ERROR,
 } as const;
 
 /** 构造统一成功响应 */

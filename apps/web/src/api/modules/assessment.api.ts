@@ -77,7 +77,7 @@ export function saveAnswers(recordId: string, answers: Answer[]): Promise<Assess
   });
 }
 
-/** 提交计分（答卷不完整返回 30002） */
+/** 提交计分（答卷不完整返回 4202 ASSESSMENT_INCOMPLETE） */
 export function submitRecord(recordId: string): Promise<AssessmentResult> {
   return request<AssessmentResult>({
     url: `/assessments/records/${recordId}/submit`,

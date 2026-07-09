@@ -17,7 +17,8 @@ async function bootstrap(): Promise<void> {
     origin: [...CORS_ALLOWED_ORIGINS],
     methods: [...CORS_ALLOWED_METHODS],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Trace-Id'],
+    exposedHeaders: ['X-Trace-Id'],
   });
 
   // iframe 嵌入适配：ALLOW_IFRAME=true 时用 SAMEORIGIN 支持同源 iframe 登录态同步，

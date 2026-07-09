@@ -43,7 +43,7 @@ describe('ContextService (T3-06 上下文摘要压缩)', () => {
     const msgs = await svc.buildContextMessages(CID, history(3));
     expect(llm.chat).not.toHaveBeenCalled();
     expect(msgs.every((m) => m.role !== 'system')).toBe(true);
-    expect(msgs.some((m) => m.content.includes('摘要'))).toBe(false);
+    expect(msgs.some((m) => String(m.content).includes('摘要'))).toBe(false);
   });
 
   it('轮次 > 阈值：触发摘要，注入摘要 system + 最近 N 轮', async () => {

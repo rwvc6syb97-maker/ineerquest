@@ -7,7 +7,18 @@ import {
   MessageView,
   estimateTokens,
 } from './ai-chat.constants';
-import { ChatMessage } from '../llm-gateway/llm-gateway.constants';
+import { ChatMessage, ChatContentPart } from '../llm-gateway/llm-gateway.constants';
+
+/**
+ * 将 ChatMessage.content（纯文本或图文混合块）归一化为纯文本，
+ * 供 token 估算 / 关键字匹配使用（图片块以其 url 计入，避免丢失长度）。
+ */
+function contentToText(content: string | ChatContentPart[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .map((part) => (part.type === 'text' ? part.text : part.image_url.url))
+    .join('');
+}
 
 /**
  * T3-06 · 上下文摘要压缩服务（ContextService）。
@@ -153,7 +164,7 @@ export class ContextService {
     let budget = CONTEXT_POLICY.MAX_CONTEXT_TOKEN;
     const kept: ChatMessage[] = [];
     for (let i = messages.length - 1; i >= 0; i--) {
-      const cost = estimateTokens(messages[i].content);
+      const cost = estimateTokens(contentToText(messages[i].content));
       if (cost > budget && kept.length > 0) break;
       budget -= cost;
       kept.unshift(messages[i]);

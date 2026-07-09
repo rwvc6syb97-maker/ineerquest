@@ -157,57 +157,84 @@ export function LoginPage() {
         </button>
       </div>
 
-      {/* SMS Login Form */}
+      {/* SMS Login Form —— 手机号登录暂未开放 */}
       {mode === 'sms' && (
-        <form onSubmit={onSmsSubmit} noValidate className="mt-4 flex flex-col gap-4">
-          <div>
-            <label htmlFor="phone" className="mb-1 block text-sm text-slate-600">手机号</label>
-            <input
-              id="phone"
-              type="tel"
-              placeholder="请输入手机号"
-              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-              {...smsReg('phone', {
-                required: '请输入手机号',
-                pattern: { value: /^1[3-9]\d{9}$/, message: '手机号格式不正确' },
-              })}
-            />
-            {smsErrors.phone && <span className="mt-1 block text-xs text-red-500" role="alert">{smsErrors.phone.message}</span>}
-          </div>
-
-          <div>
-            <label htmlFor="code" className="mb-1 block text-sm text-slate-600">验证码</label>
-            <div className="flex gap-2">
+        // 手机号登录暂未开放：保留原表单代码，仅叠加遮罩层展示「开发中」，后续上线删除本遮罩即可
+        <div className="relative mt-4">
+          {/* ↓↓↓ 原手机号登录表单（保留，暂被遮罩覆盖，禁止交互） ↓↓↓ */}
+          <form
+            onSubmit={onSmsSubmit}
+            noValidate
+            aria-hidden="true"
+            className="flex flex-col gap-4 pointer-events-none select-none blur-[1px] opacity-60"
+          >
+            <div>
+              <label htmlFor="phone" className="mb-1 block text-sm text-slate-600">手机号</label>
               <input
-                id="code"
-                inputMode="numeric"
-                placeholder="6 位验证码"
-                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                {...smsReg('code', {
-                  required: '请输入验证码',
-                  pattern: { value: /^\d{4,6}$/, message: '验证码格式不正确' },
+                id="phone"
+                type="tel"
+                tabIndex={-1}
+                placeholder="请输入手机号"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                {...smsReg('phone', {
+                  required: '请输入手机号',
+                  pattern: { value: /^1[3-9]\d{9}$/, message: '手机号格式不正确' },
                 })}
               />
-              <button
-                type="button"
-                onClick={onSendCode}
-                disabled={countdown > 0 || sending}
-                className="shrink-0 rounded-lg border px-3 text-sm font-medium disabled:opacity-50"
-                style={{ color: COLORS.brand, borderColor: COLORS.brand }}
-              >
-                {countdown > 0 ? `${countdown}s` : sending ? '发送中' : '获取验证码'}
-              </button>
+              {smsErrors.phone && <span className="mt-1 block text-xs text-red-500" role="alert">{smsErrors.phone.message}</span>}
             </div>
-            {smsErrors.code && <span className="mt-1 block text-xs text-red-500" role="alert">{smsErrors.code.message}</span>}
+
+            <div>
+              <label htmlFor="code" className="mb-1 block text-sm text-slate-600">验证码</label>
+              <div className="flex gap-2">
+                <input
+                  id="code"
+                  inputMode="numeric"
+                  tabIndex={-1}
+                  placeholder="6 位验证码"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  {...smsReg('code', {
+                    required: '请输入验证码',
+                    pattern: { value: /^\d{4,6}$/, message: '验证码格式不正确' },
+                  })}
+                />
+                <button
+                  type="button"
+                  onClick={onSendCode}
+                  disabled={countdown > 0 || sending}
+                  tabIndex={-1}
+                  className="shrink-0 rounded-lg border px-3 text-sm font-medium disabled:opacity-50"
+                  style={{ color: COLORS.brand, borderColor: COLORS.brand }}
+                >
+                  {countdown > 0 ? `${countdown}s` : sending ? '发送中' : '获取验证码'}
+                </button>
+              </div>
+              {smsErrors.code && <span className="mt-1 block text-xs text-red-500" role="alert">{smsErrors.code.message}</span>}
+            </div>
+
+            {smsErrors.root && <p className="text-sm text-red-500" role="alert">{smsErrors.root.message}</p>}
+
+            <SpringButton type="submit" disabled={smsSubmitting} className="w-full">
+              {smsSubmitting ? '登录中…' : '登录 / 注册'}
+            </SpringButton>
+          </form>
+          {/* ↑↑↑ 原手机号登录表单（保留） ↑↑↑ */}
+
+          {/* 「开发中」遮罩层：上线手机号登录时删除此整块 div 即可 */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-lg bg-white/70 backdrop-blur-[2px]">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-700">
+              手机号登录功能正在开发中，敬请期待。<br />请先使用<span className="font-medium">邮箱登录</span>。
+            </div>
+            <button
+              type="button"
+              onClick={() => setMode('email')}
+              className="rounded-lg border px-4 py-2 text-sm font-medium"
+              style={{ color: COLORS.brand, borderColor: COLORS.brand }}
+            >
+              切换到邮箱登录
+            </button>
           </div>
-
-          {smsErrors.root && <p className="text-sm text-red-500" role="alert">{smsErrors.root.message}</p>}
-
-          <SpringButton type="submit" disabled={smsSubmitting} className="w-full">
-            {smsSubmitting ? '登录中…' : '登录 / 注册'}
-          </SpringButton>
-
-        </form>
+        </div>
       )}
 
       {/* Email Login Form */}

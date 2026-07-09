@@ -9,7 +9,7 @@ import { Injectable, Logger } from '@nestjs/common';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly apiKey = process.env.RESEND_API_KEY ?? '';
-  private readonly from = process.env.RESEND_FROM ?? 'InnerQuest <noreply@innerquest.app>';
+  private readonly from = process.env.RESEND_FROM ?? 'InnerQuest <noreply@innerquest.online>';
 
   /** 发送邮件。无 API Key 时仅打印日志并返回 false。 */
   async send(to: string, subject: string, html: string): Promise<boolean> {

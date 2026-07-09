@@ -29,8 +29,14 @@ model User {
   role          Int       @default(1) @db.TinyInt
   adminRole     String?   @map("admin_role") @db.VarChar(32)
   status        Int       @default(1) @db.TinyInt
+  /// [兼容字段] 是否付费：0=否 1=是。后端 auth/兑换/看板仍读写此字段，保留以兼容；新逻辑以 membershipLevel 为准
   isPaid        Int       @default(0) @map("is_paid") @db.TinyInt
+  /// [兼容字段] 付费到期时间(UTC)；与 membershipExpireAt 同步维护
   paidExpireAt  DateTime? @map("paid_expire_at")
+  /// 会员等级：0=免费 1=Pro(付费) 2=辅导会员；与 PM 需求 §4 membershipLevel 对齐
+  membershipLevel   Int       @default(0) @map("membership_level") @db.TinyInt
+  /// 会员到期时间(UTC)；免费(level=0)时为 null
+  membershipExpireAt DateTime? @map("membership_expire_at")
   lastLoginAt   DateTime? @map("last_login_at")
   deactivatedAt DateTime? @map("deactivated_at")
   isDeleted     Int       @default(0) @map("is_deleted") @db.TinyInt
@@ -43,6 +49,7 @@ model User {
   deactivations   UserDeactivation[]
   assessmentRecords AssessmentRecord[]
   growthPlans     GrowthPlan[]
+  redeemRecords   MembershipRedeemRecord[]
 
   @@unique([userNo], map: "uk_user_no")
   @@unique([phone, phoneCountry], map: "uk_phone")
@@ -50,6 +57,7 @@ model User {
   @@index([role, status], map: "idx_role_status")
   @@index([deactivatedAt], map: "idx_deactivated_at")
   @@index([createdAt], map: "idx_created_at")
+  @@index([membershipLevel, membershipExpireAt], map: "idx_membership")
   @@map("user")
 }
 
@@ -178,7 +186,8 @@ model AssessmentRecord {
   recordNo        String    @map("record_no") @db.Char(24)
   userId          BigInt    @map("user_id") @db.UnsignedBigInt
   questionVersion String    @map("question_version") @db.VarChar(16)
-  totalQuestions  Int       @default(60) @map("total_questions") @db.SmallInt
+  /// 本次测评题目总数；MVP MBTI 固定 40 题（EI/SN/TF/JP 各 10 题），与 PM 需求 §5 对齐
+  totalQuestions  Int       @default(40) @map("total_questions") @db.SmallInt
   status          Int       @default(1) @db.TinyInt
   startedAt       DateTime  @map("started_at")
   submittedAt     DateTime? @map("submitted_at")
@@ -296,7 +305,11 @@ model ReportSection {
   reportId   BigInt   @map("report_id") @db.UnsignedBigInt
   sectionKey String   @map("section_key") @db.VarChar(32)
   title      String   @db.VarChar(128)
+  /// 章节正文。当前后端以 Json 结构化存储（report.service 用 createMany 写入 Json）；
+  /// PM 需求 §6 期望为 Markdown 文本，最终格式【需产品确认】——确认后若改 String 需数据迁移
   content    Json
+  /// 是否免费可见段落：1=免费预览 0=付费解锁；与 report.isUnlocked 配合做分段权限控制
+  isFree     Int      @default(0) @map("is_free") @db.TinyInt
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -671,6 +684,7 @@ model CoachingOrder {
   review   CoachingReview?
 
   @@unique([orderNo], map: "uk_order_no")
+  @@unique([userId, scheduleId], map: "uk_user_schedule")
   @@index([userId, status], map: "idx_user_status")
   @@index([coachId, status], map: "idx_coach_status")
   @@index([status, payExpireAt], map: "idx_pay_expire")
@@ -900,6 +914,8 @@ model ActivationCode {
   expireAt   DateTime? @map("expire_at")
   note       String?   @db.VarChar(255)
   batchNo    String?   @map("batch_no") @db.VarChar(32)
+  isDeleted  Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt  DateTime? @map("deleted_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
@@ -908,6 +924,38 @@ model ActivationCode {
   @@index([usedBy], map: "idx_used_by")
   @@index([batchNo], map: "idx_batch_no")
   @@map("activation_code")
+}
+
+/// 会员兑换记录表 — 记录用户每次激活码兑换的独立流水，供 PM 需求 §9 兑换记录查询
+/// 与 activation_code.usedBy/usedAt 互补：activation_code 记录码的核销态，本表记录��户维度的兑换历史
+model MembershipRedeemRecord {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  /// 兑换流水号（幂等/对账用）
+  redeemNo       String   @map("redeem_no") @db.Char(24)
+  /// 兑换用户
+  userId         BigInt   @map("user_id") @db.UnsignedBigInt
+  /// 关联激活码 id
+  codeId         BigInt   @map("code_id") @db.UnsignedBigInt
+  /// 冗余激活码字符串，便于查询展示（避免关联）
+  code           String   @db.Char(16)
+  /// 兑换套餐编码
+  planCode       String   @map("plan_code") @db.VarChar(32)
+  /// 兑换套餐名称（快照）
+  planName       String   @map("plan_name") @db.VarChar(64)
+  /// 兑换获得会员等级：1=Pro 2=辅导
+  membershipLevel Int     @map("membership_level") @db.TinyInt
+  /// 本次兑换增加的有效天数
+  durationDays   Int      @map("duration_days") @db.SmallInt
+  /// 兑换后会员到期时间(UTC)
+  expireAt       DateTime? @map("expire_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([redeemNo], map: "uk_redeem_no")
+  @@unique([codeId], map: "uk_code_id")
+  @@index([userId, createdAt], map: "idx_user_created")
+  @@map("membership_redeem_record")
 }
 
 /// 文件上传记录表

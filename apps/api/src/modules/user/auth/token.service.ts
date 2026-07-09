@@ -41,12 +41,22 @@ export interface TokenPair {
 @Injectable()
 export class TokenService {
   private readonly logger = new Logger(TokenService.name);
-  private readonly secret = process.env.JWT_SECRET ?? 'CHANGE_ME';
+  private readonly secret: string;
   private readonly accessTtl = Number(process.env.JWT_ACCESS_TTL_SEC ?? 7200); // 2h
   private readonly refreshTtl = Number(process.env.JWT_REFRESH_TTL_SEC ?? 2592000); // 30d
   private readonly adminRefreshTtl = Number(process.env.JWT_ADMIN_REFRESH_TTL_SEC ?? 28800); // 8h
 
-  constructor(private readonly redis: RedisService) {}
+  constructor(private readonly redis: RedisService) {
+    const configured = process.env.JWT_SECRET;
+    const isProd = process.env.NODE_ENV === 'production';
+    // 生产环境 fail-fast：未配置或仍为占位密钥则阻止启动，避免弱密钥伪造 Token
+    if (isProd && (!configured || configured === 'CHANGE_ME')) {
+      throw new Error(
+        'JWT_SECRET 未正确配置：生产环境必须通过环境变量设置且不得为占位值 CHANGE_ME，已阻止启动。',
+      );
+    }
+    this.secret = configured ?? 'CHANGE_ME';
+  }
 
   private base64url(input: Buffer | string): string {
     return Buffer.from(input)

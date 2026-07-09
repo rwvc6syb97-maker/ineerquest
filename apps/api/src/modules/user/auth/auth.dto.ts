@@ -1,7 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 /** 中国大陆手机号（阶段1仅支持 +86） */
 const CN_PHONE = /^1[3-9]\d{9}$/;
+
+/** 密码强度：8~32 位，必须同时含字母与数字（契约 4107） */
+export const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,32}$/;
 
 /** T1-01 发送验证码 */
 export class SendSmsDto {
@@ -25,13 +28,12 @@ export class EmailRegisterDto {
   email!: string;
 
   @IsString()
-  @MinLength(6, { message: '密码至少 6 位' })
-  @MaxLength(64, { message: '密码最长 64 位' })
+  @Matches(PASSWORD_RULE, { message: '密码需为 8~32 位且同时包含字母和数字' })
   password!: string;
 
   @IsOptional()
   @IsString()
-  @Length(1, 64)
+  @Length(1, 20, { message: '昵称长度需在 1~20 之间' })
   nickname?: string;
 }
 
@@ -72,7 +74,7 @@ export class RefreshDto {
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()
-  @Length(1, 64)
+  @Length(1, 20, { message: '昵称长度需在 1~20 之间' })
   nickname?: string;
 
   @IsOptional()

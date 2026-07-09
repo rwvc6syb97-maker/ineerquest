@@ -51,10 +51,19 @@ export const BizCode = {
   RATE_LIMITED: 90001,
   /** 文件超限（≤10MB PDF/DOCX） */
   FILE_TOO_LARGE: 90003,
-  /** 报告付费段落未解锁 */
-  REPORT_LOCKED: 40002,
-  /** 每日 ≤ 3 份报告 */
-  REPORT_DAILY_LIMIT: 40003,
+  // ============ 报告域 43xx ============
+  /** 报告未生成：结果尚未产出报告 */
+  REPORT_NOT_GENERATED: 4301,
+  /** 章节未解锁：访问付费章节但未升级 Pro */
+  REPORT_LOCKED: 4302,
+  /** 报告生成中：重复触发生成 */
+  REPORT_GENERATING: 4303,
+  /** 报告生成失败：LLM 调用失败，可重试 */
+  REPORT_GENERATE_FAILED: 4304,
+  /** 章节不存在：sectionKey 非法 */
+  REPORT_SECTION_NOT_FOUND: 4305,
+  /** 每日 ≤ 3 份报告：报告生成次数达上限 */
+  REPORT_DAILY_LIMIT: 4306,
   /** AI 对话 ≤ 50 轮 */
   AI_ROUND_LIMIT: 50002,
   /** AI 每日配额 */
@@ -85,7 +94,11 @@ export const BizMessage: Record<number, string> = {
   [BizCode.ASSESSMENT_STATUS_INVALID]: '测评记录状态非法',
   [BizCode.RATE_LIMITED]: '请求过于频繁，请稍后再试',
   [BizCode.FILE_TOO_LARGE]: '文件超出大小限制',
+  [BizCode.REPORT_NOT_GENERATED]: '报告尚未生成，请先完成测评',
   [BizCode.REPORT_LOCKED]: '该段落需解锁后查看',
+  [BizCode.REPORT_GENERATING]: '报告正在生成中，请稍后查看',
+  [BizCode.REPORT_GENERATE_FAILED]: '报告生成失败，请重试',
+  [BizCode.REPORT_SECTION_NOT_FOUND]: '章节不存在',
   [BizCode.REPORT_DAILY_LIMIT]: '今日报告生成次数已达上限',
   [BizCode.AI_ROUND_LIMIT]: 'AI 对话轮次已达上限',
   [BizCode.AI_QUOTA_LIMIT]: 'AI 使用配额已用尽',

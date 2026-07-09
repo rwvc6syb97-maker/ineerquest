@@ -6,7 +6,7 @@
  *  → 性格解读（优势/盲点非对称分栏 + 锁态付费段）→ 匹配度 StatPill
  *  → 底部「查看职业匹配」「生成海报」CTA（SpringButton 橙）。
  * 设计约束：GlassCard 仅用于报告主卡这一高价值场景；数据揭示克制、含 reduced-motion 降级。
- * 数据 hook（useReport）与 mock 兜底保持不变，仅重构 UI。
+ * 数据 hook（useReport）直连后端 v2.1 出参，无 mock 兜底；失败态由 isError 呈现。
  */
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -78,11 +78,13 @@ export function ReportPage() {
   }
 
   const color = FAMILY_COLORS[report.family];
-  const unlocked = report.sections.filter((s) => !s.locked);
-  const strength = unlocked.find((s) => /优势|长处|strength/i.test(s.key + s.title));
-  const blindspot = unlocked.find((s) => /盲点|成长|blind|growth/i.test(s.key + s.title));
+  // 锁态以后端下发的 lockedSectionKeys 为准（概览接口不返回 isFree）
+  const lockedKeys = new Set(report.lockedSectionKeys ?? []);
+  const unlocked = report.sections.filter((s) => !lockedKeys.has(s.sectionKey));
+  const strength = unlocked.find((s) => /优势|长处|strength/i.test(s.sectionKey + s.title));
+  const blindspot = unlocked.find((s) => /盲点|成长|blind|growth/i.test(s.sectionKey + s.title));
   const others = unlocked.filter((s) => s !== strength && s !== blindspot);
-  const lockedSections = report.sections.filter((s) => s.locked);
+  const lockedSections = report.sections.filter((s) => lockedKeys.has(s.sectionKey));
 
   const hasLocked = lockedSections.length > 0;
 
@@ -237,11 +239,11 @@ export function ReportPage() {
             </Card>
           ) : null}
           {others.map((s) => (
-            <Card key={s.key} padding="lg" className="md:col-span-5">
+            <Card key={s.sectionKey} padding="lg" className="md:col-span-5">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-display text-lg font-bold text-brand-primary-950">{s.title}</h3>
                 <button
-                  onClick={() => navigate(`/app/report/${report.id}/section/${s.key}`)}
+                  onClick={() => navigate(`/app/report/${report.id}/section/${s.sectionKey}`)}
                   className="shrink-0 text-sm font-medium text-brand-primary-500 hover:text-brand-primary-600"
                 >
                   查看详情 →
@@ -258,7 +260,7 @@ export function ReportPage() {
         <section className="mt-8">
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2" deps={[report.id]}>
             {lockedSections.map((s, i) => (
-              <RevealItem key={s.key} index={i}>
+              <RevealItem key={s.sectionKey} index={i}>
                 <div className="relative overflow-hidden rounded-2xl border border-dashed border-neutral-300 p-6">
                   <div className="pointer-events-none select-none blur-sm" aria-hidden>
                     <h3 className="font-display text-base font-bold text-neutral-800">{s.title}</h3>

@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RATING_MAX, RATING_MIN } from './coaching.constants';
 
@@ -56,9 +56,10 @@ export class ReviewCoachingDto {
   @Max(RATING_MAX)
   rating!: number;
 
-  /** 评价文字内容（可选） */
+  /** 评价文字内容（可选，≤500 字） */
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   content?: string;
 
   /** 评价标签（可选） */

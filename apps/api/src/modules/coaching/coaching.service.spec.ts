@@ -76,7 +76,7 @@ describe('CoachingService', () => {
     it('详情：未上架/未审核的辅导师 → 60002', async () => {
       const { svc, prisma } = build();
       prisma.coach.findFirst.mockResolvedValue({ ...onlineCoach, status: CoachStatus.OFFLINE });
-      await expect(svc.getCoach('1')).rejects.toMatchObject({ bizCode: 60002 });
+      await expect(svc.getCoach('1')).rejects.toMatchObject({ bizCode: 4702 });
     });
   });
 
@@ -86,7 +86,7 @@ describe('CoachingService', () => {
       prisma.coach.findFirst.mockResolvedValue(onlineCoach);
       await expect(
         svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
-      ).rejects.toMatchObject({ bizCode: 60001 });
+      ).rejects.toMatchObject({ bizCode: 4701 });
     });
 
     it('辅导师已停止接单 → 60002', async () => {
@@ -94,7 +94,7 @@ describe('CoachingService', () => {
       prisma.coach.findFirst.mockResolvedValue({ ...onlineCoach, status: CoachStatus.OFFLINE });
       await expect(
         svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
-      ).rejects.toMatchObject({ bizCode: 60002 });
+      ).rejects.toMatchObject({ bizCode: 4702 });
     });
 
     it('时段已 BOOKED（不可复用）→ 60001', async () => {
@@ -108,7 +108,7 @@ describe('CoachingService', () => {
       });
       await expect(
         svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
-      ).rejects.toMatchObject({ bizCode: 60001 });
+      ).rejects.toMatchObject({ bizCode: 4701 });
     });
 
     it('下单成功：FREE 时段 CAS→LOCKED 并创建 PENDING 订单', async () => {
@@ -138,6 +138,58 @@ describe('CoachingService', () => {
       expect(prisma.coachSchedule.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: ScheduleStatus.LOCKED }) }),
       );
+    });
+
+    it('下单成功：出参携带幂等键 idempotencyKey（userId:scheduleId）', async () => {
+      const { svc, prisma } = build();
+      prisma.coach.findFirst.mockResolvedValue(onlineCoach);
+      prisma.coachSchedule.findFirst.mockResolvedValue({
+        id: 100n, coachId: 1n, status: ScheduleStatus.FREE, lockExpireAt: null,
+      });
+      prisma.coachSchedule.updateMany.mockResolvedValue({ count: 1 });
+      prisma.coachSchedule.update.mockResolvedValue({});
+      prisma.coachingOrder.create.mockResolvedValue({
+        id: 500n, orderNo: 'CO1', coachId: 1n, scheduleId: 100n,
+        amount: 20000n, status: CoachingOrderStatus.PENDING, payExpireAt: new Date(),
+      });
+      const vo = await svc.bookCoaching('7', { coachId: '1', scheduleId: '100' });
+      expect(vo.idempotencyKey).toBe('7:100');
+    });
+
+    it('同一用户重复下单命中 uk_user_schedule（P2002）→ 4090 幂等提示', async () => {
+      const { svc, prisma } = build();
+      prisma.coach.findFirst.mockResolvedValue(onlineCoach);
+      prisma.coachSchedule.findFirst.mockResolvedValue({
+        id: 100n, coachId: 1n, status: ScheduleStatus.FREE, lockExpireAt: null,
+      });
+      prisma.coachSchedule.updateMany.mockResolvedValue({ count: 1 });
+      prisma.coachSchedule.update.mockResolvedValue({});
+      prisma.coachingOrder.create.mockRejectedValue(
+        Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002', meta: { target: 'uk_user_schedule' },
+        }),
+      );
+      await expect(
+        svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
+      ).rejects.toMatchObject({ bizCode: 4090 });
+    });
+
+    it('并发时段重叠命中 uk_coach_slot（P2002）→ 60001 时段已占', async () => {
+      const { svc, prisma } = build();
+      prisma.coach.findFirst.mockResolvedValue(onlineCoach);
+      prisma.coachSchedule.findFirst.mockResolvedValue({
+        id: 100n, coachId: 1n, status: ScheduleStatus.FREE, lockExpireAt: null,
+      });
+      prisma.coachSchedule.updateMany.mockResolvedValue({ count: 1 });
+      prisma.coachSchedule.update.mockResolvedValue({});
+      prisma.coachingOrder.create.mockRejectedValue(
+        Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002', meta: { target: ['coach_id', 'start_time'] },
+        }),
+      );
+      await expect(
+        svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
+      ).rejects.toMatchObject({ bizCode: 4701 });
     });
   });
 
@@ -201,7 +253,7 @@ describe('CoachingService', () => {
       });
       await expect(
         svc.reviewOrder('7', '500', { rating: 5 }),
-      ).rejects.toMatchObject({ bizCode: 40000 });
+      ).rejects.toMatchObject({ bizCode: 4000 });
     });
 
     it('评价成功：入库并聚合更新辅导师 rating 均值/计数', async () => {
@@ -228,7 +280,7 @@ describe('CoachingService', () => {
       prisma.coachingReview.findUnique.mockResolvedValue({ id: 99n });
       await expect(
         svc.reviewOrder('7', '500', { rating: 5 }),
-      ).rejects.toMatchObject({ bizCode: 40000 });
+      ).rejects.toMatchObject({ bizCode: 4000 });
     });
   });
 });

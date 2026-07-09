@@ -183,7 +183,7 @@ export function FullReportPage() {
         <SectionHeading size="md" eyebrow="FULL INSIGHT" title="完整性格解读" />
         <Reveal className="mt-6 grid grid-cols-1 gap-5" deps={[report.id]}>
           {sections.map((s, i) => (
-            <RevealItem key={s.key} index={i}>
+            <RevealItem key={s.sectionKey} index={i}>
               <Card padding="lg">
                 <h3 className="flex items-center gap-2 font-display text-xl font-bold text-brand-primary-950">
                   <span className="h-5 w-1.5 rounded-full" style={{ background: color }} />

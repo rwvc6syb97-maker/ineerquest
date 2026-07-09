@@ -35,6 +35,6 @@ export class SendMessageDto {
   /** 本轮用户消息内容。 */
   @IsString()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(2000)
   content!: string;
 }

@@ -49,12 +49,12 @@ export function PricingPage() {
   const [redeemMsg, setRedeemMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const handleSelect = (plan: MembershipPlan) => {
-    // 报告解锁场景 bizType=1 且 bizId=reportId；否则会员 bizType=3 且 bizId=plan.id
+    // 报告解锁场景 bizType=1 且 bizId=reportId；否则会员 bizType=3 且 bizId=plan.planId
     const isUnlock = !!reportId;
     createOrder.mutate(
       {
         bizType: isUnlock ? BizType.REPORT_UNLOCK : BizType.MEMBERSHIP,
-        bizId: isUnlock ? reportId : plan.id,
+        bizId: isUnlock ? reportId : String(plan.planId),
       },
       {
         onSuccess: (order) => {
@@ -99,7 +99,7 @@ export function PricingPage() {
           const benefits = toBenefits(plan.benefits);
           const recommended = plan.isRecommended === 1;
           return (
-            <RevealItem key={plan.id} index={i}>
+            <RevealItem key={plan.planId} index={i}>
               <Card
                 padding="lg"
                 className={
@@ -121,9 +121,9 @@ export function PricingPage() {
 
                 <div className="mt-5 flex items-end gap-2">
                   <span className="font-display text-4xl font-black text-brand-primary-950">
-                    ¥{yuan(plan.price)}
+                    ¥{yuan(plan.price ?? 0)}
                   </span>
-                  {plan.originalPrice && plan.originalPrice > plan.price ? (
+                  {plan.originalPrice && plan.originalPrice > (plan.price ?? 0) ? (
                     <span className="mb-1 text-sm text-neutral-400 line-through">
                       ¥{yuan(plan.originalPrice)}
                     </span>
@@ -202,7 +202,7 @@ export function PricingPage() {
                     const result = await membershipApi.redeemCode(redeemCode);
                     setRedeemMsg({
                       ok: true,
-                      text: `兑换成功!已升级为「${result.planName}」${result.durationDays ? `，有效期 ${result.durationDays} 天` : ''}`,
+                      text: result?.message || '兑换成功，会员权益已生效',
                     });
                     setRedeemCode('');
                   } catch (err) {

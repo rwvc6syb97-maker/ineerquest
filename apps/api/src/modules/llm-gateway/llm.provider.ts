@@ -42,9 +42,18 @@ export class MockLlmProvider implements LlmProvider {
   private buildText(messages: ChatMessage[]): string {
     if (this.options.fixedText) return this.options.fixedText;
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-    const seed = lastUser?.content?.slice(0, 40) ?? '你好';
+    const raw = lastUser?.content;
+    // content 可能是纯文本或图文混合块，统一提取文本用于回显
+    const text =
+      typeof raw === 'string'
+        ? raw
+        : (raw ?? [])
+            .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+            .map((p) => p.text)
+            .join(' ');
+    const seed = (text || '你好').slice(0, 40);
     return `【模拟解读】基于「${seed}」为你生成的深度分析：你的特质与优势清晰，建议结合实际持续实践。`;
-  }
+ }
 
   async *chatStream(messages: ChatMessage[], model: string): AsyncIterable<string> {
     const { tokenDelayMs = 5, firstTokenDelayMs = 0, throwError = false } = this.options;

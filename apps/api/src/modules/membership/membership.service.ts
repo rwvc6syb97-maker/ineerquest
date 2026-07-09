@@ -144,6 +144,9 @@ export class MembershipService {
 
   private toPublicVo(p: MembershipPlanRow) {
     return {
+      // 对齐契约 v2.0：planId / level
+      planId: Number(p.id),
+      level: this.deriveMembershipLevel(p.code),
       id: p.id.toString(),
       code: p.code,
       name: p.name,
@@ -156,6 +159,17 @@ export class MembershipService {
       sortOrder: p.sortOrder,
       isRecommended: p.isRecommended,
     };
+  }
+
+  /**
+   * 从套餐编码推导会员等级 level（与 ActivationCodeService 保持一致）：
+   * coaching* → 2（辅导会员），pro* → 1（Pro 会员），其他 → 0。
+   */
+  private deriveMembershipLevel(planCode: string): number {
+    const c = (planCode || '').toLowerCase();
+    if (c.startsWith('coaching')) return 2;
+    if (c.startsWith('pro')) return 1;
+    return 0;
   }
 
   private toAdminVo(p: MembershipPlanRow) {

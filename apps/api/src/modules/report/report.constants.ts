@@ -18,6 +18,63 @@ export const ReportStatus = {
   FAILED: 2,
 } as const;
 
+/** 契约 v2.1 概览出参 generateStatus 字符串枚举。 */
+export type GenerateStatus = 'pending' | 'generating' | 'done' | 'failed';
+
+/**
+ * report.status 数字 → 契约 generateStatus 字符串映射（PM v2.1 §6.2①）。
+ * GENERATING→generating、READY→done、FAILED→failed；已创建未触发深度→pending（由业务判定后覆盖）。
+ */
+export function mapGenerateStatus(status: number): GenerateStatus {
+  switch (status) {
+    case ReportStatus.GENERATING:
+      return 'generating';
+    case ReportStatus.READY:
+      return 'done';
+    case ReportStatus.FAILED:
+      return 'failed';
+    default:
+      return 'pending';
+  }
+}
+
+/** MBTI 家族（性格四大类），由 mbtiType 推导，前端不得反解（PM v2.1）。 */
+export type MbtiFamily = 'analyst' | 'diplomat' | 'sentinel' | 'explorer';
+
+/**
+ * 由 4 字母 MBTI 类型推导家族：
+ * NT=分析家 analyst；NF=外交家 diplomat；SJ=守护者 sentinel；SP=探险家 explorer。
+ */
+export function deriveFamily(mbtiType: string): MbtiFamily {
+  const t = (mbtiType ?? '').toUpperCase();
+  const hasN = t.includes('N');
+  const hasS = t.includes('S');
+  const hasT = t.includes('T');
+  const hasF = t.includes('F');
+  const hasJ = t.includes('J');
+  const hasP = t.includes('P');
+  if (hasN && hasT) return 'analyst';
+  if (hasN && hasF) return 'diplomat';
+  if (hasS && hasJ) return 'sentinel';
+  if (hasS && hasP) return 'explorer';
+  return 'explorer';
+}
+
+/**
+ * 契约 dimensions 固定 4 项两极标签（left=偏向低分极，right=偏向高分极）。
+ * score 采用 assessment_result 中该维度得分（0~100，代表偏向 right 极的百分比）。
+ */
+export const DIMENSION_POLES: Array<{
+  dimension: 'EI' | 'SN' | 'TF' | 'JP';
+  left: string;
+  right: string;
+}> = [
+  { dimension: 'EI', left: '内向 I', right: '外向 E' },
+  { dimension: 'SN', left: '实感 S', right: '直觉 N' },
+  { dimension: 'TF', left: '思考 T', right: '情感 F' },
+  { dimension: 'JP', left: '判断 J', right: '知觉 P' },
+];
+
 /** 报告章节 key（report_section.section_key）。 */
 export const SectionKey = {
   /** 类型概述（免费预览） */

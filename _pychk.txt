@@ -1,7 +1,18 @@
-无法将“Replace”的参数“newChar”(其值为“&amp;”)转换为类型“System.Char”:“无法将值“&amp;”转换为类型“System.Char”。错误:“字符串的长度只能为一个字符。””
-所在位置 C:\Users\dengyifeng.alan\Desktop\其他\mbti+职业规划辅导\project\md2docx.ps1:36 字符: 5
-+     $t = $t.Replace([char]38, $amp).Replace([char]60, $lt).Replace([c ...
-+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [], ParentContainsErrorRecordException
-    + FullyQualifiedErrorId : MethodArgumentConversionInvalidCastArgument
- 
+## 阶段2数据库设计 - 总指挥终审 (2026-07-09)
+
+### D1 裁定: ReportSection.content 维持 Json
+- 理由: LLM 报告含 Markdown + charts + metadata, Json 更灵活
+- 需求文档 §6.2③ content:string 指接口返回格式,非DB存储格式
+- 不修改 Schema
+
+### D2 修复: CoachingOrder 补充幂等约束
+- schema.prisma: @@unique([userId, scheduleId], map: "uk_user_schedule")
+- 数据库设计文档: 索引表同步
+- 迁移: 20260709000000_add_uk_user_schedule/migration.sql
+- 对齐需求 §10.2④
+
+### D3 裁定: 用户信息脱敏在应用层,不加密
+- 当前 phone/email 明文,脱敏在 service 层
+- 不阻塞上线,后续按需升级
+
+### 阶段放行: 进入阶段3 后端开发

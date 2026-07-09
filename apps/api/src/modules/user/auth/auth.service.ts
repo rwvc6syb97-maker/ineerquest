@@ -31,8 +31,9 @@ export interface LoginResult {
   /** 本次登录是否走了降级手机号路径（T1-03） */
   fallback?: boolean;
   blocked?: boolean;
+  /** 本次登录是否为自动注册的新用户（手机/邮箱验证码登录场景） */
+  isNewUser?: boolean;
 }
-
 /**
  * AuthService — 认证核心（手机验证码登录、邮箱密码注册/登录、Token 刷新/登出）。
  */
@@ -83,12 +84,14 @@ export class AuthService {
   }
 
   /** 按手机号查找或创建用户（自动注册） */
-  private async findOrCreateByPhone(phone: string): Promise<AuthUserView> {
+  private async findOrCreateByPhone(phone: string): Promise<{ user: AuthUserView; isNew: boolean }> {
     let user = await this.prisma.user.findFirst({
       where: { phone, phoneCountry: '+86', isDeleted: 0 },
     });
+    let isNew = false;
     if (!user) {
-  user = await this.prisma.user.create({
+      isNew = true;
+      user = await this.prisma.user.create({
         data: {
           userNo: this.genUserNo(),
           phone,
@@ -97,7 +100,7 @@ export class AuthService {
         },
       });
     }
-    return this.toView(user);
+    return { user: this.toView(user), isNew };
   }
 
   /** 更新最近登录时间（尽力而为，失败不阻断） */
@@ -134,11 +137,11 @@ export class AuthService {
         throw new BizException(BizCode.SMS_CODE_INVALID, '验证码错误或已过期');
       }
     }
-    const user = await this.findOrCreateByPhone(phone);
+    const { user, isNew } = await this.findOrCreateByPhone(phone);
     this.assertNotBanned(user.status);
     const pair = this.token.issuePair(user.id);
     await this.touchLogin(user.id);
-    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user };
+    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user, isNewUser: isNew };
   }
 
   /**
@@ -185,12 +188,14 @@ export class AuthService {
   }
 
   /** 按邮箱查找或创建用户（邮箱验证码登录自动注册） */
-  private async findOrCreateByEmail(email: string): Promise<AuthUserView> {
+  private async findOrCreateByEmail(email: string): Promise<{ user: AuthUserView; isNew: boolean}> {
     const normalized = email.toLowerCase();
     let user = await this.prisma.user.findFirst({
       where: { email: normalized, isDeleted: 0 },
     });
+    let isNew = false;
     if (!user) {
+      isNew = true;
       user = await this.prisma.user.create({
         data: {
           userNo: this.genUserNo(),
@@ -199,7 +204,7 @@ export class AuthService {
         },
       });
     }
-    return this.toView(user);
+    return { user: this.toView(user), isNew };
   }
 
   /**
@@ -222,11 +227,11 @@ export class AuthService {
         throw new BizException(BizCode.EMAIL_CODE_INVALID, '验证码错误或已过期');
       }
     }
-    const user = await this.findOrCreateByEmail(email);
+    const { user, isNew } = await this.findOrCreateByEmail(email);
     this.assertNotBanned(user.status);
     const pair = this.token.issuePair(user.id);
     await this.touchLogin(user.id);
-    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user };
+    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken, user, isNewUser: isNew };
   }
 
   /** bcrypt-sha256 风格的密码哈希（PBKDF2 简化版：salt + sha256 iter） */

@@ -21,6 +21,7 @@ export const EventType = {
   REPORT_GENERATE: 'report_generate',
   REPORT_VIEW: 'report_view',
   REPORT_UNLOCK_VIEW_BLOCKED: 'report_unlock_view_blocked',
+  REPORT_SECTION_VIEW: 'report_section_view',
   REPORT_UNLOCK: 'report_unlock',
   REPORT_EXPORT: 'report_export',
   REPORT_SHARE: 'report_share',

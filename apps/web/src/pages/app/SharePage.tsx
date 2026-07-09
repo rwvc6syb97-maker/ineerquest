@@ -2,7 +2,7 @@
  * P14 分享海报页
  * - 基于报告数据渲染精致 SVG 海报（族群色主视觉），零第三方依赖
  * - 罗盘/星图几何母题 + 类型徽章 + 四维度简况色块（禁具象 icon）
- * - 生成分享短链（调 shareReport，失败用本地兜底）；复制链接 / 右键保存 SVG
+ * - 生成分享短链（调 shareReport，失败时展示错误提示，不做本地兜底掩盖）；复制链接 / 右键保存 SVG
  * TODO(blocked)：接入后端 poster 渲染或前端 html2canvas 导出 PNG。
  */
 import { useMemo, useState } from 'react';
@@ -24,6 +24,7 @@ export function SharePage() {
   const { data: report, isLoading } = useReport(id);
   const share = useShareReport();
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const shareUrl = useMemo(() => `${window.location.origin}/s/${id}`, [id]);
 
@@ -44,12 +45,16 @@ export function SharePage() {
   const summaryLines = report.summary.slice(0, 45).match(/.{1,15}/g) ?? [];
 
   const copyLink = async () => {
-    let url = shareUrl;
+    setShareError(null);
+    let url: string;
     try {
       const res = await share.mutateAsync(id);
-      url = res.shareUrl || shareUrl;
+      url = res.shareUrl;
     } catch {
-      // 无后端兜底：使用本地短链
+      // 分享短链依赖后端返回，失败时暴露错误提示，不再静默用本地短链掩盖
+      setShareError('分享链接生成失败，请稍后重试');
+      window.setTimeout(() => setShareError(null), 2600);
+      return;
     }
     try {
       await navigator.clipboard.writeText(url);
@@ -209,6 +214,11 @@ export function SharePage() {
         >
           {copied ? '已复制链接 ✓' : share.isPending ? '生成中…' : '复制分享链接'}
         </SpringButton>
+        {shareError && (
+          <p className="text-xs text-red-500" role="alert">
+            {shareError}
+          </p>
+        )}
         <div className="flex w-full max-w-sm items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
           <span className="flex-1 truncate text-left font-mono text-xs text-neutral-500">
             {shareUrl}

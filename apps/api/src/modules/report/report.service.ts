@@ -7,17 +7,34 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
 import { BizCode, BizException } from '../../common/response';
 import { AnalyticsService, EventType } from '../analytics/analytics.service';
-import { buildSections, DimensionScores } from './report-content.builder';
+import { buildSections, DimensionScores, getProfile } from './report-content.builder';
 import {
+  DIMENSION_POLES,
   PAID_SECTION_KEYS,
   REPORT_DAILY_QUOTA,
   REPORT_QUOTA_REDIS_PREFIX,
   ReportStatus,
   ReportType,
   SHARE_CODE_ALPHABET,
+  deriveFamily,
+  mapGenerateStatus,
 } from './report.constants';
 import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 import { REPORT_DEEP_PROMPT } from '../llm-gateway/llm-gateway.constants';
+
+/**
+ * 将 UTC 时间格式化为北京时间字符串（YYYY-MM-DD HH:mm:ss，东八区），
+ * 供概览出参 createdAt 使用（PM v2.1，前端直接展示不再二次解析）。
+ */
+function toBeijingString(date: Date | null | undefined): string {
+  if (!date) return '';
+  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const p = (n: number) => n.toString().padStart(2, '0');
+  return (
+    `${bj.getUTCFullYear()}-${p(bj.getUTCMonth() + 1)}-${p(bj.getUTCDate())} ` +
+    `${p(bj.getUTCHours())}:${p(bj.getUTCMinutes())}:${p(bj.getUTCSeconds())}`
+  );
+}
 
 /**
  * T1-14 / T1-15 / T1-17 报告服务。
@@ -211,6 +228,126 @@ export class ReportService {
     }
   }
 
+  /**
+   * POST /reports/:id/generate：触发 LLM 深度生成（§6.1 #4）。
+   * - 已生成报告且 status=READY 时幂等返回
+   * - 生成中（status=GENERATING）抛 4303
+   * - 生成失败（status=FAILED）允许重试
+   * - 入参 sections 可选，默认全部三段
+   */
+  async generateDeepContent(userId: string, reportId: string, sectionKeys?: string[]) {
+    const report = await this.prisma.report.findFirst({
+      where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
+    });
+    if (!report) {
+      throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
+    }
+
+    // 生成中 → 4303
+    if (report.status === ReportStatus.GENERATING) {
+      throw new BizException(BizCode.REPORT_GENERATING, '报告正在生成中，请稍后查看');
+    }
+
+    // 已就绪 → 幂等返回
+    if (report.status === ReportStatus.READY) {
+      return {
+        reportId: report.id.toString(),
+        generateStatus: 'done',
+        message: '报告已生成完毕',
+      };
+    }
+
+    // 失败 → 允许重试，先置为 GENERATING
+    const targetKeys = (sectionKeys?.length ?? 0) > 0
+      ? sectionKeys!.filter((k) => PAID_SECTION_KEYS.includes(k))
+      : PAID_SECTION_KEYS;
+
+    await this.prisma.report.update({
+      where: { id: report.id },
+      data: { status: ReportStatus.GENERATING },
+    });
+
+    // 异步触发 LLM（fire-and-forget，不阻塞响应）
+    this.triggerDeepGeneration(report.mbtiType, report.id, targetKeys, userId).catch((err) => {
+      this.logger.error(`deep generation failed for report ${reportId}: ${(err as Error).message}`);
+      // 失败后回写 status=FAILED
+      this.prisma.report.update({
+        where: { id: report.id },
+        data: { status: ReportStatus.FAILED },
+      }).catch(() => {});
+    });
+
+    return {
+      reportId: report.id.toString(),
+      generateStatus: 'generating',
+      taskId: `deep-gen-${report.id}-${Date.now()}`,
+      targetSections: targetKeys,
+    };
+  }
+
+  /**
+   * 异步触发 LLM 深度生成并回写 report_section.content。
+   * 失败时回写 report.status=FAILED。
+   */
+  private async triggerDeepGeneration(
+    mbtiType: string,
+    reportId: bigint,
+    sectionKeys: string[],
+    userId: string,
+  ) {
+    // 获取维度得分（用于 LLM context）
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      include: { result: true },
+    });
+    if (!report?.result) return;
+
+    const scores: DimensionScores = {
+      EI: Number(report.result.scoreEi),
+      SN: Number(report.result.scoreSn),
+      TF: Number(report.result.scoreTf),
+      JP: Number(report.result.scoreJp),
+    };
+
+    const sceneTitles: Record<string, string> = {
+      deep_personality: '深度性格解读',
+      career_advice: '职业发展建议',
+      relationship: '人际关系解读',
+    };
+
+    for (const key of sectionKeys) {
+      const topic = sceneTitles[key] ?? key;
+      try {
+        const res = await this.llm.chat({
+          prompt: {
+            system: REPORT_DEEP_PROMPT.system,
+            role: REPORT_DEEP_PROMPT.role,
+            context: `用户 MBTI 类型：${mbtiType}；四维度得分：EI=${scores.EI} SN=${scores.SN} TF=${scores.TF} JP=${scores.JP}。`,
+            user: `请围绕「${topic}」为该用户输出一段专业、具体、可执行的深度解读。`,
+          },
+          callerId: userId,
+          scene: `report:${key}`,
+        });
+
+        if (!res.degraded && res.text && res.text.trim()) {
+          // 回写 section content
+          await this.prisma.reportSection.updateMany({
+            where: { reportId, sectionKey: key },
+            data: { content: { text: res.text } },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`deep generation degraded for ${key}: ${(err as Error).message}`);
+      }
+    }
+
+    // 全部完成后置 status=READY
+    await this.prisma.report.update({
+      where: { id: reportId },
+      data: { status: ReportStatus.READY, generatedAt: new Date() },
+    });
+  }
+
   // ============ T1-15 报告查询 ============
 
   /**
@@ -220,7 +357,10 @@ export class ReportService {
   async getReportForOwner(userId: string, reportId: string, sectionKey?: string) {
     const report = await this.prisma.report.findFirst({
       where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
-      include: { sections: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+        sections: { orderBy: { sortOrder: 'asc' } },
+        result: true, // 反查 recordId 与维度得分（PM v2.1 §6.2①）
+      },
     });
     if (!report) {
       throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
@@ -257,17 +397,126 @@ export class ReportService {
 
     this.analytics.fire({ userId, eventType: EventType.REPORT_VIEW, properties: { reportId } });
 
+    // ---- 契约 v2.1 顶层结构组装（后端渲染，前端不得反解） ----
+    const family = deriveFamily(report.mbtiType);
+    const dimensions = this.buildDimensionScores(report.result);
+    const summary = this.renderSummaryText(report.mbtiType, family, report.summary);
+    // 深度未触发（无任何付费段落记录）时映射为 pending，否则按 status 映射
+    const hasPaidSection = report.sections.some((s) => PAID_SECTION_KEYS.includes(s.sectionKey));
+    const generateStatus = hasPaidSection ? mapGenerateStatus(report.status) : 'pending';
+
     return {
       id: report.id.toString(),
+      recordId: report.result.recordId.toString(),
       reportNo: report.reportNo,
       mbtiType: report.mbtiType,
-      reportType: report.reportType,
-      status: report.status,
-      isUnlocked: unlocked,
-      summary: report.summary,
+      family,
+      summary,
+      dimensions,
+      generateStatus,
       sections,
       lockedSectionKeys,
-      generatedAt: report.generatedAt,
+      isUnlocked: unlocked,
+      createdAt: toBeijingString(report.createdAt),
+    };
+  }
+
+  /**
+   * 组装契约固定 4 项维度结构：{ dimension, left, right, score }。
+   * score 取自 assessment_result 各维度得分（0~100，偏向 right 极百分比）。
+   */
+  private buildDimensionScores(result: {
+    scoreEi: unknown;
+    scoreSn: unknown;
+    scoreTf: unknown;
+    scoreJp: unknown;
+  }): Array<{ dimension: string; left: string; right: string; score: number }> {
+    const scoreMap: Record<'EI' | 'SN' | 'TF' | 'JP', number> = {
+      EI: Number(result.scoreEi),
+      SN: Number(result.scoreSn),
+      TF: Number(result.scoreTf),
+      JP: Number(result.scoreJp),
+    };
+    return DIMENSION_POLES.map((p) => ({
+      dimension: p.dimension,
+      left: p.left,
+      right: p.right,
+      score: Math.round(Math.max(0, Math.min(100, scoreMap[p.dimension] || 0))),
+    }));
+  }
+
+  /**
+   * 后端渲染概览文案（string）。summary 列历史存 Json，此处统一转为可读文本，
+   * 避免前端 summary.slice 对对象取值报错（PM v2.1）。
+   */
+  private renderSummaryText(mbtiType: string, family: string, raw: unknown): string {
+    const profile = getProfile(mbtiType);
+    return `${mbtiType} · ${profile.nickname}。${profile.overview}`;
+  }
+
+  /**
+   * GET /reports/:id/sections：章节列表（§6.1 #2）。
+   * 返回所有章节，免费/付费标记 + 未解锁时付费章节内容置空。
+   */
+  async getSectionsForOwner(userId: string, reportId: string) {
+    const report = await this.prisma.report.findFirst({
+      where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
+      include: { sections: { orderBy: { sortOrder: 'asc' } } },
+    });
+    if (!report) {
+      throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
+    }
+    const unlocked = report.isUnlocked === 1;
+
+    return report.sections.map((s) => ({
+      sectionKey: s.sectionKey,
+      title: s.title,
+      isFree: s.isFree === 1,
+      paid: PAID_SECTION_KEYS.includes(s.sectionKey),
+      sortOrder: s.sortOrder,
+      // 未解锁时付费章节内容置空，前端展示锁图标
+      content: unlocked || !PAID_SECTION_KEYS.includes(s.sectionKey) ? s.content : null,
+    }));
+  }
+
+  /**
+   * GET /reports/:id/sections/:sectionKey：章节详情（§6.1 #3）。
+   * 付费章节需已解锁，否则抛 4302。
+   */
+  async getSectionDetail(userId: string, reportId: string, sectionKey: string) {
+    const report = await this.prisma.report.findFirst({
+      where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
+    });
+    if (!report) {
+      throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
+    }
+
+    const section = await this.prisma.reportSection.findFirst({
+      where: { reportId: report.id, sectionKey },
+    });
+    if (!section) {
+      throw new BizException(BizCode.REPORT_SECTION_NOT_FOUND, '章节不存在');
+    }
+
+    // 付费章节未解锁 → 4302
+    if (PAID_SECTION_KEYS.includes(sectionKey) && report.isUnlocked !== 1) {
+      this.analytics.fire({
+        userId,
+        eventType: EventType.REPORT_UNLOCK_VIEW_BLOCKED,
+        properties: { reportId, sectionKey },
+      });
+      throw new BizException(BizCode.REPORT_LOCKED, '该段落需解锁后查看');
+    }
+
+    this.analytics.fire({ userId, eventType: EventType.REPORT_SECTION_VIEW, properties: { reportId, sectionKey } });
+
+    return {
+      sectionKey: section.sectionKey,
+      title: section.title,
+      isFree: section.isFree === 1,
+      paid: PAID_SECTION_KEYS.includes(sectionKey),
+      content: section.content,
+      sortOrder: section.sortOrder,
     };
   }
 

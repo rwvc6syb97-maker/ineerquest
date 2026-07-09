@@ -31,16 +31,22 @@ export class UserService {
   async getProfile(userId: string) {
     const u = await this.getUserOrThrow(userId);
     return {
-      id: u.id.toString(),
+      // 对齐契约 v2.0：userId / avatar / email / createdAt
+      userId: u.id.toString(),
       userNo: u.userNo,
       nickname: u.nickname,
-      avatarUrl: u.avatarUrl,
+      avatar: u.avatarUrl,
       phone: u.phone,
+      email: u.email ?? null,
       gender: u.gender,
       role: u.role,
       status: u.status,
       isPaid: u.isPaid,
+      paidExpireAt: u.paidExpireAt ? u.paidExpireAt.toISOString() : null,
+      membershipLevel: u.membershipLevel,
+      membershipExpireAt: u.membershipExpireAt ? u.membershipExpireAt.toISOString() : null,
       deactivatedAt: u.deactivatedAt,
+      createdAt: u.createdAt ? u.createdAt.toISOString() : null,
     };
   }
 

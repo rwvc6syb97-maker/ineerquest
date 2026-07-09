@@ -22,10 +22,15 @@ export enum PromptLayer {
   USER = 'user',
 }
 
-/** 聊天消息（对齐主流 provider chat 语义）。 */
+/** 多模态内容块（对齐 Agnes AI / OpenAI content 数组语义）。 */
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+/** 聊天消息（对齐主流 provider chat 语义；content 支持纯文本或图文混合块）。 */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | ChatContentPart[];
 }
 
 /** 分层 Prompt 模板输入。 */
@@ -38,6 +43,8 @@ export interface LayeredPrompt {
   context?: string;
   /** 用户层：本轮用户问题 */
   user: string;
+  /** 图像层：公开可访问��图像 URL 列表（Agnes AI 图像理解），与 user 文本一并构造图文消息 */
+  images?: string[];
 }
 
 /** 单次 chat 请求参数。 */

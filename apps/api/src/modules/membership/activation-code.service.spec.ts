@@ -31,6 +31,9 @@ describe('ActivationCodeService', () => {
         findFirst: jest.fn(),
         update: jest.fn(),
       },
+      membershipRedeemRecord: {
+        create: jest.fn(),
+      },
       $transaction: jest.fn((arg: unknown) => {
         if (Array.isArray(arg)) return Promise.all(arg);
         if (typeof arg === 'function') return arg(prisma);
@@ -145,7 +148,7 @@ describe('ActivationCodeService', () => {
 
       await expect(
         svc.redeem('7', 'USED-CODE'),
-      ).rejects.toMatchObject({ bizCode: 40000, message: '激活码已被使用或已过期' });
+      ).rejects.toMatchObject({ bizCode: 4602, message: '激活码已被使用' });
     });
 
     it('激活码不存在 → 抛出 NOT_FOUND', async () => {
@@ -154,7 +157,7 @@ describe('ActivationCodeService', () => {
 
       await expect(
         svc.redeem('7', 'NO-SUCH-CODE'),
-      ).rejects.toMatchObject({ bizCode: 40400, message: '激活码无效' });
+      ).rejects.toMatchObject({ bizCode: 4601, message: '激活码无效' });
     });
 
     it('激活码已过期 → 自动标记 status=2 → 拒绝', async () => {
@@ -166,7 +169,7 @@ describe('ActivationCodeService', () => {
 
       await expect(
         svc.redeem('7', 'EXPIRED-CODE'),
-      ).rejects.toMatchObject({ bizCode: 40000, message: '激活码已过期' });
+      ).rejects.toMatchObject({ bizCode: 4603, message: '激活码已过期' });
 
       // 验证过期码被标记为 status=2
       const updateCall = prisma.activationCode.update;
@@ -184,7 +187,7 @@ describe('ActivationCodeService', () => {
 
       await expect(
         svc.redeem('7', 'AAAA-BBBB-CCCC-DD'),
-      ).rejects.toMatchObject({ bizCode: 40000, message: '对应套餐已下架' });
+      ).rejects.toMatchObject({ bizCode: 4604, message: '对应套餐已下架' });
     });
 
     it('用户已有有效会员 → 从到期日起叠加', async () => {
@@ -221,7 +224,7 @@ describe('ActivationCodeService', () => {
       expect(r1.status).toBe('fulfilled');
       expect(r2.status).toBe('rejected');
       if (r2.status === 'rejected') {
-        expect(r2.reason).toMatchObject({ bizCode: 40000, message: '兑换处理中，请勿重复提交' });
+        expect(r2.reason).toMatchObject({ bizCode: 4090, message: '兑换处理中，请勿重复提交' });
       }
     });
 

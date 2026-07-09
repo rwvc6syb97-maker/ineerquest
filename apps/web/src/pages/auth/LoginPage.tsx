@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuthStore, isMockAuthEnabled } from '../../stores/auth.store';
+import { useAuthStore } from '../../stores/auth.store';
 import { authApi, ApiError } from '../../api';
 import { SpringButton } from '../../components/system/SpringButton';
 import { COLORS } from '../../theme/tokens';
@@ -74,10 +74,6 @@ export function LoginPage() {
       smsSetErr('phone', { message: '请输入正确的手机号' });
       return;
     }
-    if (isMockAuthEnabled()) {
-      startCountdown();
-      return;
-    }
     setSending(true);
     try {
       await authApi.sendSms(phone);
@@ -96,10 +92,6 @@ export function LoginPage() {
       emailSetErr('email', { message: '请输入正确的邮箱地址' });
       return;
     }
-    if (isMockAuthEnabled()) {
-      startCountdown();
-      return;
-    }
     setSending(true);
     try {
       await authApi.sendEmailCode(email);
@@ -114,9 +106,11 @@ export function LoginPage() {
 
   const onSmsSubmit = smsSubmit(async (values) => {
     try {
-      await loginBySms(values.phone, values.code);
+      const isNewUser = await loginBySms(values.phone, values.code);
       const redirect = params.get('redirect');
-      navigate(redirect ? decodeURIComponent(redirect) : '/app', { replace: true });
+      // 新注册用户引导至套餐页，否则按 redirect 回跳，默认 /app
+      const target = isNewUser ? '/app/me/plan' : redirect ? decodeURIComponent(redirect) : '/app';
+      navigate(target, { replace: true });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : '登录失败，请重试';
       smsSetErr('root', { message: msg });
@@ -125,9 +119,10 @@ export function LoginPage() {
 
   const onEmailSubmit = emailSubmit(async (values) => {
     try {
-      await loginByEmailCode(values.email, values.code);
+      const isNewUser = await loginByEmailCode(values.email, values.code);
       const redirect = params.get('redirect');
-      navigate(redirect ? decodeURIComponent(redirect) : '/app', { replace: true });
+      const target = isNewUser ? '/app/me/plan' : redirect ? decodeURIComponent(redirect) : '/app';
+      navigate(target, { replace: true });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : '登录失败，请重试';
       emailSetErr('root', { message: msg });
@@ -204,11 +199,6 @@ export function LoginPage() {
             {smsSubmitting ? '登录中…' : '登录 / 注册'}
           </SpringButton>
 
-          {isMockAuthEnabled() && (
-            <p className="text-xs text-slate-400 text-center">
-              开发模式：手机号 13800000000 + 验证码 888888 直接登录
-            </p>
-          )}
         </form>
       )}
 
@@ -261,12 +251,6 @@ export function LoginPage() {
           <SpringButton type="submit" disabled={emailSubmitting} className="w-full">
             {emailSubmitting ? '登录中…' : '登录 / 注册'}
           </SpringButton>
-
-          {isMockAuthEnabled() && (
-            <p className="text-xs text-slate-400 text-center">
-              开发模式：邮箱 test@innerquest.local + 验证码 888888 直接登录
-            </p>
-          )}
         </form>
       )}
     </div>

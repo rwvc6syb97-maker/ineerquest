@@ -32,27 +32,27 @@ export class AuthController {
     return ok({ sent: true, ttl, blocked, devCode }, traceId, '验证码已发送');
   }
 
-  /** T1-02 手机号登录 POST /api/v1/auth/login */
+  /** T1-02 手机号验证码登录 POST /api/v1/auth/login/sms（契约路径；/auth/login 为兼容别名） */
   @Public()
-  @Post('login')
+  @Post(['login/sms', 'login'])
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const traceId = getTraceId(req);
     const result = await this.auth.loginByPhone(dto.phone, dto.code);
     return ok(result, traceId, '登录成功');
   }
 
-  /** 邮箱注册 POST /api/v1/auth/email/register */
+  /** 邮箱注册 POST /api/v1/auth/register/email（契约路径；/auth/email/register 为兼容别名） */
   @Public()
-  @Post('email/register')
+  @Post(['register/email', 'email/register'])
   async emailRegister(@Body() dto: EmailRegisterDto, @Req() req: Request) {
     const traceId = getTraceId(req);
     const result = await this.auth.registerByEmail(dto.email, dto.password, dto.nickname);
     return ok(result, traceId, '注册成功');
   }
 
-  /** 邮箱登录 POST /api/v1/auth/email/login */
+  /** 邮箱密码登录 POST /api/v1/auth/login/email（契约路径；/auth/email/login 为兼容别名） */
   @Public()
-  @Post('email/login')
+  @Post(['login/email', 'email/login'])
   async emailLogin(@Body() dto: EmailLoginDto, @Req() req: Request) {
     const traceId = getTraceId(req);
     const result = await this.auth.loginByEmail(dto.email, dto.password);

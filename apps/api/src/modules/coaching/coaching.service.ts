@@ -308,14 +308,23 @@ export class CoachingService implements OnModuleInit {
         status: order.status,
         statusLabel: COACHING_ORDER_STATUS_LABEL[order.status] ?? 'unknown',
         payExpireAt: order.payExpireAt,
+        // 幂等键：同一用户对同一时段唯一（uk_user_schedule），供前端防重复提交
+        idempotencyKey: `${userId}:${order.scheduleId.toString()}`,
         // 复用 payment 下单：bizType=2 + bizId=order.id
         bizType: 2,
       };
     } catch (err) {
       // 下单失败释放锁，允许其他用户重试
       await this.releaseSlotLock(scheduleId);
-      // 并发下 uk_coach_slot 唯一冲突（P2002）归一为 60001
+      // 唯一约束冲突（P2002）按约束名区分：
+      // - uk_user_schedule：同一用户对同一时段重复下单 → 4090 幂等提示
+      // - uk_coach_slot（或其他）：并发抢占时段重叠 → 60001 时段已占
       if ((err as { code?: string }).code === 'P2002') {
+        const target = (err as { meta?: { target?: unknown } }).meta?.target;
+        const targetStr = Array.isArray(target) ? target.join(',') : String(target ?? '');
+        if (targetStr.includes('uk_user_schedule')) {
+          throw new BizException(BizCode.DUPLICATE_SUBMIT, '该时段您已预约，请勿重复下单');
+        }
         throw new BizException(BizCode.COACH_SLOT_TAKEN, '该时段已被占用，请选择其他时段');
       }
       throw err;

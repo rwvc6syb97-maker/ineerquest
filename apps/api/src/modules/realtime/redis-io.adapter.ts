@@ -2,6 +2,10 @@ import { INestApplicationContext, Logger } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import type { ServerOptions } from 'socket.io';
 import { RELIABILITY } from './realtime.constants';
+import {
+  CORS_ALLOWED_ORIGINS,
+  CORS_ALLOWED_METHODS,
+} from '../../config/cors.constants';
 
 /**
  * T4-05 · Socket.IO 广播适配器（单实例内存广播）。
@@ -33,8 +37,12 @@ export class RedisIoAdapter extends IoAdapter {
       ...options,
       // T4-06 长轮询降级：允许 polling 作为 websocket 不可用时的兜底通道
       transports: [...RELIABILITY.TRANSPORTS],
-      // 允许 CORS（生产按需收敛）
-      cors: { origin: true, credentials: true },
+      // CORS 与 HTTP 层(main.ts)共享同一白名单，禁止 origin:true 反射任意来源（防 CSRF/越权）
+      cors: {
+        origin: [...CORS_ALLOWED_ORIGINS],
+        methods: [...CORS_ALLOWED_METHODS],
+        credentials: true,
+      },
     });
   }
 

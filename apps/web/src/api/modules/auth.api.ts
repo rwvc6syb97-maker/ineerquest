@@ -1,6 +1,13 @@
 /**
- * 认证服务 API（短信验证码 + 邮箱密码登录）
- * 对齐后端契约：POST /auth/sms/send、POST /auth/login、POST /auth/email/register、POST /auth/email/login、POST /auth/logout
+ * 认证服务 API（短信验证码 + 邮箱密码/验证码登录）
+ * 对齐权威契约 v2.0：
+ *  POST /auth/sms/send        发送短信验证码
+ *  POST /auth/login/sms       手机验证码登录（无则注册）
+ *  POST /auth/login/email     邮箱密码登录
+ *  POST /auth/register/email  邮箱注册
+ *  POST /auth/email/code/send 发送邮箱验证码
+ *  POST /auth/email/code/login 邮箱验证码登录（自动注册）
+ *  POST /auth/logout          登出
  * 所有方法返回已解包业务数据；失败以 ApiError 抛出。
  */
 import { request } from '../client';
@@ -16,11 +23,13 @@ export interface AuthUser {
   mbtiType?: string | null;
 }
 
-/** 登录结果：accessToken/refreshToken/user */
+/** 登录结果：accessToken/refreshToken/user（SMS 登录额外含 isNewUser） */
 export interface LoginResult {
   accessToken: string;
   refreshToken: string;
   user: AuthUser;
+  /** 是否为本次登录新注册用户（仅 /auth/login/sms 返回） */
+  isNewUser?: boolean;
 }
 
 /** 发送短信验证码：60s 一次，超频返回 20001 */
@@ -32,25 +41,25 @@ export function sendSms(phone: string): Promise<{ expireIn: number }> {
   });
 }
 
-/** 短信验证码登录：成功后写入 Token */
+/** 短信验证码登录：成功后写入 Token（路由 /auth/login/sms，出参含 isNewUser） */
 export async function loginBySms(phone: string, code: string): Promise<LoginResult> {
   const data = await request<LoginResult>({
-    url: '/auth/login',
+    url: '/auth/login/sms',
     method: 'POST',
-    data: { phone, code, loginType: 'sms' },
+    data: { phone, code },
   });
   setTokens(data.accessToken, data.refreshToken);
   return data;
 }
 
-/** 邮箱注册：成功后写入 Token */
+/** 邮箱注册：成功后写入 Token（路由 /auth/register/email） */
 export async function registerByEmail(
   email: string,
   password: string,
   nickname?: string,
 ): Promise<LoginResult> {
   const data = await request<LoginResult>({
-    url: '/auth/email/register',
+    url: '/auth/register/email',
     method: 'POST',
     data: { email, password, nickname },
   });
@@ -58,10 +67,10 @@ export async function registerByEmail(
   return data;
 }
 
-/** 邮箱+密码登录：成功后写入 Token */
+/** 邮箱+密码登录：成功后写入 Token（路由 /auth/login/email） */
 export async function loginByEmail(email: string, password: string): Promise<LoginResult> {
   const data = await request<LoginResult>({
-    url: '/auth/email/login',
+    url: '/auth/login/email',
     method: 'POST',
     data: { email, password },
   });

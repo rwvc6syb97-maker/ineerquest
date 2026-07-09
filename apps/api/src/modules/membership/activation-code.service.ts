@@ -30,6 +30,27 @@ export class ActivationCodeService {
     return typeof v === 'bigint' ? v : BigInt(v);
   }
 
+  /**
+   * 从套餐编码推导会员等级 membershipLevel。
+   * MembershipPlan 表无 membershipLevel 字段，按 planCode 命名约定推导：
+   * - coaching* → 2（辅导会员）
+   * - pro*      → 1（Pro 会员）
+   * - free/其他 → 0（普通用户）
+   */
+  private deriveMembershipLevel(planCode: string): number {
+    const c = (planCode || '').toLowerCase();
+    if (c.startsWith('coaching')) return 2;
+    if (c.startsWith('pro')) return 1;
+    return 0;
+  }
+
+  /** 生成兑换流水号：R + 时间戳(36) + 8位随机（≤24 字符，匹配 Char24 + uk_redeem_no） */
+  private genRedeemNo(): string {
+    const ts = Date.now().toString(36).toUpperCase();
+    const rand = randomBytes(4).toString('hex').toUpperCase();
+    return `R${ts}${rand}`.slice(0, 24);
+  }
+
   // ============ 管理员：批量生成 ============
 
   async generate(dto: { planCode: string; count: number; expireDays?: number; note?: string }) {
@@ -188,8 +209,15 @@ export class ActivationCodeService {
 
   async redeem(userId: string, code: string): Promise<{
     planName: string;
+    membershipLevel: number;
     durationDays: number | null;
     expireAt: string | null;
+    membershipExpireAt: string | null;
+    redeemNo: string;
+    redeemId: number;
+    planId: number;
+    level: number;
+    message: string;
   }> {
     const uid = this.toBigInt(userId);
 
@@ -197,68 +225,106 @@ export class ActivationCodeService {
     const lockKey = `activation:redeem:${code}`;
     const locked = await this.redis.raw.set(lockKey, '1', 'EX', 10, 'NX');
     if (locked === null) {
-      throw new BizException(CommonCode.BAD_REQUEST, '兑换处理中，请勿重复提交');
+      throw new BizException(BizCode.DUPLICATE_SUBMIT, '兑换处理中，请勿重复提交');
     }
 
     try {
       const record = await this.prisma.activationCode.findFirst({
         where: { code: code.toUpperCase() },
       });
+      // 4601 激活码无效
       if (!record) {
-        throw new BizException(CommonCode.NOT_FOUND, '激活码无效');
+        throw new BizException(BizCode.ACTIVATION_CODE_INVALID, '激活码无效');
       }
-      if (record.status !== 0) {
-        throw new BizException(CommonCode.BAD_REQUEST, '激活码已被使用或已过期');
+      // 4602 激活码已被使用
+      if (record.status === 1) {
+        throw new BizException(BizCode.ACTIVATION_CODE_USED, '激活码已被使用');
+      }
+      // 4603 激活码已过期（含已标记过期 status=2 与实时过期）
+      if (record.status === 2) {
+        throw new BizException(BizCode.ACTIVATION_CODE_EXPIRED, '激活码已过期');
       }
       if (record.expireAt && new Date() > record.expireAt) {
-        // 标记过期
         await this.prisma.activationCode.update({
           where: { id: record.id },
           data: { status: 2 },
         });
-        throw new BizException(CommonCode.BAD_REQUEST, '激活码已过期');
+        throw new BizException(BizCode.ACTIVATION_CODE_EXPIRED, '激活码已过期');
       }
 
       // 查套餐
       const plan = await this.prisma.membershipPlan.findFirst({
         where: { code: record.planCode, isDeleted: 0 },
       });
+      // 4604 激活码对应套餐已停用/下架
       if (!plan || plan.status !== 1) {
-        throw new BizException(CommonCode.BAD_REQUEST, '对应套餐已下架');
+        throw new BizException(BizCode.ACTIVATION_CODE_DISABLED, '对应套餐已下架');
       }
 
-      // 计算会员到期时间
-      let paidExpireAt: Date | null = null;
+      const membershipLevel = this.deriveMembershipLevel(plan.code);
+
+      // 计算会员到期时间（已有会员在有效期内则叠加，否则从今天起算）
+      let expireAt: Date | null = null;
       if (plan.durationDays) {
-        // 如果已有会员且在有效期内，叠加；否则从今天起算
         const user = await this.prisma.user.findFirst({
           where: { id: uid },
-          select: { paidExpireAt: true },
+          select: { paidExpireAt: true, membershipExpireAt: true },
         });
-        const base = user?.paidExpireAt && new Date(user.paidExpireAt) > new Date()
-          ? new Date(user.paidExpireAt)
+        const prevExpire = user?.membershipExpireAt ?? user?.paidExpireAt ?? null;
+        const base = prevExpire && new Date(prevExpire) > new Date()
+          ? new Date(prevExpire)
           : new Date();
-        paidExpireAt = new Date(base.getTime() + plan.durationDays * 86400_000);
+        expireAt = new Date(base.getTime() + plan.durationDays * 86400_000);
       }
 
-      // 原子操作：升级用户 + 标记激活码已用
-      await this.prisma.$transaction(async (tx) => {
+      const redeemNo = this.genRedeemNo();
+
+      // 原子操作：升级用户(双轨字段) + 标记激活码已用 + 落兑换记录
+      const redeemRecord = await this.prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: uid },
-          data: { isPaid: 1, paidExpireAt },
+          data: {
+            // 兼容字段（旧逻辑）
+            isPaid: 1,
+            paidExpireAt: expireAt,
+            // 新会员双轨字段
+            membershipLevel,
+            membershipExpireAt: expireAt,
+          },
         });
         await tx.activationCode.update({
           where: { id: record.id },
           data: { status: 1, usedBy: uid, usedAt: new Date() },
         });
+        return tx.membershipRedeemRecord.create({
+          data: {
+            redeemNo,
+            userId: uid,
+            codeId: record.id,
+            code: record.code,
+            planCode: plan.code,
+            planName: plan.name,
+            membershipLevel,
+            durationDays: plan.durationDays ?? 0,
+            expireAt,
+          },
+        });
       });
 
-      this.logger.log(`用户 ${userId} 兑换激活码 ${code}，套餐 ${plan.name}`);
+      this.logger.log(`用户 ${userId} 兑换激活码${code}，套餐 ${plan.name}，等级 ${membershipLevel}，流水 ${redeemNo}`);
 
       return {
         planName: plan.name,
+        membershipLevel,
         durationDays: plan.durationDays,
-        expireAt: paidExpireAt?.toISOString() ?? null,
+        expireAt: expireAt?.toISOString() ?? null,
+        membershipExpireAt: expireAt?.toISOString() ?? null,
+        redeemNo,
+        // 新增：对齐契约 v2.0
+        redeemId: Number(redeemRecord.id), // 兑换记录ID（幂等键）
+        planId: Number(plan.id),           // 套餐ID
+        level: membershipLevel,            // 会员等级
+        message: `恭喜升级为${plan.name}会员`,
       };
     } finally {
       await this.redis.raw.del(lockKey).catch(() => {});
@@ -269,14 +335,41 @@ export class ActivationCodeService {
   async getUserMembership(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: this.toBigInt(userId) },
-      select: { isPaid: true, paidExpireAt: true },
+      select: {
+        isPaid: true,
+        paidExpireAt: true,
+        membershipLevel: true,
+        membershipExpireAt: true,
+      },
     });
-    if (!user) throw new BizException(CommonCode.NOT_FOUND, '用户不存在');
-    const expired = user.paidExpireAt ? new Date() > user.paidExpireAt : false;
+    if (!user) throw new BizException(BizCode.NOT_FOUND, '用户不存在');
+    const effectiveExpire = user.membershipExpireAt ?? user.paidExpireAt ?? null;
+    const expired = effectiveExpire ? new Date() > effectiveExpire : false;
     return {
       isPaid: expired ? 0 : user.isPaid,
       paidExpireAt: user.paidExpireAt?.toISOString() ?? null,
+      membershipLevel: expired ? 0 : user.membershipLevel,
+      membershipExpireAt: user.membershipExpireAt?.toISOString() ?? null,
       expired,
+    };
+  }
+
+  /** GET /memberships/records 我的兑换记录（需登录） */
+  async getUserRedeemRecords(userId: string) {
+    const uid = this.toBigInt(userId);
+    const records = await this.prisma.membershipRedeemRecord.findMany({
+      where: { userId: uid },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return {
+      list: records.map((r) => ({
+        redeemId: Number(r.id),
+        planId: Number(r.codeId), // 关联的激活码ID
+        level: r.membershipLevel,
+        expireAt: r.expireAt?.toISOString() ?? null,
+        redeemedAt: r.createdAt.toISOString(),
+      })),
     };
   }
 }

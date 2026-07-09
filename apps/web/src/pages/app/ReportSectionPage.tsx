@@ -2,7 +2,7 @@
  * P10 报告章节详情页（/app/report/:id/section/:sectionId）
  * -------------------------------------------------------------
  * 从报告中取出单个章节深度阅读；付费锁态段引导解锁。
- * 复用 useReport（含 mock 兜底），按 sectionId 匹配 section.key。
+ * 复用 useReport（含 mock 兜底），按 sectionId 匹配 section.sectionKey。
  */
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReport } from '../../hooks/useReport';
@@ -44,7 +44,7 @@ export function ReportSectionPage() {
   }
 
   const color = FAMILY_COLORS[report.family];
-  const section = report.sections.find((s) => s.key === sectionId);
+  const section = report.sections.find((s) => s.sectionKey === sectionId);
 
   // 章节不存在
   if (!section) {
@@ -64,7 +64,7 @@ export function ReportSectionPage() {
     );
   }
 
-  const idx = report.sections.findIndex((s) => s.key === sectionId);
+  const idx = report.sections.findIndex((s) => s.sectionKey === sectionId);
   const prev = report.sections[idx - 1];
   const next = report.sections[idx + 1];
 
@@ -80,7 +80,7 @@ export function ReportSectionPage() {
         title={section.title}
       />
 
-      {section.locked ? (
+      {section.paid && section.content == null ? (
         // 付费锁态段
         <Card padding="lg" className="mt-10 flex flex-col items-center gap-4 text-center">
           <span
@@ -97,7 +97,7 @@ export function ReportSectionPage() {
           </SpringLink>
         </Card>
       ) : (
-        <Reveal className="mt-10" deps={[section.key]}>
+        <Reveal className="mt-10" deps={[section.sectionKey]}>
           <Quote size="md" className="text-left">
             {report.summary}
           </Quote>
@@ -118,14 +118,14 @@ export function ReportSectionPage() {
       {/* 章节导航 */}
       <nav className="mt-10 flex items-center justify-between gap-3 border-t border-neutral-200 pt-6 text-sm">
         {prev ? (
-          <SpringLink to={`/app/report/${report.id}/section/${prev.key}`} variant="ghost">
+          <SpringLink to={`/app/report/${report.id}/section/${prev.sectionKey}`} variant="ghost">
             ← {prev.title}
           </SpringLink>
         ) : (
           <span />
         )}
         {next ? (
-          <SpringLink to={`/app/report/${report.id}/section/${next.key}`} variant="ghost">
+          <SpringLink to={`/app/report/${report.id}/section/${next.sectionKey}`} variant="ghost">
             {next.title} →
           </SpringLink>
         ) : (

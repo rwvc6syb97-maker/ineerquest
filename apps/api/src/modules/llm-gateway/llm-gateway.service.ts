@@ -67,7 +67,19 @@ export class LlmGatewayService {
     if (p.context && p.context.trim()) {
       messages.push({ role: 'system', content: `【上下文】\n${p.context}` });
     }
-    messages.push({ role: 'user', content: p.user ?? '' });
+    // 图像层：存在公开图像 URL 时，构造图文混合 content（Agnes AI 图像理解）
+    const images = (p.images ?? []).filter((u) => !!u && u.trim().length > 0);
+    if (images.length > 0) {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: p.user ?? '' },
+          ...images.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: p.user ?? '' });
+    }
     return messages;
   }
 

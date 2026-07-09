@@ -2,60 +2,22 @@
  * 全局认证状态（Zustand）
  * 职责：持有当前登录用户与登录态，供路由守卫/头部/权限判断使用。
  * Token 由 api/token 层管理，本 store 只保存用户信息与派生登录态。
+ * 契约 v2.0：登录接口返回 { accessToken, refreshToken, user, isNewUser? }，
+ * 直接采用后端返回的 user；缺失时降级调用 userApi.getProfile()。
+ * 权限/有效期等业务判断全部交由后端，前端不做 mock 兜底。
  */
 import { create } from 'zustand';
 import { userApi, authApi } from '../api';
 import type { UserProfile } from '../api/modules/user.api';
-import { getAccessToken, clearTokens, setTokens } from '../api/token';
-import { setAdminTokens, setAdminPerms, clearAdminTokens } from '../api/admin-token';
-
-const MOCK_USER_KEY = 'iq_mock_user';
+import { getAccessToken, clearTokens } from '../api/token';
 
 /**
- * 内置后台测试账号：短信登录该账号（Mock 模式下）时，
- * 顺带签发 admin token 与全通配权限点 `*`，登录后即可直接进入 /admin 后台。
+ * Mock 认证开关（已废弃，恒为 false）。
+ * 契约 v2.0 联调阶段禁用一切 mock 通路，避免掩盖前后端契约问题。
+ * 保留导出仅为兼容既有引用（如 useAssessment），后续应逐步移除调用点。
  */
-const ADMIN_TEST_PHONE = '13800000000';
-const ADMIN_TEST_CODE = '888888';
-
-/** 为测试账号写入 admin 登录态（token + 全权限），使其可直接进入后台。 */
-function grantMockAdmin(): void {
-  setAdminTokens('mock_admin_access_token', 'mock_admin_refresh_token');
-  setAdminPerms(['*']);
-}
-
 export function isMockAuthEnabled(): boolean {
-  const raw = import.meta.env.VITE_AUTH_MOCK_MODE;
-  if (!raw) return false;
-  return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());
-}
-
-function buildMockUser(phone = '13800000000'): UserProfile {
-  return {
-    id: `mock-${phone}`,
-    nickname: 'Mock用户',
-    email: `mock_${phone}@innerquest.local`,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=innerquest-mock',
-  };
-}
-
-function saveMockUser(user: UserProfile): void {
-  localStorage.setItem(MOCK_USER_KEY, JSON.stringify(user));
-}
-
-function loadMockUser(): UserProfile | null {
-  const raw = localStorage.getItem(MOCK_USER_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as UserProfile;
-  } catch {
-    localStorage.removeItem(MOCK_USER_KEY);
-    return null;
-  }
-}
-
-function clearMockUser(): void {
-  localStorage.removeItem(MOCK_USER_KEY);
+  return false;
 }
 
 interface AuthState {
@@ -65,41 +27,48 @@ interface AuthState {
   isAuthenticated: () => boolean;
   /** 拉取当前用户资料（应用初始化时调用） */
   fetchProfile: () => Promise<void>;
-  /** 登录：委托 userApi.login，成功后写入用户信息 */
+  /** 邮箱+密码登录 */
   login: (email: string, password: string) => Promise<void>;
-  /** 短信验证码登录 */
-  loginBySms: (phone: string, code: string) => Promise<void>;
+  /** 短信验证码登录：返回是否为新注册用户（供页面决定是否引导选套餐） */
+  loginBySms: (phone: string, code: string) => Promise<boolean>;
   /** 邮箱注册 */
   registerByEmail: (email: string, password: string, nickname?: string) => Promise<void>;
   /** 邮箱+密码登录 */
   loginByEmail: (email: string, password: string) => Promise<void>;
   /** 邮箱验证码登录（自动注册） */
-  loginByEmailCode: (email: string, code: string) => Promise<void>;
+  loginByEmailCode: (email: string, code: string) => Promise<boolean>;
   /** 登出：清 Token + 清状态 */
   logout: () => Promise<void>;
   setUser: (user: UserProfile | null) => void;
+}
+
+/** 兜底：登录返回体未携带完整 user 时，拉取用户资料。data 可选判空。 */
+async function resolveUser(
+  returned?: Partial<UserProfile> & { id?: string } | null,
+): Promise<UserProfile | null> {
+  if (returned && returned.id) {
+    // 归一化为严格 UserProfile：email 缺失补空串，交由后续 fetchProfile 修正
+    return {
+      id: returned.id,
+      nickname: returned.nickname ?? '',
+      email: returned.email ?? '',
+      avatar: returned.avatar,
+    };
+  }
+  try {
+    return await userApi.getProfile();
+  } catch {
+    return null;
+  }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: false,
 
-  isAuthenticated: () => {
-    const hasToken = !!getAccessToken();
-    if (hasToken) return true;
-    return isMockAuthEnabled() && !!loadMockUser();
-  },
+  isAuthenticated: () => !!getAccessToken(),
 
   fetchProfile: async () => {
-    const mockEnabled = isMockAuthEnabled();
-    if (mockEnabled) {
-      const mockUser = loadMockUser();
-      if (mockUser) {
-        set({ user: mockUser });
-      }
-      return;
-    }
-
     if (!getAccessToken()) return;
     set({ loading: true });
     try {
@@ -114,97 +83,41 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (email, password) => {
-    if (isMockAuthEnabled()) {
-      const user = buildMockUser();
-      setTokens('mock_access_token', 'mock_refresh_token');
-      saveMockUser(user);
-      set({ user });
-      return;
-    }
-
-    await authApi.loginByEmail(email, password);
-    const user = await userApi.getProfile();
+    const res = await authApi.loginByEmail(email, password);
+    const user = await resolveUser(res?.user);
     set({ user });
   },
 
   loginBySms: async (phone, code) => {
-    if (isMockAuthEnabled()) {
-      const user = buildMockUser(phone);
-      setTokens('mock_access_token', 'mock_refresh_token');
-      saveMockUser(user);
-      // 内置后台测试账号：同时授予 admin 登录态，可直接进入 /admin 后台
-      if (phone === ADMIN_TEST_PHONE && code === ADMIN_TEST_CODE) {
-        grantMockAdmin();
-      }
-      set({ user });
-      return;
-    }
-
-    await authApi.loginBySms(phone, code);
-    const user = await userApi.getProfile();
+    const res = await authApi.loginBySms(phone, code);
+    const user = await resolveUser(res?.user);
     set({ user });
+    return !!res?.isNewUser;
   },
 
   registerByEmail: async (email, password, nickname) => {
-    if (isMockAuthEnabled()) {
-      const user = buildMockUser(email);
-      setTokens('mock_access_token', 'mock_refresh_token');
-      saveMockUser(user);
-      set({ user });
-      return;
-    }
-
-    await authApi.registerByEmail(email, password, nickname);
-    const user = await userApi.getProfile();
+    const res = await authApi.registerByEmail(email, password, nickname);
+    const user = await resolveUser(res?.user);
     set({ user });
   },
 
   loginByEmail: async (email, password) => {
-    if (isMockAuthEnabled()) {
-      const user = buildMockUser(email);
-      setTokens('mock_access_token', 'mock_refresh_token');
-      saveMockUser(user);
-      set({ user });
-      return;
-    }
-
-    await authApi.loginByEmail(email, password);
-    const user = await userApi.getProfile();
+    const res = await authApi.loginByEmail(email, password);
+    const user = await resolveUser(res?.user);
     set({ user });
   },
 
   loginByEmailCode: async (email, code) => {
-    if (isMockAuthEnabled()) {
-      const user = buildMockUser(email);
-      setTokens('mock_access_token', 'mock_refresh_token');
-      saveMockUser(user);
-      set({ user });
-      return;
-    }
-
-    await authApi.loginByEmailCode(email, code);
-    const user = await userApi.getProfile();
+    const res = await authApi.loginByEmailCode(email, code);
+    const user = await resolveUser(res?.user);
     set({ user });
+    return !!res?.isNewUser;
   },
 
   logout: async () => {
-    if (isMockAuthEnabled()) {
-      clearTokens();
-      clearMockUser();
-      clearAdminTokens();
-      set({ user: null });
-      return;
-    }
-
     await authApi.logout().catch(() => userApi.logout());
     set({ user: null });
   },
 
-  setUser: (user) => {
-    if (isMockAuthEnabled()) {
-      if (user) saveMockUser(user);
-      else clearMockUser();
-    }
-    set({ user });
-  },
+  setUser: (user) => set({ user }),
 }));

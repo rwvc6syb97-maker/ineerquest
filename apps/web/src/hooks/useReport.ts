@@ -1,44 +1,22 @@
 /**
  * 报告相关 React Query hooks
- * 无真实后端时用 mock 报告兜底。TODO(blocked)：联调后删除 fallback。
+ * 直接消费后端 GET /reports/:id 概览 v2.1 出参，不做前端反解、不做 mock 兜底。
+ * 契约不一致时暴露真实错误态（由页面 isLoading / isError 呈现），避免静默降级白屏。
  */
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { reportApi } from '../api';
 import type { Report } from '../api/modules/report.api';
-import { familyOf, FAMILY_LABEL } from '../theme/tokens';
 
 export const reportKeys = {
   detail: (id: string) => ['report', 'detail', id] as const,
   list: ['report', 'list'] as const,
 };
 
-/** 无后端兜底：由 recordId 关联的本地 MBTI 生成 mock 报告 */
-function mockReport(id: string): Report {
-  const mbti = localStorage.getItem(`iq_result_${id}`) || 'INTJ';
-  const family = familyOf(mbti);
-  return {
-    id,
-    recordId: id,
-    mbtiType: mbti,
-    family,
-    summary: `你是「${mbti}」，属于${FAMILY_LABEL[family]}族群。你善于用独特的视角理解世界，并在擅长的领域持续深耕。`,
-    sections: [
-      { key: 'strength', title: '核心优势', content: '结构化思考、专注力强、对复杂问题有耐心。', locked: false },
-      { key: 'blindspot', title: '成长盲点', content: '可能忽略他人情绪信号，需主动沟通表达。', locked: false },
-      { key: 'career', title: '职业倾向（付费）', content: '', locked: true },
-      { key: 'relation', title: '关系模式（付费）', content: '', locked: true },
-    ],
-    dimensions: [
-      { dimension: 'EI', left: '外向 E', right: '内向 I', score: 68 },
-      { dimension: 'SN', left: '实感 S', right: '直觉 N', score: 74 },
-      { dimension: 'TF', left: '思考 T', right: '情感 F', score: 32 },
-      { dimension: 'JP', left: '判断 J', right: '知觉 P', score: 61 },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-}
-
-/** 报告详情（先按 recordId 生成/获取） */
+/**
+ * 报告详情
+ * 先尝试获取已存在报告；若报告不存在则按 recordId 触发生成免费预览段。
+ * 两者均失败时抛出真实错误，交由页面错误态展示（不再回退 mock）。
+ */
 export function useReport(id: string) {
   return useQuery<Report>({
     queryKey: reportKeys.detail(id),
@@ -47,11 +25,8 @@ export function useReport(id: string) {
       try {
         return await reportApi.getReport(id);
       } catch {
-        try {
-          return await reportApi.createReport(id);
-        } catch {
-          return mockReport(id); // 无后端兜底
-        }
+        // 报告尚未生成：按 recordId 生成免费预览段（失败则向上抛出真实错误）
+        return await reportApi.createReport(id);
       }
     },
   });
@@ -65,11 +40,35 @@ export function useReportList() {
   });
 }
 
+/** 报告章节列表（§6.1 #2） */
+export function useSections(id: string) {
+  return useQuery({
+    queryKey: ['report', 'sections', id],
+    enabled: !!id,
+    queryFn: () => reportApi.getSections(id),
+  });
+}
+
+/** 章节详情（§6.1 #3） */
+export function useSectionDetail(id: string, sectionKey: string) {
+  return useQuery({
+    queryKey: ['report', 'section', id, sectionKey],
+    enabled: !!id && !!sectionKey,
+    queryFn: () => reportApi.getSectionDetail(id, sectionKey),
+  });
+}
+
+/** 触发 LLM 深度生成（§6.1 #4） */
+export function useGenerateDeepContent() {
+  return useMutation({
+    mutationFn: ({ id, sections }: { id: string; sections?: string[] }) =>
+      reportApi.generateDeepContent(id, sections),
+  });
+}
+
 /** 生成分享海报 */
 export function useShareReport() {
   return useMutation({
     mutationFn: (id: string) => reportApi.shareReport(id),
   });
 }
-
-export { mockReport };

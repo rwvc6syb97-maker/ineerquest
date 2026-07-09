@@ -9,6 +9,9 @@ build/
 out/
 *.tsbuildinfo
 
+# temp / scratch (类型检查临时输出等)
+tsc-out.txt
+
 # env
 .env
 .env.local

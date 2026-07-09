@@ -37,10 +37,32 @@ describe('LlmGatewayService (T3-01/02/03)', () => {
     return { svc, redis, mock, openai, oxygent };
   };
 
+  // 单元测试环境隔离：清除真实 .env 注入的 LLM provider 相关变量，
+  // 确保 provider 路由默认落到 Mock（不依赖本地 .env / 真实 Key / 网络）。
+  const LLM_ENV_KEYS = [
+    'LLM_PROVIDER_ENABLED',
+    'LLM_API_KEY',
+    'LLM_BASE_URL',
+    'LLM_MODEL',
+    'OXYGENT_ENABLED',
+  ] as const;
+  let savedLlmEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    savedLlmEnv = {};
+    for (const k of LLM_ENV_KEYS) {
+      savedLlmEnv[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
-    delete process.env.LLM_PROVIDER_ENABLED;
+    for (const k of LLM_ENV_KEYS) {
+      if (savedLlmEnv[k] === undefined) delete process.env[k];
+      else process.env[k] = savedLlmEnv[k];
+    }
   });
 
   // ============ T3-01 ============

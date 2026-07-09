@@ -177,7 +177,7 @@ export class AdminContentController {
   @RequirePerms('topic:review')
   @Audit('topic', 'create')
   async createTopic(@Body() dto: CreateTopicDto, @Req() req: Request) {
-    const adminId = (req as any).user?.id;
+    const adminId = (req as any).user?.userId;
     return ok(await this.content.createTopic(dto, BigInt(adminId ?? 0)), getTraceId(req), '话题已创建');
   }
 

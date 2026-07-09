@@ -6,7 +6,7 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { authApi, ApiError } from '../../api';
 import { SpringButton } from '../../components/system/SpringButton';
@@ -25,7 +25,6 @@ interface EmailForm {
 }
 
 export function LoginPage() {
-  const navigate = useNavigate();
   const [params] = useSearchParams();
   const loginBySms = useAuthStore((s) => s.loginBySms);
   const loginByEmailCode = useAuthStore((s) => s.loginByEmailCode);
@@ -104,15 +103,13 @@ export function LoginPage() {
     }
   };
 
-  // 登录成功后跳转：优先前端路由跳转；下一帧若 URL 仍停在登录页，
-  // 说明 navigate 被状态更新/守卫时序吞掉，则回退为整页导航强制跳转。
+  // 登录成功后跳转：直接整页导航到目标地址。
+  // 说明：邮箱/短信验证码登录成功后 token 已写入 localStorage，
+  // 此时用 SPA navigate 存在 StrictMode + async 回调 + 守卫时序竞态，
+  // 会出现「登录成功但地址/页面不变」。整页导航可 100% 可靠地进入目标页，
+  // 且目标页首屏会带最新 token 重新发起鉴权请求。
   const goAfterLogin = (target: string) => {
-    navigate(target, { replace: true });
-    setTimeout(() => {
-      if (window.location.pathname.startsWith('/auth/login')) {
-        window.location.assign(target);
-      }
-    }, 50);
+    window.location.assign(target);
   };
 
   const onSmsSubmit = smsSubmit(async (values) => {

@@ -53,6 +53,10 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
+# 安装 ts-node + tsconfig-paths 用于 prisma db seed（runner 阶段无 devDependencies）
+# 必须在 apps/api 本地安装，因为 prisma.seed 命令依赖 tsconfig-paths/register
+RUN cd /app/apps/api && npm install ts-node tsconfig-paths --no-save
+
 # 使用非 root 用户运行
 RUN addgroup -g 1001 nodejs && adduser -S -u 1001 -G nodejs nodejs
 USER nodejs
@@ -65,4 +69,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 WORKDIR /app/apps/api
 # 启动前执行数据库迁移（自动创建 cache_kv/cache_zset 等表），再拉起服务
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db push --skip-generate --accept-data-loss && npx prisma db seed && node dist/main.js"]

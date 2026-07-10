@@ -51,22 +51,30 @@ export function QuizPage() {
   const isLastPage = page >= totalPages - 1;
 
   const syncDraft = () => {
-    // 翻页时保存草稿到后端；失败静默（�地 store 已持久化，下次可续答重试）
+    // 翻页时保存草稿到后端；失败静默（本地 store 已持久化，下次可续答重试）
     if (recordId) {
       saveAnswers.mutate({ recordId, answers: toAnswers() });
     }
   };
 
-  const next = () => {
-    syncDraft();
+  const next = async () => {
     if (isLastPage) {
       if (!recordId) {
         // 无有效 recordId（未成功创建记录）——回说明页重新开始
         navigate('/assessment', { replace: true });
         return;
       }
+      // 关键：末页必须等最后一页答案 PATCH 到后端成功后再进入提交页，
+      // 否则 submit 时后端读到的 answers 不完整会返回 ASSESSMENT_INCOMPLETE（竞态）。
+      try {
+        await saveAnswers.mutateAsync({ recordId, answers: toAnswers() });
+      } catch {
+        // 保存失败则不跳转，避免带着不完整答案进入提交页导致误报“未完成”
+        return;
+      }
       navigate('/assessment/generating');
     } else {
+      syncDraft();
       setPage(page + 1);
       window.scrollTo({ top: 0 });
     }
@@ -205,11 +213,11 @@ export function QuizPage() {
           上一页
         </button>
         <SpringButton
-          onClick={next}
-          disabled={!pageAllAnswered}
+          onClick={() => void next()}
+          disabled={!pageAllAnswered || (isLastPage && saveAnswers.isPending)}
           variant={isLastPage ? 'accent' : 'primary'}
         >
-          {isLastPage ? '提交测评' : '下一页'}
+          {isLastPage ? (saveAnswers.isPending ? '保存中…' : '提交测评') : '下一页'}
         </SpringButton>
       </div>
       {!pageAllAnswered && (

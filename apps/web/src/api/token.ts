@@ -10,7 +10,15 @@ let accessTokenCache: string | null = null;
 
 export function getAccessToken(): string | null {
   if (accessTokenCache) return accessTokenCache;
-  accessTokenCache = localStorage.getItem(ACCESS_KEY);
+  const raw = localStorage.getItem(ACCESS_KEY);
+  // 防御：过滤历史脏值（空串 / 字面量 "undefined"/"null"），避免误判为已登录导致
+  // 未登录态右上角错误展示“个人中心”。命中脏值则清理并视为未登录。
+  if (!raw || raw === 'undefined' || raw === 'null') {
+    if (raw) localStorage.removeItem(ACCESS_KEY);
+    accessTokenCache = null;
+    return null;
+  }
+  accessTokenCache = raw;
   return accessTokenCache;
 }
 

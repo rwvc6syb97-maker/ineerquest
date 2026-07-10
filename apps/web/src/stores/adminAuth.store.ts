@@ -27,6 +27,9 @@ const ADMIN_MOCK_USERNAME = 'admin';
 const ADMIN_MOCK_PASSWORD = 'admin888';
 
 function isMockAuthEnabled(): boolean {
+  // 生产构建强制关闭后台 mock 登录：即使 VITE_AUTH_MOCK_MODE=true，
+  // 在生产构建下也不可用，强制走后端真实登录 adminAuthApi.login。
+  if (import.meta.env.PROD || import.meta.env.MODE === 'production') return false;
   const raw = import.meta.env.VITE_AUTH_MOCK_MODE;
   if (!raw) return false;
   return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());

@@ -62,12 +62,12 @@ BLOCKED  →  READY  →  IN_PROGRESS  →  REVIEW  →  VERIFIED  →  DONE
 | T1 | 前端去除 usePayment/useCoaching/usePrivacy/useCareerPlan/useSkillGap/useLearningResources/useFavorites 无条件 mock fallback，失败改错误态 | au-orwo5 | qp52lwfz | 后端接口就绪 | P0 | READY | DONE ✅(PM验收:目标hooks无残留fallback,失败抛ApiError+页面错误态,build通过;遗留P2:usePayment订单缓存待后端GET订单接口后迁移) |
 | T2 | 测评链路拆本地兜底，切真实 records 接口 | au-orwo5 | qp52lwfz | s19lr0dt(assessment) | P1 | READY | DONE ✅(PM验收:useAssessment拆除isMockAuthEnabled短路/MOCK_QUESTIONS回退/localScore本地评分/iq_result_落地,5个hook直调assessmentApi失败抛ApiError;3页面去本地临时recordId兜底改错误态;接口路径逐项对齐后端controller,ASSESSMENT_INCOMPLETE=4202前后端一致;tsc通过。修正api注释旧码30002→4202) |
 | T3 | 逐环节端到端联调核对字段契约一致 | qp52lwfz | atyb1n4m | T1,T2 | P0 | DONE✅ | DONE(PM终审书面放行:逐条对齐§13裁定书v1.0全达标—B1/B8 reportId=4非空、B7 generateStatus=pending深度三段全锁+幂等提示正确、createdAt ISO8601 UTC、A1 recommendations 200无BigInt崩溃、502清health200(10模块)、P0=0。commit 1864daa已部署。P2入迭代:PATCH answers savedCount/answeredTotal字段名待核(s19lr0dt)、seed数据空。【上线硬前置】careers/coaches/roadmap/skill-gap/resources须上线前手动db:seed灌入,不允许上线后补) |
-| T4 | 配置并验证 AI 对话真实 LLM 通道 | s19lr0dt | qp52lwfz | LLM Key 就绪 | P1 | BLOCKED | BLOCKED |
-| T5 | 生产环境关闭后台 mock 登录（前端+后端） | au-orwo5 / s19lr0dt | qp52lwfz | — | P1 | READY | READY |
+| T4 | 配置并验证 AI 对话真实 LLM 通道 | s19lr0dt | qp52lwfz | LLM Key 就绪 | P1 | BLOCKED | DONE ✅(2026-07-10 测试回归通过:health code=200/LLM_PROVIDER_ENABLED=true/LLM_API_KEY=SET/NODE_ENV=production;railway.json端点全指向Agnes(api_url/base=apihub.agnes-ai.com,model=agnes-2.0-flash,OXYGENT=false)与provider优先级一致;运维已更新Railway Dashboard清残留京东值。核心P0:SSE逐字返回degraded=false全程无兜底,真实生成62字INTJ职业方向文案(非固定兜底),elapsed=7489ms(远高于秒级降级329/430ms符合真实推理),事件序列message→done正常收尾,code=200。边界:超长内容(>2000字)被拦截无脏数据。根因回顾:此前秒级降级=railway.json残留京东autobots+deepseek-chat且LLM_API_URL优先级最高打错端点,已修正+Dashboard清值。P0=0。P1入迭代:超长内容返回4000(DTO @MaxLength参数校验)未按契约走AI_CONTENT_TOO_LONG=4504,负责人后端,建议DTO层前置抛4504) |
+| T5 | 生产环境关闭后台 mock 登录（前端+后端） | au-orwo5 / s19lr0dt | qp52lwfz | — | P1 | READY | DONE ✅(测试VERIFIED 4/4 Gate:前端adminAuth.store.ts isMockAuthEnabled首行守卫import.meta.env.PROD/MODE=production→return false,生产mock分支永不命中强制走adminAuthApi.login;开发态保留VITE_AUTH_MOCK_MODE;用户端auth.store.ts恒false;后端ops无登录mock短路(admin-auth走真实账号密码,分析看板source=mock属数据降级非登录);tsc+vite build通过。P2:主chunk 549kB分包优化入迭代) |
 | T6 | shared 错误码对齐后端契约 v2.0 | au-orwo5 | qp52lwfz | — | P2 | READY | DONE ✅(PM验收:码值与后端response.ts逐项一致,SUCCESS判定正确,build通过) |
-| T7 | 修订产品分析报告 AI/辅导状态描述 | atyb1n4m | atyb1n4m | — | P2 | READY | READY |
+| T7 | 修订产品分析报告 AI/辅导状态描述 | atyb1n4m | atyb1n4m | — | P2 | READY | DONE ✅(PM自验VERIFIED:9处文案更正"Mock兜底态"→"后端已实现并部署,缺外部依赖(LLM Key/支付/短信邮件)时降级";AI对话/辅导预约/流程图/异常处理均对齐;残留1处术语表定义已注明生产不用业务Mock;仅改文案未动需求/字段/接口契约) |
 | T8 | 外部依赖接入（Redis/MQ/OSS/支付/短信邮件） | s19lr0dt | qp52lwfz | 资源开通 | P2 | BLOCKED | BLOCKED |
-| T9 | 全量回归 + 上线验收报告 | qp52lwfz | atyb1n4m | 全部 | P0 | BLOCKED | BLOCKED |
+| T9 | 全量回归 + 上线验收报告（核心链路范围） | qp52lwfz | atyb1n4m | T1~T7 | P0 | BLOCKED | IN_PROGRESS(总指挥裁定:T8/支付等外部资源依赖上线后迭代,按第十章P2不阻塞放行,T9解除对T8依赖以核心链路范围回归。前置T1~T7全DONE) |
 
 ---
 

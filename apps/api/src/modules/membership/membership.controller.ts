@@ -28,7 +28,8 @@ export class MembershipController {
   @Public()
   @Get('plans')
   async listPlans(@Req() req: Request) {
-    return ok(await this.membership.listPublicPlans(), getTraceId(req), 'ok');
+    // C3：套餐列表统一包裹为 { list: [...] }，与契约 §11 出参对齐
+    return ok({ list: await this.membership.listPublicPlans() }, getTraceId(req), 'ok');
   }
 
   /** GET /api/v1/membership/plans/:code（游客可访问，仅上架） */

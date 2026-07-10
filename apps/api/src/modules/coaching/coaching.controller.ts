@@ -3,26 +3,28 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { getTraceId } from '../../common/middleware/trace.middleware';
 import { ok, BizCode, BizException } from '../../common/response';
-import { Public } from '../../common/guards/auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../user/auth/current-user.decorator';
 import { CoachingService } from './coaching.service';
 import { BookCoachingDto, ListCoachesDto, ReviewCoachingDto } from './coaching.dto';
 
 /**
- * CoachingController — 辅导咨询链路（T4-01 / T4-02 / T4-04）。
+ * CoachingController — 辅导咨询链路（§10.1，全部需登录）。
  *
- * 公开（@Public，游客可浏览）：
- * - GET  /api/v1/coaches               辅导师列表（分页/筛选，仅审核通过且上架）
- * - GET  /api/v1/coaches/:id           辅导师详情
- * - GET  /api/v1/coaches/:id/schedule  可约时段
+ * 权威路由（§10.1）：
+ * - GET  /api/v1/coaches                       规划师列表（筛选/分页）
+ * - GET  /api/v1/coaches/:id                    规划师详情（不存在 → 4708）
+ * - GET  /api/v1/coaches/:id/schedules          可预约时段
+ * - POST /api/v1/coaching/orders                创建预约订单（锁时段）
+ * - GET  /api/v1/coaching/orders                我的预约（分页）
+ * - POST /api/v1/coaching/orders/:id/cancel     取消预约
+ * - POST /api/v1/coaching/orders/:id/review     提交评价
  *
- * 需登录：
- * - POST /api/v1/coaches/book          辅导预约下单（时段锁 + uk_coach_slot 防重叠）
- * - POST /api/v1/coaches/orders/:id/review  咨询评价（仅已完成订单）
+ * A5：修正 schedule→schedules（复数）、book→coaching/orders、新增 GET orders 与 cancel；
+ *     §10.1 全部接口需登录，去除 @Public。
  */
 @ApiTags('辅导')
 @ApiBearerAuth('user-token')
-@Controller('coaches')
+@Controller()
 export class CoachingController {
   constructor(private readonly coaching: CoachingService) {}
 
@@ -33,30 +35,27 @@ export class CoachingController {
     return user.userId;
   }
 
-  /** T4-01 辅导师列表 GET /api/v1/coaches */
-  @Public()
-  @Get()
+  /** 规划师列表 GET /api/v1/coaches */
+  @Get('coaches')
   async list(@Query() query: ListCoachesDto, @Req() req: Request) {
     return ok(await this.coaching.listCoaches(query), getTraceId(req), 'ok');
   }
 
-  /** T4-01 辅导师详情 GET /api/v1/coaches/:id */
-  @Public()
-  @Get(':id')
+  /** 规划师详情 GET /api/v1/coaches/:id（不存在 → 4708） */
+  @Get('coaches/:id')
   async detail(@Param('id') id: string, @Req() req: Request) {
     return ok(await this.coaching.getCoach(id), getTraceId(req), 'ok');
   }
 
-  /** T4-01 可约时段 GET /api/v1/coaches/:id/schedule */
-  @Public()
-  @Get(':id/schedule')
-  async schedule(@Param('id') id: string, @Req() req: Request) {
+  /** 可预约时段 GET /api/v1/coaches/:id/schedules（A5：复数 schedules） */
+  @Get('coaches/:id/schedules')
+  async schedules(@Param('id') id: string, @Req() req: Request) {
     return ok(await this.coaching.getSchedule(id), getTraceId(req), 'ok');
   }
 
-  /** T4-02 辅导预约下单 POST /api/v1/coaches/book（需登录） */
-  @Post('book')
-  async book(
+  /** 创建预约订单 POST /api/v1/coaching/orders（A5：独立 coaching/orders 前缀） */
+  @Post('coaching/orders')
+  async createOrder(
     @CurrentUser() user: CurrentUserPayload | undefined,
     @Body() dto: BookCoachingDto,
     @Req() req: Request,
@@ -65,8 +64,27 @@ export class CoachingController {
     return ok(await this.coaching.bookCoaching(uid, dto), getTraceId(req), '预约已创建，请尽快支付');
   }
 
-  /** T4-04 咨询评价 POST /api/v1/coaches/orders/:id/review（需登录） */
-  @Post('orders/:id/review')
+  /** 我的预约 GET /api/v1/coaching/orders（A5 新增） */
+  @Get('coaching/orders')
+  async listOrders(@CurrentUser() user: CurrentUserPayload | undefined, @Req() req: Request) {
+    const uid = this.requireUser(user);
+    return ok(await this.coaching.listOrders(uid), getTraceId(req), 'ok');
+  }
+
+  /** 取消预约 POST /api/v1/coaching/orders/:id/cancel（A5 新增） */
+  @Post('coaching/orders/:id/cancel')
+  async cancelOrder(
+    @CurrentUser() user: CurrentUserPayload | undefined,
+    @Param('id') orderId: string,
+    @Body('reason') reason: string | undefined,
+    @Req() req: Request,
+  ) {
+    const uid = this.requireUser(user);
+    return ok(await this.coaching.cancelOrder(uid, orderId, reason), getTraceId(req), '预约已取消');
+  }
+
+  /** 提交评价 POST /api/v1/coaching/orders/:id/review */
+  @Post('coaching/orders/:id/review')
   async review(
     @CurrentUser() user: CurrentUserPayload | undefined,
     @Param('id') orderId: string,

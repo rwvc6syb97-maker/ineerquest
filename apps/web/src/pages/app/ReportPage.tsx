@@ -41,11 +41,31 @@ const DIM_LABEL: Record<string, string> = {
 export function ReportPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { data: report, isLoading, isError } = useReport(id);
+  const { data: report, isLoading, isError, refetch } = useReport(id);
 
   // —— PDF 导出 ——
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // —— B7：深度报告生成（generateStatus=pending 时触发 LLM 深度生成） ——
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!report || generating) return;
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      await reportApi.generateDeepContent(report.id);
+      // 触发后刷新报告以拉取最新 generateStatus / 章节内容
+      await refetch();
+    } catch {
+      setGenerateError('生成失败，请稍后重试');
+      window.setTimeout(() => setGenerateError(null), 2600);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const dims = report?.dimensions ?? [];
   const topDim = useMemo(() => {
@@ -187,12 +207,35 @@ export function ReportPage() {
         </GlassCard>
       </header>
 
-      {/* ============ 四维度倾向 · 雷达 + 填充条（非对称） ============ */}
+      {/* ============ B7 · 深度报告生成引导（generateStatus=pending） ============ */}
+      {report.generateStatus === 'pending' ? (
+        <section className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-brand-accent-300 bg-brand-accent-50 px-6 py-8 text-center">
+          <h2 className="font-display text-xl font-bold text-brand-primary-950">
+            深度报告尚未生成
+          </h2>
+          <p className="max-w-md font-serif text-sm text-neutral-600">
+            我们已为你准备好个性化的深度解读，点击下方按钮开始生成，稍等片刻即可查看完整内容。
+          </p>
+          <SpringButton variant="accent" onClick={handleGenerate} disabled={generating}>
+            {generating ? '生成中…' : '生成深度报告'}
+          </SpringButton>
+          {generateError ? (
+            <span className="text-sm text-red-600">{generateError}</span>
+          ) : null}
+        </section>
+      ) : report.generateStatus === 'generating' ? (
+        <section className="mt-8 rounded-2xl border border-neutral-200 bg-neutral-50 px-6 py-6 text-center">
+          <p className="font-serif text-sm text-neutral-600">
+            深度报告正在生成中，请稍后刷新查看。
+          </p>
+          <SpringButton variant="ghost" className="mt-3" onClick={() => refetch()}>
+            刷新
+          </SpringButton>
+        </section>
+      ) : null}
       <section className="mt-14 grid grid-cols-1 items-center gap-8 md:grid-cols-12">
         <div className="md:col-span-5">
           <SectionHeading
-            size="md"
-            eyebrow="DIMENSIONS"
             title="你的四维度倾向"
             subtitle="每一维都是一段光谱，而非非此即彼的开关。"
           />

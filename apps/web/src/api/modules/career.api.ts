@@ -95,7 +95,7 @@ function toCareerCard(item: RecommendItem): CareerCard {
 /** MBTI 匹配 TOP10 推荐（后端按 reportId 关联报告的 mbtiType） */
 export async function recommendCareers(reportId: string): Promise<CareerCard[]> {
   const res = await request<RecommendResult>({
-    url: '/careers/recommend',
+    url: '/careers/recommendations',
     method: 'GET',
     params: { reportId },
   });

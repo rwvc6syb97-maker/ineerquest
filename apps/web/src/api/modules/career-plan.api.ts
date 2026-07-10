@@ -1,10 +1,10 @@
 /**
  * 职业规划扩展 API（P16 技能差距 / P17 学习资源 / P18 成长计划）
  * -------------------------------------------------------------
- * 对齐契约（《技术架构设计文档》§8）：
- *   GET /skills-gap/:careerId      技能差距分析（P16）
- *   GET /learning/resources        学习资源推荐（P17）
- *   GET /growth/plan               成长计划 / 仪表盘（P18）
+ * 对齐契约（裁定书 §13.5 A2/A3 路径迁移，后端 CareerController 权威）：
+ *   GET /careers/:careerId/skill-gap   技能差距分析（P16，需登录）
+ *   GET /careers/:careerId/resources   学习资源推荐（P17，游客可访，skill/type 可选 query）
+ *   GET /growth/plan                   成长计划 / 仪表盘（P18）
  * 字段回溯《数据库设计文档》skill_gap_analysis / learning_resource / growth_plan(_task)。
  */
 import { request } from '../client';
@@ -64,22 +64,23 @@ export interface GrowthPlan {
   createdAt: string;
 }
 
-/** P16 技能差距分析 */
+/** P16 技能差距分析 GET /careers/:careerId/skill-gap */
 export function getSkillGap(careerId: string): Promise<SkillGapResult> {
   return request<SkillGapResult>({
-    url: `/skills-gap/${careerId}`,
+    url: `/careers/${careerId}/skill-gap`,
     method: 'GET',
   });
 }
 
-/** P17 学习资源推荐（可按技能标签 / 职业过滤） */
+/** P17 学习资源推荐 GET /careers/:careerId/resources（skill/type 可选 query） */
 export function listLearningResources(
-  params: { skill?: string; careerId?: string; type?: ResourceType } = {},
+  params: { careerId: string; skill?: string; type?: ResourceType },
 ): Promise<LearningResource[]> {
+  const { careerId, ...query } = params;
   return request<LearningResource[]>({
-    url: '/learning/resources',
+    url: `/careers/${careerId}/resources`,
     method: 'GET',
-    params,
+    params: query,
   });
 }
 

@@ -136,13 +136,15 @@ export class CoachingService implements OnModuleInit {
       },
       orderBy: { startTime: 'asc' },
     });
-    return schedules.map((s) => ({
-      id: s.id.toString(),
-      coachId: s.coachId.toString(),
+    // §10.2③ 出参：{ list: [{ scheduleId, date, startTime, endTime, status }] }，status: available/booked
+    const list = schedules.map((s) => ({
+      scheduleId: s.id.toString(),
+      date: s.startTime.toISOString().slice(0, 10),
       startTime: s.startTime,
       endTime: s.endTime,
-      status: ScheduleStatus.FREE,
+      status: 'available' as const,
     }));
+    return { list };
   }
 
   /** 定位「已审核通过 + 已上架」的辅导师，否则 60002（停止接单）或 70005（不存在）。 */
@@ -151,7 +153,8 @@ export class CoachingService implements OnModuleInit {
       where: { id: BigInt(id), isDeleted: 0 },
     });
     if (!coach) {
-      throw new BizException(BizCode.ORDER_NOT_FOUND, '辅导师不存在');
+      // C2：辅导师不存在使用专属错误码 4708（禁用 4704 订单错误码）
+      throw new BizException(BizCode.COACH_NOT_FOUND, '辅导师不存在');
     }
     if (coach.auditStatus !== CoachAuditStatus.APPROVED || coach.status !== CoachStatus.ONLINE) {
       throw new BizException(BizCode.COACH_NOT_ACCEPTING, '该辅导师已停止接单');
@@ -480,6 +483,85 @@ export class CoachingService implements OnModuleInit {
       rating: dto.rating,
       coachRating: result.avg,
       reviewCount: result.count,
+    };
+  }
+
+  // ============ A5 辅导订单列表 / 取消（对齐 §10.1） ============
+
+  /**
+   * GET /coaching/orders：查询当前用户的咨询订单列表（仅本人，软删除过滤），倒序。
+   */
+  async listOrders(userId: string) {
+    const orders = await this.prisma.coachingOrder.findMany({
+      where: { userId: BigInt(userId), isDeleted: 0 },
+      orderBy: { id: 'desc' },
+      include: {
+        coach: { select: { id: true, realName: true, avatar: true, title: true } },
+        schedule: { select: { id: true, startTime: true, endTime: true } },
+      },
+    });
+    const list = orders.map((o) => ({
+      id: o.id.toString(),
+      orderNo: o.orderNo,
+      coachId: o.coachId.toString(),
+      coachName: o.coach?.realName ?? null,
+      coachAvatar: o.coach?.avatar ?? null,
+      coachTitle: o.coach?.title ?? null,
+      scheduleId: o.scheduleId.toString(),
+      startTime: o.schedule?.startTime ?? null,
+      endTime: o.schedule?.endTime ?? null,
+      consultType: o.consultType,
+      durationMin: o.durationMin,
+  amount: Number(o.amount),
+      status: o.status,
+      statusLabel: COACHING_ORDER_STATUS_LABEL[o.status] ?? 'unknown',
+      payExpireAt: o.payExpireAt,
+      paidAt: o.paidAt,
+      createdAt: o.createdAt,
+    }));
+    return { list };
+  }
+
+  /**
+   * POST /coaching/orders/:id/cancel：取消待支付订单（仅本人）。
+   * - 订单不存在/非本人 → 4704（订单不存在）。
+   * - 仅 PENDING 可取消，否则 4705（状态不允许）。
+   * - 取消同时释放锁定时段（LOCKED→FREE）。
+   */
+  async cancelOrder(userId: string, orderId: string, reason?: string) {
+    const order = await this.prisma.coachingOrder.findFirst({
+      where: { id: BigInt(orderId), userId: BigInt(userId), isDeleted: 0 },
+    });
+    if (!order) {
+      throw new BizException(BizCode.COACH_ORDER_NOT_FOUND, '咨询订单不存在或无权访问');
+    }
+ if (order.status !== CoachingOrderStatus.PENDING) {
+      throw new BizException(BizCode.COACH_ORDER_STATUS_INVALID, '该订单当前状态不可取消');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      const upd = await tx.coachingOrder.updateMany({
+        where: { id: order.id, status: CoachingOrderStatus.PENDING },
+        data: { status: CoachingOrderStatus.CANCELLED, cancelReason: reason ?? '用户主动取消' },
+      });
+      if (upd.count === 0) {
+        throw new BizException(BizCode.COACH_ORDER_STATUS_INVALID, '该订单状态已变更');
+      }
+      await tx.coachSchedule.updateMany({
+        where: { id: order.scheduleId, status: ScheduleStatus.LOCKED },
+        data: { status: ScheduleStatus.FREE, orderId: null, lockExpireAt: null },
+      });
+    });
+    await this.releaseSlotLock(order.scheduleId.toString());
+    this.analytics.fire({
+      userId,
+      eventType: 'coaching_order_cancel',
+      properties: { orderId: order.id.toString(), scheduleId: order.scheduleId.toString() },
+    });
+    return {
+      id: order.id.toString(),
+      orderNo: order.orderNo,
+      status: CoachingOrderStatus.CANCELLED,
+      statusLabel: COACHING_ORDER_STATUS_LABEL[CoachingOrderStatus.CANCELLED] ?? 'cancelled',
     };
   }
 }

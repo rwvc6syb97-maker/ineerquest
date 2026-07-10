@@ -13,6 +13,7 @@ import {
   ASSESSMENT_DIMENSION_POLES,
 } from './assessment.constants';
 import { AnswerItemDto } from './assessment.dto';
+import { ReportService } from '../report/report.service';
 
 @Injectable()
 export class AssessmentService {
@@ -22,6 +23,7 @@ export class AssessmentService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly scoring: ScoringService,
+    private readonly report: ReportService,
   ) {}
 
   // ============ T1-08 防遍历记录号 ============
@@ -77,7 +79,7 @@ export class AssessmentService {
           dimension: dimKey,
           content: q.content,
           sortOrder: q.sortOrder,
-          isReverse: q.isReverse,
+          isReverse: q.isReverse === 1,
           options: q.options.map((o) => ({
             id: o.id.toString(),
             optionKey: o.optionKey,
@@ -242,7 +244,10 @@ export class AssessmentService {
       const existed = await this.prisma.assessmentResult.findFirst({
         where: { recordId: record.id },
       });
-      if (existed) return this.formatResult(record.recordNo, existed);
+      if (existed) {
+        const rid = await this.report.ensureReport(userId, recordId).catch(() => null);
+        return this.formatResult(record.recordNo, existed, rid);
+      }
     }
 
     // 拉取答案 + 关联题目维度/选项极性分值
@@ -317,7 +322,23 @@ export class AssessmentService {
       /* 降级忽略 */
     }
 
-    return this.formatResult(record.recordNo, saved);
+    // B1/B8：提交完成后同步（事务内）创建基础报告（无配额、幂等），使前端跳转报告页即可命中。
+    // PM 终裁 §13.2 B8（强约束）：正常成功路径 reportId 恒非空 number；
+    // ensureReport 失败（含 result 缺失/建库异常）不得吞异常静默返 null，须让提交整体失败并抛 5xxx（可重试）。
+    let reportId: string;
+    try {
+      const rid = await this.report.ensureReport(userId, recordId);
+      if (!rid) {
+        // result 缺失或建 report 失败且并发回读也未命中——视为提交失败（可重试）
+        throw new Error('ensureReport returned null on submit success path');
+      }
+      reportId = rid;
+    } catch (e) {
+      this.logger.error(`ensureReport failed on submit(recordId=${recordId}): ${(e as Error).message}`);
+      throw new BizException(BizCode.INTERNAL_ERROR, '提交失败，请稍后重试');
+    }
+
+    return this.formatResult(record.recordNo, saved, reportId);
   }
 
   private formatResult(
@@ -335,6 +356,7 @@ export class AssessmentService {
       updatedAt?: Date | null;
       createdAt?: Date | null;
     },
+    reportId?: string | null,
   ) {
     // 维度得分数组，结构对齐报告概览 ReportOverview.dimensions（left/right/score）
     const scoreMap: Record<'EI' | 'SN' | 'TF' | 'JP', number> = {
@@ -357,6 +379,8 @@ export class AssessmentService {
       resultId: r.id ? r.id.toString() : '',
       recordNo,
       recordId: r.recordId.toString(),
+      // B2/B5：reportId 为 number（契约 §测评④ reportId: number | null）；提交成功后必为非空
+      reportId: reportId != null && reportId !== '' ? Number(reportId) : null,
       mbtiType: r.mbtiType,
       dimensions,
       summary: `${r.mbtiType} 测评已完成，以下为各维度倾向得分。`,
@@ -373,18 +397,37 @@ export class AssessmentService {
     const records = await this.prisma.assessmentRecord.findMany({
       where: { userId: BigInt(userId), isDeleted: 0 },
       orderBy: { createdAt: 'desc' },
-      include: { result: { select: { mbtiType: true } } },
+      include: { result: { select: { id: true, mbtiType: true } } },
     });
-    return records.map((r) => ({
-      id: r.id.toString(),
-      recordNo: r.recordNo,
-      questionVersion: r.questionVersion,
-      totalQuestions: r.totalQuestions,
-      status: r.status,
-      mbtiType: r.result?.mbtiType ?? null,
-      startedAt: r.startedAt ? r.startedAt.toISOString() : null,
-      submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
-    }));
+
+    // B3：批量查该用户所有报告，按 resultId → reportId 建映射，避免 N+1
+    const resultIds = records
+      .map((r) => r.result?.id)
+      .filter((id): id is bigint => id != null);
+    const reportMap = new Map<string, string>();
+    if (resultIds.length > 0) {
+      const reports = await this.prisma.report.findMany({
+        where: { resultId: { in: resultIds }, isDeleted: 0 },
+        select: { id: true, resultId: true },
+      });
+      for (const rep of reports) reportMap.set(rep.resultId.toString(), rep.id.toString());
+    }
+
+    return records.map((r) => {
+      const ridStr = r.result?.id ? reportMap.get(r.result.id.toString()) : undefined;
+      return {
+        id: r.id.toString(),
+        recordNo: r.recordNo,
+        questionVersion: r.questionVersion,
+        totalQuestions: r.totalQuestions,
+        status: r.status,
+        mbtiType: r.result?.mbtiType ?? null,
+        // B3：历史列表补 reportId（number | null），供前端从历史页跳转报告
+        reportId: ridStr ? Number(ridStr) : null,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
+      };
+    });
   }
 
   /** GET /records/:id/result：单次测结果详情。 */
@@ -396,6 +439,8 @@ export class AssessmentService {
     if (!result) {
       throw new BizException(BizCode.ASSESSMENT_INCOMPLETE, '该测评尚未完成计分');
     }
-    return this.formatResult(record.recordNo, result);
+    // B3：结果查询补 reportId（幂等，若报告缺失则同步补建）
+    const rid = await this.report.ensureReport(userId, recordId).catch(() => null);
+    return this.formatResult(record.recordNo, result, rid);
   }
 }

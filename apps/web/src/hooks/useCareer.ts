@@ -1,7 +1,7 @@
 /**
  * 职业相关 React Query hooks
  * -------------------------------------------------------------
- * 数据一律来自后端（GET /careers/recommend/:reportId、GET /careers/:id）。
+ * 数据一律来自后端（GET /careers/recommendations?reportId、GET /careers/:id）。
  * 不做任何 mock 兜底：接口失败时抛出真实 ApiError，由页面 isError 呈现错误态 + 重试，
  * 避免静默降级掩盖前后端契约问题（对齐 useReport / useMembership 做法）。
  */

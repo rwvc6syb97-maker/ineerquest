@@ -134,6 +134,8 @@ export const BizCode = {
   COACH_ALREADY_REVIEWED: 4706,
   /** 时段不存在或已过期：scheduleId 失效 */
   COACH_SLOT_NOT_FOUND: 4707,
+  /** 规划师/辅导师不存在：coachId 无效或已下架 */
+  COACH_NOT_FOUND: 4708,
 
   // ============ 运营后台域 48xx ============
   /** 后台账号或密码错误：登录失败 */

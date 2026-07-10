@@ -78,6 +78,76 @@ export class ReportService {
     return code;
   }
 
+  // ============ B1 提交测评时同步创建报告（无配额、幂等） ============
+
+  /**
+   * ensureReport：测评提交完成后同步创建一条基础报告并返回其 id（B1/B2/B5）。
+   * - 幂等：同一 resultId 已有未删报告则直接复用（不重复创建）。
+   * - 不消耗每日报告配额（配额仅约束用户主动“生成报告”入口 POST /reports）。
+   * - 事务内写 report 主表 + 免费预览 report_section，status=READY 以便前端提交后立即可预览，
+   *   规避“跳转报告页即 404”的竞态（不再懒创建报告主记录）。
+   * @returns reportId 字符串；resultId 不存在或并发回读仍未命中返回 null。
+   *   注意（PM 终裁 §13.2 B8）：submit 正常成功路径 result 必存在，调用方须将 null 视为提交失败并抛 5xxx；
+   *   并发唯一约束命中后回读到既有 report 属正常成功（返非空 id），不算失败。null 仅保留历史/极端回读场景。
+   */
+  async ensureReport(userId: string, recordId: string): Promise<string | null> {
+    const result = await this.prisma.assessmentResult.findFirst({
+      where: { recordId: BigInt(recordId), userId: BigInt(userId) },
+    });
+    if (!result) return null;
+
+    const existed = await this.prisma.report.findFirst({
+      where: { resultId: result.id, isDeleted: 0 },
+      select: { id: true },
+    });
+    if (existed) return existed.id.toString();
+
+    const scores: DimensionScores = {
+      EI: Number(result.scoreEi),
+      SN: Number(result.scoreSn),
+      TF: Number(result.scoreTf),
+      JP: Number(result.scoreJp),
+    };
+    // 免费预览段不依赖 LLM；深度段走占位（提交阶段不触发深度生成，保持轻量）
+    const sections = buildSections(result.mbtiType, scores);
+    const reportNo = this.genReportNo();
+    try {
+      const report = await this.prisma.$transaction(async (tx) => {
+        const r = await tx.report.create({
+          data: {
+            reportNo,
+            userId: BigInt(userId),
+            resultId: result.id,
+            reportType: ReportType.BASIC,
+            mbtiType: result.mbtiType,
+            status: ReportStatus.READY,
+            isUnlocked: 0,
+            summary: { mbtiType: result.mbtiType, scores } as any,
+            generatedAt: new Date(),
+          },
+        });
+        await tx.reportSection.createMany({
+          data: sections.map((s) => ({
+            reportId: r.id,
+            sectionKey: s.sectionKey,
+            title: s.title,
+            content: s.content as any,
+            sortOrder: s.sortOrder,
+          })),
+        });
+        return r;
+      });
+      return report.id.toString();
+    } catch {
+      // resultId 唯一约束并发命中：回读既有报告
+      const again = await this.prisma.report.findFirst({
+        where: { resultId: result.id, isDeleted: 0 },
+        select: { id: true },
+      });
+      return again ? again.id.toString() : null;
+    }
+  }
+
   // ============ T1-14 每日配额（Redis 日计数器） ============
 
   /**

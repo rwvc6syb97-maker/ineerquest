@@ -146,6 +146,8 @@ export const BizCode = {
   COACH_ALREADY_REVIEWED: 4706,
   /** 时段不存在或已过期：scheduleId 失效 */
   COACH_SLOT_NOT_FOUND: 4707,
+  /** 规划师不存在或已下架：coachId 无效/非本人可见 */
+  COACH_NOT_FOUND: 4708,
 
   // ============ 运营后台域 48xx ============
   /** 后台账号或密码错误：登录失败 */
@@ -220,6 +222,7 @@ export const BizMessage: Record<number, string> = {
   [BizCode.ORDER_CLOSED]: '订单已关闭',
   [BizCode.PAYMENT_DUP_CALLBACK]: '支付回调重复',
   [BizCode.MEMBERSHIP_PLAN_OFFLINE]: '该套餐已下架，请选择其他套餐',
+  [BizCode.COACH_NOT_FOUND]: '规划师不存在或已下架',
 };
 
 /** 通用失败码（对齐后端契约 v2.0，直接映射 BizCode 契约码） */

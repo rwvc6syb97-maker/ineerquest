@@ -2,7 +2,7 @@
  * P06 生成中页（/assessment/generating）
  * -------------------------------------------------------------
  * - 进入后提交测评计分（POST submit），展示分析过渡动画
- * - 成功后写入 resultId 并跳转报告页 P08
+ * - 成功后写入 resultId 并跳转报告页 P08（用后端返回的 reportId 作报告详情路由参数）
  * - 30002 答案不完整 → 回答题页；90001 限流 → 提示重试
  * - 超时（>15s 未完成）→ 展示超时重试
  * - 无后端时用本地 mock 结果兜底
@@ -87,7 +87,10 @@ export function GeneratingPage() {
       const result = await submit.mutateAsync(recordId);
       clearTimeout(timeout);
       setResultId(result.recordId);
-      setTimeout(() => navigate(`/app/report/${result.recordId}`, { replace: true }), 800);
+      // B3：报告详情路由用后端返回的 reportId（提交成功后必为非空 number）；
+      // 若后端异常缺失 reportId，则回退用 recordId 兜底，避免跳转 undefined。
+      const reportRouteId = result.reportId != null ? result.reportId : result.recordId;
+      setTimeout(() => navigate(`/app/report/${reportRouteId}`, { replace: true }), 800);
     } catch (err) {
       clearTimeout(timeout);
       if (err instanceof ApiError) {

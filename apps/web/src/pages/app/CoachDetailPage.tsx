@@ -6,6 +6,8 @@
  */
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCoachDetail } from '../../hooks/useCoaching';
+import { ApiError } from '../../api';
+import { BizCode } from '@innerquest/shared';
 import {
   Card,
   Tag,
@@ -42,22 +44,37 @@ function Stars({ rating, size = 3.5 }: { rating: number; size?: number }) {
 export function CoachDetailPage() {
   const { coachId = '' } = useParams();
   const navigate = useNavigate();
-  const { data: coach, isLoading, isError, refetch } = useCoachDetail(coachId);
+  const { data: coach, isLoading, isError, error, refetch } = useCoachDetail(coachId);
 
   if (isLoading) {
     return <p className="mt-20 text-center font-serif text-neutral-400">加载辅导师资料…</p>;
   }
 
   if (isError || !coach) {
+    // C2：规划师不存在（4708）单独提示，文案优先用后端 message
+    const notFound = error instanceof ApiError && error.code === BizCode.COACH_NOT_FOUND;
     return (
       <section className="mx-auto max-w-3xl pb-28">
         <BackButton to="/app/coaching/coaches" label="返回辅导师列表" className="mb-4" />
-        <EmptyState
-          icon="compass"
-          title="辅导师资料加载失败"
-          description="可能是网络或服务异常，请稍后重试。"
-          action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
-        />
+        {notFound ? (
+          <EmptyState
+            icon="compass"
+            title="规划师不存在"
+            description={(error as ApiError).message || '该规划师不存在或已下架，请返回列表重新选择。'}
+            action={
+              <SpringButton onClick={() => navigate('/app/coaching/coaches')}>
+                返回辅导师列表
+              </SpringButton>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon="compass"
+            title="辅导师资料加载失败"
+            description="可能是网络或服务异常，请稍后重试。"
+            action={<SpringButton onClick={() => refetch()}>重新加载</SpringButton>}
+          />
+        )}
       </section>
     );
   }

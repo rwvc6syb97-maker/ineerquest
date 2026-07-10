@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { BizException, CommonCode } from '../../common/response';
+import { BizCode, BizException } from '../../common/response';
 import { AnalyticsService, EventType } from '../analytics/analytics.service';
 
 /** 推荐返回的 TOP N（验收点：TOP10） */
@@ -72,16 +72,30 @@ export class CareerService {
 
   // ============ 详情 GET /careers/:id ============
 
+  /** A1：安全解析 careerId，非数字/非法直接返 4402（禁止 BigInt 抛 5000）。 */
+  private parseCareerId(careerId: string): bigint {
+    if (!/^\d+$/.test(String(careerId ?? '').trim())) {
+      throw new BizException(BizCode.CAREER_NOT_FOUND, '职业不存在');
+    }
+    try {
+      return BigInt(careerId);
+    } catch {
+      throw new BizException(BizCode.CAREER_NOT_FOUND, '职业不存在');
+    }
+  }
+
   async detail(careerId: string) {
+    const id = this.parseCareerId(careerId);
     const career = await this.prisma.career.findFirst({
-      where: { id: BigInt(careerId), isDeleted: 0 },
+      where: { id, isDeleted: 0 },
       include: {
         skills: { orderBy: { weight: 'desc' } },
         roadmaps: { orderBy: { stageNo: 'asc' } },
       },
     });
     if (!career) {
-      throw new BizException(CommonCode.NOT_FOUND, '职业不存在');
+      // A1：职业不存在返职业域 4402（禁用通用 4040）
+      throw new BizException(BizCode.CAREER_NOT_FOUND, '职业不存在');
     }
     return {
       ...this.toView(career),
@@ -119,7 +133,7 @@ export class CareerService {
           orderBy: { createdAt: 'desc' },
         });
     if (!report) {
-      throw new BizException(CommonCode.NOT_FOUND, '暂无可用报告，请先生成报告');
+      throw new BizException(BizCode.CAREER_NO_ASSESSMENT, '暂无可用测评结果，请先完成测评生成报告');
     }
     const mbtiType = report.mbtiType;
 
@@ -188,6 +202,43 @@ export class CareerService {
         matchScore: x.score,
         ...this.toView(x.career),
       })),
+    };
+  }
+
+  // ============ 路线图 GET /careers/:careerId/roadmap（A4，出参见 §13.4） ============
+
+  /**
+   * A4 职业发展路线图。基于职业静态路线图（career_roadmap）+ 该职业关键技能（career_skill）组装。
+   * - careerId 无效返 4402。
+   * - milestones(Json) 作为 targets；keySkills 取该职业按权重排序的技能名。
+   */
+  async roadmap(careerId: string) {
+    const id = this.parseCareerId(careerId);
+    const career = await this.prisma.career.findFirst({
+      where: { id, isDeleted: 0 },
+      include: {
+        roadmaps: { orderBy: { stageNo: 'asc' } },
+        skills: { orderBy: { weight: 'desc' } },
+      },
+    });
+    if (!career) {
+      throw new BizException(BizCode.CAREER_NOT_FOUND, '职业不存在');
+    }
+    const keySkills = career.skills.map((s) => s.skillName).slice(0, 8);
+    const toStringArray = (v: unknown): string[] => {
+      if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+      if (typeof v === 'string' && v.trim()) return [v.trim()];
+      return [];
+    };
+    const stages = career.roadmaps.map((r) => ({
+      stage: r.stageName,
+      durationText: r.duration ?? '',
+      targets: toStringArray(r.milestones),
+      keySkills,
+    }));
+    return {
+      careerId: Number(career.id),
+      stages,
     };
   }
 

@@ -23,20 +23,6 @@ import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 import { REPORT_DEEP_PROMPT } from '../llm-gateway/llm-gateway.constants';
 
 /**
- * 将 UTC 时间格式化为北京时间字符串（YYYY-MM-DD HH:mm:ss，东八区），
- * 供概览出参 createdAt 使用（PM v2.1，前端直接展示不再二次解析）。
- */
-function toBeijingString(date: Date | null | undefined): string {
-  if (!date) return '';
-  const bj = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-  const p = (n: number) => n.toString().padStart(2, '0');
-  return (
-    `${bj.getUTCFullYear()}-${p(bj.getUTCMonth() + 1)}-${p(bj.getUTCDate())} ` +
-    `${p(bj.getUTCHours())}:${p(bj.getUTCMinutes())}:${p(bj.getUTCSeconds())}`
-  );
-}
-
-/**
  * T1-14 / T1-15 / T1-17 报告服务。
  * - 生成报告：写 report / report_section（含免预览 + 付费占位），报告数 3 表之二，
  *   分享写 report_share（第 3 表）。
@@ -318,12 +304,20 @@ export class ReportService {
       throw new BizException(BizCode.REPORT_GENERATING, '报告正在生成中，请稍后查看');
     }
 
-    // 已就绪 → 幂等返回
+    // 已就绪 → 幂等返回。B7 契约：仅当深度段确有 LLM 实际写回内容（fallback=false）才返 done，
+    // 否则（基础报告仅占位）返 pending，语义与 GET /reports/:id 一致。
     if (report.status === ReportStatus.READY) {
+      const paidSections = await this.prisma.reportSection.findMany({
+        where: { reportId: report.id, sectionKey: { in: PAID_SECTION_KEYS } },
+        select: { content: true },
+      });
+      const hasGenerated = paidSections.some(
+        (s) => (s.content as { fallback?: boolean } | null)?.fallback === false,
+      );
       return {
         reportId: report.id.toString(),
-        generateStatus: 'done',
-        message: '报告已生成完毕',
+        generateStatus: hasGenerated ? 'done' : 'pending',
+        message: hasGenerated ? '报告已生成完毕' : '深度解读尚未生成',
       };
     }
 
@@ -471,9 +465,15 @@ export class ReportService {
     const family = deriveFamily(report.mbtiType);
     const dimensions = this.buildDimensionScores(report.result);
     const summary = this.renderSummaryText(report.mbtiType, family, report.summary);
-    // 深度未触发（无任何付费段落记录）时映射为 pending，否则按 status 映射
-    const hasPaidSection = report.sections.some((s) => PAID_SECTION_KEYS.includes(s.sectionKey));
-    const generateStatus = hasPaidSection ? mapGenerateStatus(report.status) : 'pending';
+    // B7 契约：深度段"未实际生成内容"→ generateStatus 恒 pending（占位记录不算已生成）。
+    // 判断依据：付费段落 content.fallback === false 表示 LLM 已实际写回真实内容；
+    // ensureReport/generate 建报告时写入的付费段落为占位（fallback=true），不视为已生成。
+    const hasGeneratedPaidSection = report.sections.some(
+      (s) =>
+        PAID_SECTION_KEYS.includes(s.sectionKey) &&
+        (s.content as { fallback?: boolean } | null)?.fallback === false,
+    );
+    const generateStatus = hasGeneratedPaidSection ? mapGenerateStatus(report.status) : 'pending';
 
     return {
       id: report.id.toString(),
@@ -487,7 +487,7 @@ export class ReportService {
       sections,
       lockedSectionKeys,
       isUnlocked: unlocked,
-      createdAt: toBeijingString(report.createdAt),
+      createdAt: report.createdAt.toISOString(),
     };
   }
 

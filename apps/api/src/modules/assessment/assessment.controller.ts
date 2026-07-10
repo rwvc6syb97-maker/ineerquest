@@ -5,6 +5,7 @@ import { getTraceId } from '../../common/middleware/trace.middleware';
 import { ok, BizCode, BizException } from '../../common/response';
 import { AssessmentService } from './assessment.service';
 import { CurrentUser, CurrentUserPayload } from '../user/auth/current-user.decorator';
+import { Public } from '../../common/guards/auth.guard';
 import { CreateRecordDto, GetQuestionsQueryDto, SaveAnswersDto } from './assessment.dto';
 
 /**
@@ -24,14 +25,14 @@ export class AssessmentController {
     return user.userId;
   }
 
-  /** T1-07 拉取题库 GET /api/v1/assessments/questions */
+  /** T1-07 拉取题库 GET /api/v1/assessments/questions（游客可访问，方案A） */
+  @Public()
   @Get('questions')
   async getQuestions(
     @CurrentUser() user: CurrentUserPayload | undefined,
     @Query() query: GetQuestionsQueryDto,
     @Req() req: Request,
   ) {
-    this.requireUser(user);
     return ok(await this.assessment.getQuestions(query.version, query.dimension), getTraceId(req));
   }
 

@@ -14,8 +14,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSubmitRecord } from '../../hooks/useAssessment';
+import { useCreateRecord, useSaveAnswers, useSubmitRecord } from '../../hooks/useAssessment';
 import { useAssessmentStore } from '../../stores/assessment.store';
+import { useAuthStore } from '../../stores/auth.store';
 import { ApiError } from '../../api';
 import { BizCode } from '@innerquest/shared';
 import { SpringButton } from '../../components/system/SpringButton';
@@ -56,7 +57,11 @@ function CompassLoader() {
 
 export function GeneratingPage() {
   const navigate = useNavigate();
-  const { recordId, setResultId } = useAssessmentStore();
+  const { recordId, setRecordId, setResultId, answeredCount, toAnswers } =
+    useAssessmentStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const createRecord = useCreateRecord();
+  const saveAnswers = useSaveAnswers();
   const submit = useSubmitRecord();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -74,17 +79,35 @@ export function GeneratingPage() {
   }, [error, timedOut]);
 
   const run = useCallback(async () => {
-    if (!recordId) {
+    // 方案A：草稿只存答案；到此才统一「登录门控 → 建记录 → 存答案 → 提交」。
+    if (answeredCount() === 0) {
       navigate('/assessment', { replace: true });
       return;
     }
+    // 未登录：跳登录并带回跳地址，登录后回到生成页用本地答案完成提交。
+    if (!isAuthenticated()) {
+      navigate(
+        `/auth/login?redirect=${encodeURIComponent('/assessment/generating')}`,
+        { replace: true },
+      );
+      return;
+    }
+
     setError(null);
     setTimedOut(false);
     setStep(0);
 
     const timeout = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
     try {
-      const result = await submit.mutateAsync(recordId);
+      // 复跑防护：已有 recordId 则不重复建记录。
+      let rid = recordId;
+      if (!rid) {
+        const record = await createRecord.mutateAsync('v2');
+        rid = record.id;
+        setRecordId(rid);
+      }
+      await saveAnswers.mutateAsync({ recordId: rid, answers: toAnswers() });
+      const result = await submit.mutateAsync(rid);
       clearTimeout(timeout);
       setResultId(result.recordId);
       // B3：报告详情路由用后端返回的 reportId（提交成功后必为非空 number）；
@@ -103,11 +126,30 @@ export function GeneratingPage() {
           setError('请求过于频繁，请稍后重试');
           return;
         }
+        // 登录态失效：清理后回登录门控（RootLayout 入口 fetchProfile 亦会兜底）。
+        if (err.code === BizCode.TOKEN_INVALID) {
+          navigate(
+            `/auth/login?redirect=${encodeURIComponent('/assessment/generating')}`,
+            { replace: true },
+          );
+          return;
+        }
       }
       // 其他错误：不再本地兜底，展示通用错误态供用户重试
       setError('生成失败，请稍后重试');
     }
-  }, [recordId, navigate, submit, setResultId]);
+  }, [
+    answeredCount,
+    isAuthenticated,
+    recordId,
+    setRecordId,
+    createRecord,
+    saveAnswers,
+    submit,
+    toAnswers,
+    setResultId,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (started.current) return;

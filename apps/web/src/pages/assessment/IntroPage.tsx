@@ -12,7 +12,6 @@
  */
 import { useNavigate } from 'react-router-dom';
 import { useAssessmentStore } from '../../stores/assessment.store';
-import { useCreateRecord} from '../../hooks/useAssessment';
 import { SpringButton } from '../../components/system/SpringButton';
 import { Card, Reveal, RevealItem, SectionHeading, StatPill } from '../../components';
 
@@ -32,19 +31,14 @@ const NOTES = [
 
 export function IntroPage() {
   const navigate = useNavigate();
-  const { hasDraft, setRecordId, reset } = useAssessmentStore();
-  const createRecord = useCreateRecord();
+  const { hasDraft, reset } = useAssessmentStore();
   const draft = hasDraft();
 
-  const start = async () => {
+  // 方案A：游客可直接答题，开始测评不再创建后端记录（答案本地暂存），
+  // 仅在生成报告（GeneratingPage）时才登录并一次性建记录+提交。
+  const start = () => {
     if (!draft) reset();
-    try {
-      const record = await createRecord.mutateAsync('v2');
-      setRecordId(record.id);
-      navigate('/assessment/quiz');
-    } catch {
-      // 创建记录失败：不再本地兜底，错误提示交由 createRecord.isError 呈现，用户可重试
-    }
+    navigate('/assessment/quiz');
   };
 
   return (
@@ -105,20 +99,14 @@ export function IntroPage() {
             <SpringButton
               variant="accent"
               onClick={start}
-              disabled={createRecord.isPending}
               className="w-56 shadow-primary"
             >
-              {createRecord.isPending ? '准备中…' : draft ? '继续上次测评' : '开始测评'}
+              {draft ? '继续上次测评' : '开始测评'}
             </SpringButton>
             {draft && (
               <StatPill label="已有草稿" value="可续答" tone="brand" />
             )}
           </div>
-          {createRecord.isError && (
-            <p className="text-sm text-brand-accent-600">
-              测评启动失败，请检查网络后重试。
-            </p>
-          )}
           {draft && (
             <div className="flex items-center gap-4 text-xs text-neutral-400">
               <button

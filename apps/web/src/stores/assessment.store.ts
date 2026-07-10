@@ -88,7 +88,8 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
       optionId: Number(value),
     })),
 
-  hasDraft: () => !!get().recordId && Object.keys(get().answers).length > 0,
+  // 方案A：游客答题阶段不建 recordId，草稿仅以本地答案为准
+  hasDraft: () => Object.keys(get().answers).length > 0,
 
   reset: () => {
     set({ recordId: null, answers: {}, page: 0, resultId: null });

@@ -42,7 +42,7 @@ export function useSaveAnswers() {
   return useMutation({
     mutationFn: (p: {
       recordId: string;
-      answers: { questionId: string; optionId: string }[];
+      answers: { questionId: number; optionId: number }[];
     }) => assessmentApi.saveAnswers(p.recordId, p.answers),
   });
 }

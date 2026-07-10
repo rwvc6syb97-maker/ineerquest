@@ -82,6 +82,11 @@ export class AiChatController {
     const traceId = getTraceId(req);
     const uid = this.requireUser(user);
 
+    // 内容超长显式二次校验（须在 SSE 头 flush 前，以标准 JSON 错误 4504 返回，避免降级为通用 400）
+    if (dto.content.length > 2000) {
+      throw new BizException(BizCode.AI_CONTENT_TOO_LONG, '消息内容超长，最多 2000 字');
+    }
+
     // 建立 SSE 连接头
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');

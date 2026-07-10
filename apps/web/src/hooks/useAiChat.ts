@@ -22,69 +22,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function mockConversations(): AiConversation[] {
-  return [
-    {
-      id: 'mock-conv-1',
-      title: '关于职业方向的探索',
-      round: 2,
-      maxRound: AI_MAX_ROUND,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    },
-  ];
-}
-
-function mockMessages(id: string): AiMessage[] {
-  return [
-    {
-      id: 'm1',
-      conversationId: id,
-    role: 'assistant',
-      content: '你好，我是你的职业规划伙伴。可以聊聊你目前最关心的职业困惑吗？',
-      createdAt: nowIso(),
-    },
-  ];
-}
-
-/** 生成 mock 流式回复（逐字模拟打字机） */
-function mockStream(
-  content: string,
-  onToken: (t: string) => void,
-  onDone: () => void,
-  signal?: AbortSignal,
-): void {
-  const reply = `我理解你提到的「${content}」。从你的人格倾向看，建议先梳理三件事：你擅长什么、你在意什么、市场需要什么。我们可以逐一展开。`;
-  const chars = [...reply];
-  let i = 0;
-  const timer = setInterval(() => {
-    if (signal?.aborted) {
-      clearInterval(timer);
-      return;
-    }
-    if (i >= chars.length) {
-      clearInterval(timer);
-      onDone();
-      return;
-    }
-    onToken(chars[i]);
-    i += 1;
-  }, 28);
-  signal?.addEventListener('abort', () => clearInterval(timer));
-}
-
 // ---------------- 会话列表 / CRUD ----------------
-/** 会话列表（失败回退 mock） */
+/** 会话列表（真实接口，失败暴露错误态，不回退 mock） */
 export function useConversations() {
   return useQuery<AiConversation[]>({
     queryKey: aiChatKeys.conversations,
     queryFn: async () => {
-      try {
-        const list = await aiChatApi.listConversations();
-        return list.length ? list : mockConversations();
-      } catch {
-        return mockConversations();
-      }
+      // 真实接口失败直接抛出，交由 react-query error 态处理，禁止静默回退 mock 掩盖契约问题
+      return await aiChatApi.listConversations();
     },
     staleTime: 60 * 1000,
   });
@@ -96,19 +41,8 @@ export function useConversationActions() {
 
   const create = useCallback(
     async (title?: string): Promise<AiConversation> => {
-      let conv: AiConversation;
-      try {
-        conv = await aiChatApi.createConversation(title);
-      } catch {
-        conv = {
-          id: `mock-conv-${Date.now()}`,
-          title: title ?? '新的对话',
-          round: 0,
-          maxRound: AI_MAX_ROUND,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        };
-      }
+      // 真实接口失败直接抛出，禁止造假 mock 会话掩盖后端异常
+      const conv = await aiChatApi.createConversation(title);
       qc.setQueryData<AiConversation[]>(aiChatKeys.conversations, (prev) => [
         conv,
         ...(prev ?? []),
@@ -180,9 +114,13 @@ export function useChatStream(conversationId: string): UseChatStreamResult {
     (async () => {
       try {
         const list = await aiChatApi.listMessages(conversationId);
-        if (alive) setMessages(list.length ? list : mockMessages(conversationId));
+        if (alive) setMessages(list);
       } catch {
-        if (alive) setMessages(mockMessages(conversationId));
+        // 真实接口失败暴露错误态，禁止静默回退 mock 掩盖后端/契约问题
+        if (alive) {
+          setMessages([]);
+          setError('历史消息加载失败，请稍后重试');
+        }
       }
     })();
     return () => {
@@ -263,9 +201,10 @@ export function useChatStream(conversationId: string): UseChatStreamResult {
           },
           controller.signal,
         );
-      } catch {
-        // 真实接口不可用 → mock 打字机兜底
-        mockStream(content, appendToken, finish, controller.signal);
+      } catch (err) {
+        // 真实接口不可用 → 抛出错误交由 handleError 统一处理，不再静默 mock 掩盖
+        const message = err instanceof Error ? err.message : 'AI 服务连接失败';
+        handleError({ code: 50000, message });
       }
     },
     [conversationId],

@@ -83,7 +83,10 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
   answeredCount: () => Object.keys(get().answers).length,
 
   toAnswers: () =>
-    Object.entries(get().answers).map(([questionId, value]) => ({ questionId, optionId: String(value) })),
+    Object.entries(get().answers).map(([questionId, value]) => ({
+      questionId: Number(questionId),
+      optionId: Number(value),
+    })),
 
   hasDraft: () => !!get().recordId && Object.keys(get().answers).length > 0,
 

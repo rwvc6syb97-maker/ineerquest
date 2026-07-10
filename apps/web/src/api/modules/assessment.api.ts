@@ -43,10 +43,10 @@ export interface QuestionBank {
   questions: Question[];
 }
 
-/** 单题作答 */
+/** 单题作答（上送后端，与 AnswerItemDto 对齐：number 类型） */
 export interface Answer {
-  questionId: string;
-  optionId: string;
+  questionId: number;
+  optionId: number;
 }
 
 /** 测评记录（草稿/续答场景，POST records / PATCH answers 返回） */

@@ -33,8 +33,10 @@ export class CreateConversationDto {
 /** T3-05 发送消息请求。 */
 export class SendMessageDto {
   /** 本轮用户消息内容。 */
+  // 注：业务上限 2000 由 controller 显式抛 AI_CONTENT_TOO_LONG(4504)。
+  // 此处仅设超大兜底(10000)防超大 payload 冲击，避免全局 ValidationPipe 抢先返回 4000 掩盖 4504。
   @IsString()
   @MinLength(1)
-  @MaxLength(2000)
+  @MaxLength(10000)
   content!: string;
 }

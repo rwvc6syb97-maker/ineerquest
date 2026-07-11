@@ -2,12 +2,13 @@
  * 辅导咨询服务 API（P19-P26）
  * -------------------------------------------------------------
  * 对齐后端辅导模块（T4-01~T4-06）契约：
- *   GET  /coaches                       辅导师列表（领域/价格/评分/时间筛选）
+ *   GET  /coaches                       辅导师列表（分页 {list,total,page,pageSize}）
  *   GET  /coaches/:id                   辅导师详情
- *   GET  /coaches/:id/schedule          辅导师可约时段
- *   POST /coaches/book                  预约下单（返回订单，bizType=2 复用支付）
- *   POST /coaches/orders/:id/review     提交评价（评分 1~5）
- *   GET  /coaches/orders                我的辅导订单列表
+ *   GET  /coaches/:id/schedules         辅导师可约时段
+ *   POST /coaching/orders               预约下单（返回订单，bizType=2 复用支付）
+ *   POST /coaching/orders/:id/cancel    取消订单
+ *   POST /coaching/orders/:id/review    提交评价（评分 1~5）
+ *   GET  /coaching/orders               我的辅导订单列表
  *
  * 说明：
  *  - 全部走 request（自动解包 {code,message,data,traceId}）。
@@ -229,10 +230,21 @@ intro: raw.intro ?? raw.introduction ?? raw.bio ?? '',
   };
 }
 
-/** 辅导师列表（后端出参经 toCoachCard 归一化，防字段契约不一致崩溃） */
+/** 后端辅导师列表分页出参（data 即该分页对象，request 已解包 data） */
+interface RawCoachPage {
+  list?: RawCoach[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * 辅导师列表（BUG-2：后端返回分页对象 { list,total,page,pageSize }，
+ * 而非裸数组。取 page.list 判空兜底为 [] 再 toCoachCard，防 undefined.map 崩溃）。
+ */
 export function listCoaches(params?: ListCoachesParams): Promise<CoachCard[]> {
-  return request<RawCoach[]>({ url: '/coaches', method: 'GET', params }).then((list) =>
-    Array.isArray(list) ? list.map(toCoachCard) : [],
+  return request<RawCoachPage>({ url: '/coaches', method: 'GET', params }).then((page) =>
+    Array.isArray(page?.list) ? page.list.map(toCoachCard) : [],
   );
 }
 
@@ -241,22 +253,27 @@ export function getCoach(coachId: string): Promise<CoachDetail> {
   return request<RawCoach>({ url: `/coaches/${coachId}`, method: 'GET' }).then(toCoachDetail);
 }
 
-/** 辅导师可约时段 */
+/** 辅导师可约时段（BUG-3：后端真实路由为复数 schedules） */
 export function getSchedule(coachId: string): Promise<ScheduleSlot[]> {
-  return request<ScheduleSlot[]>({ url: `/coaches/${coachId}/schedule`, method: 'GET' });
+  return request<ScheduleSlot[]>({ url: `/coaches/${coachId}/schedules`, method: 'GET' });
 }
 
-/** 预约下单 */
+/** 预约下单（BUG-3：后端真实路由 POST /coaching/orders） */
 export function bookCoaching(body: BookCoachingParams): Promise<BookCoachingResult> {
-  return request<BookCoachingResult>({ url: '/coaches/book', method: 'POST', data: body });
+  return request<BookCoachingResult>({ url: '/coaching/orders', method: 'POST', data: body });
 }
 
-/** 提交评价 */
+/** 提交评价（BUG-3：POST /coaching/orders/:id/review） */
 export function reviewCoaching(orderId: string, body: ReviewCoachingParams): Promise<void> {
-  return request<void>({ url: `/coaches/orders/${orderId}/review`, method: 'POST', data: body });
+  return request<void>({ url: `/coaching/orders/${orderId}/review`, method: 'POST', data: body });
 }
 
-/** 我的辅导订单列表 */
+/** 取消订单（BUG-3：POST /coaching/orders/:id/cancel） */
+export function cancelOrder(orderId: string): Promise<void> {
+  return request<void>({ url: `/coaching/orders/${orderId}/cancel`, method: 'POST' });
+}
+
+/** 我的辅导订单列表（BUG-3：GET /coaching/orders） */
 export function listOrders(): Promise<CoachingOrder[]> {
-  return request<CoachingOrder[]>({ url: '/coaches/orders', method: 'GET' });
+  return request<CoachingOrder[]>({ url: '/coaching/orders', method: 'GET' });
 }

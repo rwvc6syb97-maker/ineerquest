@@ -14,6 +14,10 @@ function buildAllowedOrigins(): string[] {
   const base = [
     'https://innerquest.online',
     'https://www.innerquest.online',
+    // http 明文变体兜底：用户仍可能从 http://innerquest.online 访问（自定义域名未强制跳 https），
+    // 浏览器 Origin 头会是 http，白名单缺 http 变体则 preflight 无 Access-Control-Allow-Origin → 被拦。
+    'http://innerquest.online',
+    'http://www.innerquest.online',
     // Railway 前端部署域名（web 服务），不加则线上请求会被 CORS 拦截 → 前端表现为 network error
     'https://innerquestweb-production.up.railway.app',
     'http://localhost:5173',

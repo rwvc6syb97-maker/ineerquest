@@ -42,18 +42,49 @@ export interface AiConversation {
 /** 会话上限（与后端 ai_conversation.max_round 一致） */
 export const AI_MAX_ROUND = 50;
 
-/** 创会话 */
+/**
+ * 后端会话原始出参（字段命名可能为 convNo / conversationId 等，需归一化为 id）。
+ * BUG5：创建会话若不把 convNo→id 归一化，前端 setActiveId 拿到 undefined，
+ * 右侧只显 EmptyState 且不渲染输入框。此处做防御性判空归一化。
+ */
+interface RawConversation {
+  id?: string | number;
+  convNo?: string | number;
+  conversationId?: string | number;
+  title?: string;
+  round?: number;
+  currentRound?: number;
+  maxRound?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 后端 → 前端 AiConversation 归一化（convNo/conversationId → id） */
+function toConversation(raw: RawConversation): AiConversation {
+  return {
+    id: String(raw.id ?? raw.convNo ?? raw.conversationId ?? ''),
+    title: raw.title ?? '新的对话',
+    round: Number(raw.round ?? raw.currentRound ?? 0),
+    maxRound: Number(raw.maxRound ?? AI_MAX_ROUND),
+    createdAt: raw.createdAt ?? '',
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? '',
+  };
+}
+
+/** 创会话（出参经 toConversation 归一化，确保 id 非空） */
 export function createConversation(title?: string): Promise<AiConversation> {
-  return request<AiConversation>({
+  return request<RawConversation>({
     url: '/conversations',
     method: 'POST',
     data: { title: title ?? '新的对话' },
-  });
+  }).then(toConversation);
 }
 
-/** 会话列表 */
+/** 会话列表（出参经归一化，兼容 convNo→id） */
 export function listConversations(): Promise<AiConversation[]> {
-  return request<AiConversation[]>({ url: '/conversations', method: 'GET' });
+  return request<RawConversation[]>({ url: '/conversations', method: 'GET' }).then((list) =>
+    Array.isArray(list) ? list.map(toConversation) : [],
+  );
 }
 
 /** 消息历史 */

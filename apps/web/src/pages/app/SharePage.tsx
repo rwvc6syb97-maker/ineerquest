@@ -5,7 +5,7 @@
  * - 生成分享短链（调 shareReport，失败时展示错误提示，不做本地兜底掩盖）；复制链接 / 右键保存 SVG
  * TODO(blocked)：接入后端 poster 渲染或前端 html2canvas 导出 PNG。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReport, useShareReport } from '../../hooks/useReport';
 import { COLORS, FAMILY_COLORS, FAMILY_LABEL } from '../../theme/tokens';
@@ -26,7 +26,27 @@ export function SharePage() {
   const [copied, setCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
 
-  const shareUrl = useMemo(() => `${window.location.origin}/s/${id}`, [id]);
+  // BUG4：展示链接与复制链接统一为后端下发的 shareUrl（真实可打开），不再本地拼 /s/:id
+  const [shareUrl, setShareUrl] = useState<string>('');
+
+  // 报告加载完成后向后端申请分享短链，用于展示与复制
+  useEffect(() => {
+    if (!report) return;
+    let alive = true;
+    share
+      .mutateAsync(id)
+      .then((res) => {
+        if (alive) setShareUrl(res.shareUrl);
+      })
+      .catch(() => {
+        if (alive) setShareError('分享链接生成失败，请稍后重试');
+      });
+    return () => {
+      alive = false;
+    };
+    // 仅在报告 id 变化时申请一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id, id]);
 
   if (isLoading || !report) {
     return (
@@ -221,7 +241,7 @@ export function SharePage() {
         )}
         <div className="flex w-full max-w-sm items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
           <span className="flex-1 truncate text-left font-mono text-xs text-neutral-500">
-            {shareUrl}
+            {shareUrl || '分享链接生成中…'}
           </span>
         </div>
         <button

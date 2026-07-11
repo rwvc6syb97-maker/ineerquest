@@ -54,7 +54,14 @@ export function ProfilePage() {
         {ENTRIES.map((e) => (
           <button
             key={e.path}
-            onClick={() => navigate(e.path)}
+            onClick={() =>
+              // BUG1：职业匹配需携带最近报告 id，否则 CareerListPage 拿不到 reportId 不请求推荐
+              navigate(
+                e.path === '/app/career' && resultId
+                  ? `/app/career?reportId=${resultId}`
+                  : e.path,
+              )
+            }
             className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 text-left transition-shadow hover:shadow-md md:p-5"
           >
             <div className="min-w-0 flex-1">

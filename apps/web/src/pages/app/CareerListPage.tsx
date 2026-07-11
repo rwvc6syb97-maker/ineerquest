@@ -128,7 +128,32 @@ export function CareerListPage() {
       </div>
 
       {/* ============ 结果区 ============ */}
-      {isLoading ? (
+      {!reportId ? (
+        // BUG1：无 reportId 无法拉取个性化职业推荐，引导用户先完成测评生成报告
+        <div className="mt-10">
+          <EmptyState
+            icon="sparkle"
+            title="先完成一次测评，解锁专属职业推荐"
+            description="职业匹配基于你的人格报告生成。请先从「我的报告」进入某份报告，再查看与你匹配的职业方向；或直接浏览全部职业百科。"
+            action={
+              <button
+                onClick={() => navigate('/assessment')}
+                className="rounded-full bg-brand-primary-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-primary-600"
+              >
+                去做测评
+              </button>
+            }
+          />
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => navigate('/app/report/history')}
+              className="text-sm font-medium text-brand-primary-500 hover:text-brand-primary-600"
+            >
+              已有报告？去我的报告 →
+            </button>
+          </div>
+        </div>
+      ) : isLoading ? (
         <p className="mt-12 text-center font-serif text-neutral-400">匹配计算中…</p>
       ) : list.length === 0 ? (
         <div className="mt-10">

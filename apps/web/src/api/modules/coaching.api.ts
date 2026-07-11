@@ -134,14 +134,111 @@ export interface ReviewCoachingParams {
   content?: string;
 }
 
-/** 辅导师列表 */
-export function listCoaches(params?: ListCoachesParams): Promise<CoachCard[]> {
-  return request<CoachCard[]>({ url: '/coaches', method: 'GET', params });
+/**
+ * 后端辅导师原始出参（字段命名与前端 CoachCard 不一致）。
+ * 后端下发 realName / expertise / pricePerHour 等，需在此归一化为前端契约。
+ * 全部字段可选，做防御性判空，避免因字段缺失导致 undefined.forEach 白屏崩溃。
+ */
+interface RawCoach {
+  id?: string | number;
+  coachId?: string | number;
+  name?: string;
+  realName?: string;
+  nickname?: string;
+  avatar?: string;
+  avatarUrl?: string;
+  title?: string;
+  headline?: string;
+  domains?: string[] | string;
+  expertise?: string[] | string;
+  tags?: string[] | string;
+  price?: number;
+  pricePerHour?: number;
+  rating?: number;
+  score?: number;
+  reviewCount?: number;
+  reviewNum?: number;
+  orderCount?: number;
+  orderNum?: number;
+  closed?: boolean;
+  status?: string;
+  // 详情附加字段
+  intro?: string;
+  introduction?: string;
+  bio?: string;
+  experienceYears?: number;
+  workYears?: number;
+  durationMin?: number;
+  duration?: number;
+  reviews?: RawCoachReview[];
 }
 
-/** 辅导师详情 */
+interface RawCoachReview {
+  id?: string | number;
+  userName?: string;
+  userNickname?: string;
+  rating?: number;
+  score?: number;
+  content?: string;
+  comment?: string;
+  createdAt?: string;
+}
+
+/** 将 domains/expertise 归一化为字符串数组（兼容字符串、逗号分隔、缺失） */
+function toStringArray(v?: string[] | string): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string' && x.length > 0);
+  if (typeof v === 'string' && v.trim()) return v.split(/[,，、]/).map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+/** 后端 → 前端 CoachCard 归一化（BUG6：防止 c.domains.forEach 崩溃） */
+function toCoachCard(raw: RawCoach): CoachCard {
+  return {
+    id: String(raw.id ?? raw.coachId ?? ''),
+    name: raw.name ?? raw.realName ?? raw.nickname ?? '辅导师',
+    avatar: raw.avatar ?? raw.avatarUrl,
+    title: raw.title ?? raw.headline ?? '',
+    domains: toStringArray(raw.domains ?? raw.expertise ?? raw.tags),
+    price: Number(raw.price ?? raw.pricePerHour ?? 0),
+    rating: Number(raw.rating ?? raw.score ?? 0),
+    reviewCount: Number(raw.reviewCount ?? raw.reviewNum ?? 0),
+    orderCount: raw.orderCount ?? raw.orderNum,
+    closed: raw.closed ?? raw.status === 'closed',
+  };
+}
+
+/** 后端 → 前端 CoachReview 归一化 */
+function toCoachReview(raw: RawCoachReview): CoachReview {
+  return {
+    id: String(raw.id ?? ''),
+    userName: raw.userName ?? raw.userNickname ?? '匿名用户',
+    rating: Number(raw.rating ?? raw.score ?? 0),
+    content: raw.content ?? raw.comment ?? '',
+    createdAt: raw.createdAt ?? '',
+  };
+}
+
+/** 后端 → 前端 CoachDetail 归一化 */
+function toCoachDetail(raw: RawCoach): CoachDetail {
+  return {
+    ...toCoachCard(raw),
+intro: raw.intro ?? raw.introduction ?? raw.bio ?? '',
+    experienceYears: raw.experienceYears ?? raw.workYears,
+    durationMin: raw.durationMin ?? raw.duration,
+    reviews: Array.isArray(raw.reviews) ? raw.reviews.map(toCoachReview) : [],
+  };
+}
+
+/** 辅导师列表（后端出参经 toCoachCard 归一化，防字段契约不一致崩溃） */
+export function listCoaches(params?: ListCoachesParams): Promise<CoachCard[]> {
+  return request<RawCoach[]>({ url: '/coaches', method: 'GET', params }).then((list) =>
+    Array.isArray(list) ? list.map(toCoachCard) : [],
+  );
+}
+
+/** 辅导师详情（后端出参经 toCoachDetail 归一化） */
 export function getCoach(coachId: string): Promise<CoachDetail> {
-  return request<CoachDetail>({ url: `/coaches/${coachId}`, method: 'GET' });
+  return request<RawCoach>({ url: `/coaches/${coachId}`, method: 'GET' }).then(toCoachDetail);
 }
 
 /** 辅导师可约时段 */

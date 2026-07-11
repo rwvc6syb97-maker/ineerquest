@@ -34,6 +34,7 @@ export const CORS_ALLOWED_METHODS: readonly string[] = [
   'GET',
   'POST',
   'PUT',
+  'PATCH',
   'DELETE',
   'OPTIONS',
 ];

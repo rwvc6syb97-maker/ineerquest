@@ -168,23 +168,45 @@ export class AssessmentService {
       throw new BizException(BizCode.ASSESSMENT_STATUS_INVALID, '该测评已提交，无法继续作答');
     }
 
+    // 入参防御：questionId/optionId 必须为合法数字，防 BigInt(NaN) 抛裸 500
+    // （历史 mock 时代前端可能残留字符串 id，如 mq-EI-1/opt-1）
+    for (const a of answers) {
+      if (!Number.isSafeInteger(Number(a.questionId)) || !Number.isSafeInteger(Number(a.optionId))) {
+        throw new BizException(
+          BizCode.ASSESSMENT_OPTION_MISMATCH,
+          '答案参数非法：questionId/optionId 必须为有效数字',
+        );
+      }
+    }
+
     // 逐条 upsert 答案入库
     for (const a of answers) {
-      await this.prisma.assessmentAnswer.upsert({
-        where: {
-          recordId_questionId: {
-            recordId: record.id,
-            questionId: BigInt(a.questionId),
+      try {
+        await this.prisma.assessmentAnswer.upsert({
+          where: {
+            recordId_questionId: {
+              recordId: record.id,
+              questionId: BigInt(a.questionId),
+            },
           },
-        },
-        create: {
-          recordId: record.id,
-          userId: BigInt(userId),
-          questionId: BigInt(a.questionId),
-          optionId: BigInt(a.optionId),
-        },
-        update: { optionId: BigInt(a.optionId), answeredAt: new Date() },
-      });
+          create: {
+            recordId: record.id,
+            userId: BigInt(userId),
+            questionId: BigInt(a.questionId),
+            optionId: BigInt(a.optionId),
+          },
+          update: { optionId: BigInt(a.optionId), answeredAt: new Date() },
+        });
+      } catch (err) {
+        // 外键约束失败（P2003）：questionId/optionId 在题库不存在（脏草稿/版本不符）
+        if ((err as { code?: string }).code === 'P2003') {
+          throw new BizException(
+            BizCode.ASSESSMENT_OPTION_MISMATCH,
+            '答案与题库不匹配：题目或选项不存在，请重新作答',
+          );
+        }
+        throw err;
+      }
     }
 
     const answeredCount = await this.prisma.assessmentAnswer.count({

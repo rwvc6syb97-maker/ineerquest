@@ -31,10 +31,44 @@ interface AssessmentState extends DraftSnapshot {
   reset: () => void;
 }
 
+/** 校验为纯数字字符串（后端题库 id 均为 BigInt→数字串，如 401/2001）。 */
+function isNumericId(v: string): boolean {
+  return /^\d+$/.test(v);
+}
+
+/**
+ * 清洗答案：仅保留 questionId(key) 与 optionId(value) 均为纯数字串的条目。
+ * 目的：剔除历史 mock 时代的字符串 id（如 mq-EI-1 / opt-1），
+ * 否则 toAnswers() 的 Number() 会得到 NaN，导致后端 BigInt(NaN)/外键 P2003 → 500。
+ */
+function sanitizeAnswers(answers: Record<string, string>): Record<string, string> {
+  const clean: Record<string, string> = {};
+  for (const [qid, val] of Object.entries(answers ?? {})) {
+    if (isNumericId(qid) && isNumericId(String(val))) {
+      clean[qid] = String(val);
+    }
+  }
+  return clean;
+}
+
 function load(): DraftSnapshot {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as DraftSnapshot;
+    if (raw) {
+      const snap = JSON.parse(raw) as DraftSnapshot;
+      const cleanAnswers = sanitizeAnswers(snap.answers);
+      // 若清洗后条目数变化，说明存在脏草稿，回写清洗结果避免复燃
+      if (Object.keys(cleanAnswers).length !== Object.keys(snap.answers ?? {}).length) {
+        const fixed = { ...snap, answers: cleanAnswers };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(fixed));
+        } catch {
+          /* ignore */
+        }
+        return fixed;
+      }
+      return snap;
+    }
   } catch {
     /* ignore */
   }
@@ -83,10 +117,13 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
   answeredCount: () => Object.keys(get().answers).length,
 
   toAnswers: () =>
-    Object.entries(get().answers).map(([questionId, value]) => ({
-      questionId: Number(questionId),
-      optionId: Number(value),
-    })),
+    Object.entries(get().answers)
+      .map(([questionId, value]) => ({
+        questionId: Number(questionId),
+        optionId: Number(value),
+      }))
+      // 双重保险：剔除任何非法数字（NaN/负值），避免后端 BigInt(NaN)/外键 500
+      .filter((a) => Number.isSafeInteger(a.questionId) && Number.isSafeInteger(a.optionId)),
 
   // 方案A：游客答题阶段不建 recordId，草稿仅以本地答案为准
   hasDraft: () => Object.keys(get().answers).length > 0,

@@ -447,7 +447,9 @@ export class ReportService {
       .map((s) => ({
         sectionKey: s.sectionKey,
         title: s.title,
-        content: s.content,
+        // 契约 v2.1：content 为 string | null。DB 中 content 存 Json 对象，
+        // 此处统一渲染为可读文本，避免前端把对象当 React 子节点渲染（React error #31）。
+        content: this.renderSectionContent(s.sectionKey, s.content),
         sortOrder: s.sortOrder,
         paid: PAID_SECTION_KEYS.includes(s.sectionKey),
       }));
@@ -522,6 +524,51 @@ export class ReportService {
   private renderSummaryText(mbtiType: string, family: string, raw: unknown): string {
     const profile = getProfile(mbtiType);
     return `${mbtiType} · ${profile.nickname}。${profile.overview}`;
+  }
+
+  /**
+   * 概览章节 content 渲染为可读文本（契约 v2.1：content 为 string | null）。
+   * DB 中 content 列存 Json 对象（见 report-content.builder.ts），不同章节结构不同：
+   *  - 类型概述     { mbtiType, nickname, overview }
+   *  - 四维度得分   { dimensions: [{ dimension, title, leaning, percent }] }
+   *  - 核心优势     { strengths: string[] }
+   *  - 付费深度段   { text, fallback }
+   * 统一转文本，避免前端把对象当 React 子节点渲染（React error #31）。
+   */
+  private renderSectionContent(sectionKey: string, raw: unknown): string | null {
+    if (raw == null) return null;
+    if (typeof raw === 'string') return raw;
+    if (typeof raw !== 'object') return String(raw);
+
+    const c = raw as Record<string, unknown>;
+
+    // 付费深度段 / LLM 文本
+    if (typeof c.text === 'string') return c.text;
+
+    // 类型概述
+    if (typeof c.overview === 'string') return c.overview;
+
+    // 核心优势
+    if (Array.isArray(c.strengths)) {
+      return (c.strengths as unknown[])
+        .filter((s): s is string => typeof s === 'string')
+        .join('\n');
+    }
+
+    // 四维度得分
+    if (Array.isArray(c.dimensions)) {
+      return (c.dimensions as Array<Record<string, unknown>>)
+        .map((d) => {
+          const title = typeof d.title === 'string' ? d.title : String(d.dimension ?? '');
+          const leaning = typeof d.leaning === 'string' ? d.leaning : '';
+          const percent = typeof d.percent === 'number' ? `（${d.percent}%）` : '';
+          return `${title}：${leaning}${percent}`.trim();
+        })
+        .join('\n');
+    }
+
+    // 兜底：无法识别的结构不下发对象，避免前端渲染报错
+    return null;
   }
 
   /**

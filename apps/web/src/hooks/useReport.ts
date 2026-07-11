@@ -17,7 +17,8 @@ export const reportKeys = {
  * 先尝试获取已存在报告；若报告不存在则按 recordId 触发生成免费预览段。
  * 两者均失败时抛出真实错误，交由页面错误态展示（不再回退 mock）。
  */
-export function useReport(id: string) {
+export function useReport(id: string, options?: { poll?: boolean }) {
+  const poll = options?.poll ?? false;
   return useQuery<Report>({
     queryKey: reportKeys.detail(id),
     enabled: !!id,
@@ -28,6 +29,13 @@ export function useReport(id: string) {
         // 报告尚未生成：按 recordId 生成免费预览段（失败则向上抛出真实错误）
         return await reportApi.createReport(id);
       }
+    },
+    // 深度生成为后端异步任务（LLM 逐段写回，耗时数秒~十几秒）。
+    // 触发生成后开启轮询，直到 generateStatus 落定为 done/failed，避免用户误以为“点了没反应”。
+    refetchInterval: (query) => {
+      if (!poll) return false;
+      const status = query.state.data?.generateStatus;
+      return status === 'generating' || status === 'pending' ? 3000 : false;
     },
   });
 }

@@ -8,7 +8,7 @@
  * 设计约束：GlassCard 仅用于报告主卡这一高价值场景；数据揭示克制、含 reduced-motion 降级。
  * 数据 hook（useReport）直连后端 v2.1 出参，无 mock 兜底；失败态由 isError 呈现。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReport } from '../../hooks/useReport';
 import { reportApi } from '../../api';
@@ -41,15 +41,26 @@ const DIM_LABEL: Record<string, string> = {
 export function ReportPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { data: report, isLoading, isError, refetch } = useReport(id);
+  // —— B7：深度生成是后端异步任务，触发后需轮询 GET /reports/:id 直到 done/failed ——
+  const [generateTriggered, setGenerateTriggered] = useState(false);
+  const { data: report, isLoading, isError, refetch } = useReport(id, {
+    poll: generateTriggered,
+  });
 
   // —— PDF 导出 ——
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  // —— B7：深度报告生成（generateStatus=pending 时触发 LLM 深度生成） ——
+  // —— B7：深度报告生成（generateStatus=pending 时��发 LLM 深度生成） ——
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // 轮询到深度报告生成完成（done）后，关闭轮询开关
+  useEffect(() => {
+    if (generateTriggered && report?.generateStatus === 'done') {
+      setGenerateTriggered(false);
+    }
+  }, [generateTriggered, report?.generateStatus]);
 
   const handleGenerate = async () => {
     if (!report || generating) return;
@@ -57,7 +68,8 @@ export function ReportPage() {
     setGenerateError(null);
     try {
       await reportApi.generateDeepContent(report.id);
-      // 触发后刷新报告以拉取最新 generateStatus / 章节内容
+      // 后端为异步生成（LLM 逐段写回），开启轮询等待生成完成
+      setGenerateTriggered(true);
       await refetch();
     } catch {
       setGenerateError('生成失败，请稍后重试');
@@ -208,7 +220,7 @@ export function ReportPage() {
       </header>
 
       {/* ============ B7 · 深度报告生成引导（generateStatus=pending） ============ */}
-      {report.generateStatus === 'pending' ? (
+      {report.generateStatus === 'pending' && !generateTriggered ? (
         <section className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-brand-accent-300 bg-brand-accent-50 px-6 py-8 text-center">
           <h2 className="font-display text-xl font-bold text-brand-primary-950">
             深度报告尚未生成
@@ -223,13 +235,13 @@ export function ReportPage() {
             <span className="text-sm text-red-600">{generateError}</span>
           ) : null}
         </section>
-      ) : report.generateStatus === 'generating' ? (
+      ) : report.generateStatus === 'generating' || (generateTriggered && report.generateStatus === 'pending') ? (
         <section className="mt-8 rounded-2xl border border-neutral-200 bg-neutral-50 px-6 py-6 text-center">
           <p className="font-serif text-sm text-neutral-600">
-            深度报告正在生成中，请稍后刷新查看。
+            深度报告正在生成中，通常需要 10~30 秒，页面会自动刷新，请稍候…
           </p>
           <SpringButton variant="ghost" className="mt-3" onClick={() => refetch()}>
-            刷新
+            立即刷新
           </SpringButton>
         </section>
       ) : null}

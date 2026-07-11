@@ -16,6 +16,19 @@ export class GetReportQueryDto {
   sectionKey?: string;
 }
 
+/** GET /reports 报告列表分页参数（PM 裁定 P0，默认 page=1/pageSize=10） */
+export class ListReportsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  pageSize?: number;
+}
+
 /** T1-17 生成分享请求 */
 export class CreateShareDto {
   /** 分享渠道（1=微信 2=朋友圈 3=微博 …），可选 */

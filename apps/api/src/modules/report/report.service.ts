@@ -464,12 +464,79 @@ export class ReportService {
     this.analytics.fire({ userId, eventType: EventType.REPORT_VIEW, properties: { reportId } });
 
     // ---- 契约 v2.1 顶层结构组装（后端渲染，前端不得反解） ----
+    return this.buildReportOverview(report, sections, lockedSectionKeys, unlocked);
+  }
+
+  /**
+   * GET /reports：报告所有者列表（PM 裁定 P0）。
+   * userId 隔离 + 软删除过滤 + 分页；list 项复用 GET /reports/:id 概览 Report 结构。
+   * 未解锁报告仅返回预览段落（付费段落被过滤，附 lockedSectionKeys）。
+   */
+  async listReportsForOwner(userId: string, page = 1, pageSize = 10) {
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safeSize = Math.min(50, Math.max(1, Math.floor(Number(pageSize) || 10)));
+    const where = { userId: BigInt(userId), isDeleted: 0 };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.report.count({ where }),
+      this.prisma.report.findMany({
+        where,
+        include: {
+          sections: { orderBy: { sortOrder: 'asc' } },
+          result: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (safePage - 1) * safeSize,
+        take: safeSize,
+      }),
+    ]);
+
+    const list = rows.map((report) => {
+      const unlocked = report.isUnlocked === 1;
+      const sections = report.sections
+        .filter((s) => unlocked || !PAID_SECTION_KEYS.includes(s.sectionKey))
+        .map((s) => ({
+          sectionKey: s.sectionKey,
+          title: s.title,
+          content: this.renderSectionContent(s.sectionKey, s.content),
+          sortOrder: s.sortOrder,
+          paid: PAID_SECTION_KEYS.includes(s.sectionKey),
+        }));
+      const lockedSectionKeys = unlocked
+        ? []
+        : report.sections
+            .filter((s) => PAID_SECTION_KEYS.includes(s.sectionKey))
+            .map((s) => s.sectionKey);
+      return this.buildReportOverview(report, sections, lockedSectionKeys, unlocked);
+    });
+
+    return { list, total, page: safePage, pageSize: safeSize };
+  }
+
+  /**
+   * 契约 v2.1 顶层概览结构组装（后端渲染，前端不得反解）。
+   * 详情(getReportForOwner)与列表(listReportsForOwner)共用，保证结构一致。
+   */
+  private buildReportOverview(
+    report: {
+      id: bigint;
+      reportNo: string;
+      mbtiType: string;
+      status: number;
+      isUnlocked: number;
+      createdAt: Date;
+      summary: unknown;
+      result: { recordId: bigint; scoreEi: unknown; scoreSn: unknown; scoreTf: unknown; scoreJp: unknown };
+      sections: Array<{ sectionKey: string; content: unknown }>;
+    },
+    sections: Array<{ sectionKey: string; title: string; content: string | null; sortOrder: number; paid: boolean }>,
+    lockedSectionKeys: string[],
+    unlocked: boolean,
+  ) {
     const family = deriveFamily(report.mbtiType);
     const dimensions = this.buildDimensionScores(report.result);
     const summary = this.renderSummaryText(report.mbtiType, family, report.summary);
-    // B7 契约：深度段"未实际生成内容"→ generateStatus 恒 pending（占位记录不算已生成）。
-    // 判断依据：付费段落 content.fallback === false 表示 LLM 已实际写回真实内容；
-    // ensureReport/generate 建报告时写入的付费段落为占位（fallback=true），不视为已生成。
+    // B7 契约：付费段 content.fallback === false 才视为已实际生成，否则 generateStatus 恒 pending。
     const hasGeneratedPaidSection = report.sections.some(
       (s) =>
         PAID_SECTION_KEYS.includes(s.sectionKey) &&

@@ -5,7 +5,7 @@ import { getTraceId } from '../../common/middleware/trace.middleware';
 import { ok, BizCode, BizException } from '../../common/response';
 import { CurrentUser, CurrentUserPayload } from '../user/auth/current-user.decorator';
 import { ReportService } from './report.service';
-import { CreateShareDto, GenerateDeepContentDto, GenerateReportDto, GetReportQueryDto, ReportOverviewDto } from './report.dto';
+import { CreateShareDto, GenerateDeepContentDto, GenerateReportDto, GetReportQueryDto, ListReportsQueryDto, ReportOverviewDto } from './report.dto';
 
 /**
  * ReportController — 报告生成/查询/分享（T1-14 / T1-15 / T1-17）。
@@ -33,6 +33,26 @@ export class ReportController {
   ) {
     const uid = this.requireUser(user);
     return ok(await this.report.generate(uid, dto.recordId), getTraceId(req), '报告已生成');
+  }
+
+  /** 报告列表 GET /api/v1/reports（PM 裁定 P0：历史页依赖，userId 隔离 + 软删除 + 分页） */
+  @Get()
+  @ApiOperation({
+    summary: '报告列表',
+    description:
+      '当前登录用户的报告列表（软删除过滤，按 createdAt 倒序分页）。' +
+      '返回 {list, total, page, pageSize}，list 项复用 GET /reports/:id 概览结构。默认 page=1/pageSize=10。',
+  })
+  async listReports(
+    @CurrentUser() user: CurrentUserPayload | undefined,
+    @Query() query: ListReportsQueryDto,
+    @Req() req: Request,
+  ) {
+    const uid = this.requireUser(user);
+    return ok(
+      await this.report.listReportsForOwner(uid, query.page, query.pageSize),
+      getTraceId(req),
+    );
   }
 
   /** T1-15 查询报告 GET /api/v1/reports/:id */

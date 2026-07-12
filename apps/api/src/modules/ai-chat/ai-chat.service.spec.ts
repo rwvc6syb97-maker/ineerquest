@@ -171,4 +171,48 @@ describe('AiChatService (T3-04/05/07)', () => {
       expect(chunks[chunks.length - 1].done).toBe(true);
     });
   });
+
+  // ============ L-P0-2 深度个性化问答（注入 MBTI 上下文） ============
+  describe('L-P0-2 personalizedStream 注入 MBTI 上下文', () => {
+    /** 给 prisma mock 补 assessmentResult.findFirst（最新测评档案）。 */
+    const withProfile = (profile: any) => {
+      const prisma = makePrisma();
+      prisma.assessmentResult = { findFirst: jest.fn(async () => profile) };
+      return prisma;
+    };
+
+    it('有 MBTI 档案：正常委托 streamMessage 流式完成', async () => {
+      const prisma = withProfile({
+        mbtiType: 'INTJ',
+        scoreEi: 30,
+        scoreSn: 70,
+        scoreTf: 65,
+        scoreJp: 80,
+      });
+      const { svc } = build({ prisma });
+      const chunks: ChatStreamChunk[] = [];
+      for await (const c of svc.personalizedStream(USER, 'convabc', '我该转行吗')) chunks.push(c);
+      expect(chunks[chunks.length - 1].done).toBe(true);
+      expect(prisma.assessmentResult.findFirst).toHaveBeenCalled();
+    });
+
+    it('无 MBTI 档案：降级为空上下文，仍能流式完成', async () => {
+      const prisma = withProfile(null);
+      const { svc } = build({ prisma });
+      const chunks: ChatStreamChunk[] = [];
+      for await (const c of svc.personalizedStream(USER, 'convabc', 'hi')) chunks.push(c);
+      expect(chunks[chunks.length - 1].done).toBe(true);
+    });
+
+    it('读取档案异常：吞掉异常降级为空上下文，不阻断问答', async () => {
+      const prisma = makePrisma();
+      prisma.assessmentResult = {
+        findFirst: jest.fn(async () => { throw new Error('db down'); }),
+      };
+      const { svc } = build({ prisma });
+      const chunks: ChatStreamChunk[] = [];
+      for await (const c of svc.personalizedStream(USER, 'convabc', 'hi')) chunks.push(c);
+      expect(chunks[chunks.length - 1].done).toBe(true);
+    });
+  });
 });

@@ -3,7 +3,7 @@
  * -------------------------------------------------------------
  * 提供：会话列表 / 新建 / 删除、消息历史、SSE 流式发送（打字机）、
  *       中断重连、轮次与配额提示。
- * 无真实后端时用 mock 兜底（沿用项目既有 mock 模式）。TODO(blocked)：联调后删除 fallback。
+ * 全部走真实后端接口，失败抛错交页面错误态，禁止 mock 兜底掩盖契约。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,8 +17,8 @@ export const aiChatKeys = {
   messages: (id: string) => ['ai-chat', 'messages', id] as const,
 };
 
-// ---------------- Mock 兜底 ----------------
-function nowIso() {
+/** 本地乐观 UI 消息时间戳（ISO8601），非 mock 数据。 */
+function localTimestamp() {
   return new Date().toISOString();
 }
 
@@ -54,11 +54,8 @@ export function useConversationActions() {
 
   const remove = useCallback(
     async (id: string): Promise<void> => {
-      try {
-        await aiChatApi.deleteConversation(id);
-      } catch {
-        /* mock：仅更新本地缓存 */
-      }
+      // 真实接口失败直接抛出，交由调用方错误态处理，禁止静默更新本地缓存掩盖后端异常
+      await aiChatApi.deleteConversation(id);
       qc.setQueryData<AiConversation[]>(aiChatKeys.conversations, (prev) =>
         (prev ?? []).filter((c) => c.id !== id),
       );
@@ -157,9 +154,9 @@ export function useChatStream(conversationId: string): UseChatStreamResult {
           conversationId,
           role: 'user',
           content,
-          createdAt: nowIso(),
+          createdAt: localTimestamp(),
         },
-        { id: aiId, conversationId, role: 'assistant', content: '', createdAt: nowIso(), streaming: true },
+        { id: aiId, conversationId, role: 'assistant', content: '', createdAt: localTimestamp(), streaming: true },
       ]);
 
       const appendToken = (t: string) =>

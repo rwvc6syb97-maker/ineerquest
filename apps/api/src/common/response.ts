@@ -92,6 +92,12 @@ export const BizCode = {
   CAREER_ALREADY_FAVORITED: 4403,
   /** 技能差距需登录并完成测评：缺档案数据 */
   CAREER_SKILL_GAP_NEED_ASSESSMENT: 4404,
+  /** [AI 拓展 P3 §4.4] 职业库 AI 草稿不存在：draftId 无效 */
+  CAREER_DRAFT_NOT_FOUND: 4460,
+  /** [AI 拓展 P3 §4.4] 职业名重复：已存在同名正式职业或待审草稿 */
+  CAREER_DRAFT_DUPLICATE_NAME: 4461,
+  /** [AI 拓展 P3 §4.4] 草稿已审核不可重复：status≠0 时再次 review */
+  CAREER_DRAFT_ALREADY_REVIEWED: 4462,
 
   // ============ AI 对话域 45xx ============
   /** 超出每日对话配额：used ≥ dailyLimit */
@@ -106,6 +112,28 @@ export const BizCode = {
   AI_GENERATE_FAILED: 4505,
   /** AI 响应超时：上游超时（映射 5003） */
   AI_TIMEOUT: 4506,
+  /** 报告人话翻译：sectionKey 非法（不属于该报告章节） */
+  PLAIN_TALK_SECTION_INVALID: 4511,
+  /** 追问式校准：四维均无临界，无需校准 */
+  NO_NEED_CALIBRATE: 4514,
+  /** AI 增值能力仅会员/付费可用：非会员访问会员接口（PRD AI 拓展 §2.1/§2.4） */
+  AI_MEMBER_ONLY: 4515,
+  /** AI 生成内容触发敏感词，需重试（PRD AI 拓展 §3.1/§3.2） */
+  AI_SENSITIVE_CONTENT: 4516,
+  /** AI 情景推演章节仅 DEEP 深度报告支持：非 DEEP 报告调用返回（PRD AI 拓展 §3.3） */
+  AI_NEED_DEEP_REPORT: 4517,
+  /** [AI 拓展 P3 §4.1] AI 模拟面试已结束不可再答：ai_interview.status=1 时再 answer */
+  AI_INTERVIEW_FINISHED: 4520,
+
+  // ---- AI 拓展 P1 通用别名（对齐 PRD 措辞：4001 未登录 / 4003 越权 / 4004 不存在 / 4005 参数）----
+  /** [AI 拓展别名] 未登录或登录失效（PRD 用 4001；映射通用未登录语义） */
+  AI_UNAUTHORIZED: 4001,
+  /** [AI 拓展别名] 越权访问：资源不属于本人（PRD 用 4003） */
+  AI_FORBIDDEN: 4003,
+  /** [AI 拓展别名] 资源不存在：职业/订单/会话不存在（PRD 用 4004） */
+  AI_NOT_FOUND: 4004,
+  /** [AI 拓展别名] 参数校验失败：必填缺失/越界/超长（PRD 用 4005） */
+  AI_BAD_PARAM: 4005,
 
   // ============ 激活码兑换域 46xx ============
   /** 激活码无效：不存在/格式错误 */
@@ -136,6 +164,14 @@ export const BizCode = {
   COACH_SLOT_NOT_FOUND: 4707,
   /** 规划师/辅导师不存在：coachId 无效或已下架 */
   COACH_NOT_FOUND: 4708,
+  /** [AI 拓展] 咨询前梳理：订单状态不允许生成提纲（已完成/已取消，或幂等重复生成）（PRD §2.2 4710） */
+  COACHING_PRE_BRIEF_NOT_ALLOWED: 4710,
+  /** [AI 拓展] 咨询后纪要：咨询未结束不可生成纪要（或幂等重复生成）（PRD §2.3 4711） */
+  COACHING_SUMMARY_NOT_FINISHED: 4711,
+  /** [AI 拓展] 咨询后纪要：会话无消息可总结（PRD §2.3 4712） */
+  COACHING_SUMMARY_NO_MESSAGE: 4712,
+  /** [AI 拓展] 辅导师智能匹配：当前无可用辅导师（PRD §2.4 4713） */
+  COACHING_MATCH_NO_COACH: 4713,
 
   // ============ 运营后台域 48xx ============
   /** 后台账号或密码错误：登录失败 */
@@ -159,9 +195,11 @@ export const BizCode = {
   /** 上游服务超时：第三方响应超时 */
   UPSTREAM_TIMEOUT: 5003,
 
-  // ============ 全局限流 9001 ============
-  /** 请求过于频繁：命中限流令牌桶 */
+  // ============ 全局限流 9001 / AI 用户配额 9002 ============
+  /** 请求过于频繁：命中限流令牌桶（游客试用超限亦复用，PRD AI 拓展 §3.1） */
   RATE_LIMITED: 9001,
+  /** 登录用户 AI 日配额耗尽：超出每日调用上限（PRD AI 拓展 §3.1/§3.3 第 6 章配额策略） */
+  AI_USER_QUOTA_EXHAUSTED: 9002,
 
   // ============ 兼容别名（历史常量名 → 契约码）============
   // 说明：以下常量名为存量代码引用，值统一映射到 v2.0 契约码，避免破坏编译且返回契约码。

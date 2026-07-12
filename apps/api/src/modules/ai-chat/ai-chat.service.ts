@@ -207,6 +207,7 @@ export class AiChatService {
     userId: string,
     convNo: string,
     content: string,
+    extraSystemContext?: string,
   ): AsyncGenerator<ChatStreamChunk> {
     const conv = await this.mustOwnConversation(userId, convNo);
     const conversationId = conv.id.toString();
@@ -235,6 +236,10 @@ export class AiChatService {
       { role: 'system' as const, content: AI_CHAT_SYSTEM_PROMPT },
       ...contextMessages,
     ];
+    // L-P0-2 深度个性化：注入 MBTI 人格上下文（若有），置于系统层，供顾问据此个性化作答。
+    if (extraSystemContext && extraSystemContext.trim()) {
+      messages.splice(1, 0, { role: 'system' as const, content: extraSystemContext.trim() });
+    }
     // 确保本轮 user 内容在末尾（readMessages 已含刚写入的用户消息，兜底再拼一次）
     if (messages[messages.length - 1]?.content !== content) {
       messages.push({ role: 'user' as const, content });
@@ -293,5 +298,50 @@ export class AiChatService {
     } catch (err) {
       this.logger.warn(`bump conversation degraded(blocked): ${(err as Error).message}`);
     }
+  }
+
+  // ============ L-P0-2 深度个性化问答 ============
+
+  /**
+   * 读取用户最新一次测评结果的 MBTI 人格上下文，拼成系统提示串。
+   * 无结果 / 查询失败 → 返回空串（顾问降级为通用问答，不阻断）。
+   * 只读 assessment_result，绝不触碰/写入报告本体。
+   */
+  private async buildMbtiContext(userId: string): Promise<string> {
+    try {
+      const r = await this.prisma.assessmentResult.findFirst({
+        where: { userId: BigInt(userId) },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          mbtiType: true,
+          scoreEi: true,
+          scoreSn: true,
+          scoreTf: true,
+          scoreJp: true,
+        },
+      });
+      if (!r || !r.mbtiType) return '';
+      return [
+        `【用户人格档案】该用户最近一次 MBTI 测评类型为 ${r.mbtiType}。`,
+        `四维倾向分（0-100，越高越偏后极）：E/I=${r.scoreEi}，S/N=${r.scoreSn}，T/F=${r.scoreTf}，J/P=${r.scoreJp}。`,
+        `请结合该人格特质进行个性化解读与建议，语气贴合其偏好；不要臆造未提供的信息。`,
+      ].join('\n');
+    } catch (err) {
+      this.logger.warn(`build mbti context degraded(blocked): ${(err as Error).message}`);
+      return '';
+    }
+  }
+
+  /**
+   * 深度个性化问答：读取用户 MBTI 人格上下文后注入系统层，复用 streamMessage 的配额/落库/流式全流程。
+   * 无人格档案时降级为通用问答（extraSystemContext 为空串）。
+   */
+  async *personalizedStream(
+    userId: string,
+    convNo: string,
+    content: string,
+  ): AsyncGenerator<ChatStreamChunk> {
+    const mbtiContext = await this.buildMbtiContext(userId);
+    yield* this.streamMessage(userId, convNo, content, mbtiContext);
   }
 }

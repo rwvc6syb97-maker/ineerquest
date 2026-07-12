@@ -27,6 +27,21 @@ export class RecommendQueryDto {
   reportId?: string;
 }
 
+/** L4 我的收藏列表分页查询 */
+export class FavoriteListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
+}
+
 /** T1-16 检索查询 */
 export class SearchCareerQueryDto {
   @IsString()

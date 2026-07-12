@@ -255,6 +255,9 @@ model AssessmentResult {
   scoreJp    Decimal  @map("score_jp") @db.Decimal(5, 2)
   typeGroup  Int      @map("type_group") @db.TinyInt
   isAbnormal Int      @default(0) @map("is_abnormal") @db.TinyInt
+  // AI 追问式测评校准（契约 v1.0 §1.3）：临界维度二次校准
+  calibrated      Int   @default(0) @map("calibrated") @db.TinyInt
+  calibrationData Json? @map("calibration_data")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -468,13 +471,16 @@ model CareerRoadmap {
   @@map("career_roadmap")
 }
 
-/// 用户收藏表
+/// 用户收藏表（targetType=1 表示职业 career；软删除保留审计字段）
 model UserFavorite {
-  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  userId     BigInt   @map("user_id") @db.UnsignedBigInt
-  targetType Int      @map("target_type") @db.TinyInt
-  targetId   BigInt   @map("target_id") @db.UnsignedBigInt
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt    @map("user_id") @db.UnsignedBigInt
+  targetType Int       @map("target_type") @db.TinyInt
+  targetId   BigInt    @map("target_id") @db.UnsignedBigInt
+  status     Int       @default(1) @db.TinyInt // 1=有效 0=已取消(软删除)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
   @@unique([userId, targetType, targetId], map: "uk_user_target")
   @@index([userId, targetType], map: "idx_user_type")
@@ -1005,4 +1011,222 @@ model CacheZset {
   @@unique([zkey, member], map: "uk_zkey_member")
   @@index([zkey, score], map: "idx_zkey_score")
   @@map("cache_zset")
+}
+
+// ============ AI 能力拓展 Batch P1（§2.1~2.3）============
+// 说明：AI 生成内容表，与规则版表(career_roadmap / growth_plan)分表隔离(护城河)。
+// 关联采用逻辑关联(仅字段+索引，不加物理外键/反向 relation)，避免越界改动 P1 范围外的表。
+
+/// AI 动态成长计划表（§2.1 LLM 生成分周任务，与规则版 career_roadmap 分表隔离）
+model CareerGrowthPlan {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt    @map("user_id") @db.UnsignedBigInt // 数据隔离：按 userId 查询
+  careerId     BigInt    @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id
+  targetMonths Int       @map("target_months") @db.UnsignedTinyInt // 目标月数 1~24
+  weeksData    Json      @map("weeks_data") // 映射 data.weeks:[{weekNo,theme,tasks:[{title,resourceUrl?}]}]
+  degraded     Int       @default(0) @db.TinyInt // 1=LLM失败回退规则版(降级)，映射 data.degraded
+  status       Int       @default(1) @db.TinyInt // 1=有效 2=已归档等
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId, careerId], map: "idx_user_career")
+  @@index([userId, status], map: "idx_user_status")
+  @@map("career_growth_plan")
+}
+
+/// AI 咨询前问题梳理提纲表（§2.2 一订单一提纲，orderId 唯一约束幂等 → 4710）
+model CoachingPreBrief {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  orderId     BigInt   @map("order_id") @db.UnsignedBigInt // 逻辑关联 coaching_order.id
+  userId      BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  outline     String   @db.Text // 映射 data.outline
+  tags       Json     @map("tags") // 映射 data.tags:string[]
+  answersData Json     @map("answers_data") // 原始问答 [{question,answer}]，审计留存
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([orderId], map: "uk_order_id") // 幂等：一订单一提纲
+  @@index([userId], map: "idx_user_id")
+  @@map("coaching_pre_brief")
+}
+
+/// AI 咨询后行动纪要表（§2.3 一订单一纪要，orderId 唯一约束幂等 → 4711）
+model CoachingSummary {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  orderId   BigInt   @map("order_id") @db.UnsignedBigInt // 逻辑关联 coaching_order.id
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  summary   String   @db.Text // 映射 data.summary
+  todosData Json     @map("todos_data") // 映射 data.todos:[{title,done:false}]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([orderId], map: "uk_order_id") // 幂等：一订单一纪要，重复生成拦截
+  @@index([userId], map: "idx_user_id")
+  @@map("coaching_summary")
+}
+
+// ============ 10. AI 能力拓展 P2（新品类与裂变，护城河隔离） ============
+
+/// AI 深度报告「个性化章节」表（§3.3 护城河核心）
+/// 铁律：结果绝不写入 report / report_section 本体表；逻辑关联 reportId，无物理外键/无级联/无反向 relation。
+model ReportAiChapter {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId       BigInt   @map("report_id") @db.UnsignedBigInt // 逻辑关联 report.id，无物理外键
+  userId         BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  focusCareerId  BigInt?  @map("focus_career_id") @db.UnsignedBigInt // 可选，逻辑关联 career.id
+  title          String   @db.VarChar(255) // 映射 data.title
+  paragraphs     Json     @map("paragraphs") // 映射 data.paragraphs:string[]（段落数组）
+  degraded       Int      @default(0) @db.TinyInt // 映射 data.degraded，1=降级兜底
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([reportId, userId], map: "idx_report_user") // 按报告+用户查旁挂章节
+  @@index([userId], map: "idx_user_id")
+  @@map("report_ai_chapter")
+}
+
+/// AI 简历/求职信文档表（§3.2 商业化新品类，可长期保存 + 软删）
+model AiResumeDoc {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt    @map("user_id") @db.UnsignedBigInt // 数据隔离
+  careerId     BigInt    @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id，无物理外键
+  type         String    @default("resume") @db.VarChar(16) // "resume" | "coverLetter"
+  content      String    @db.Text // 映射 data.content 全文初稿
+  sectionsData Json      @map("sections_data") // 映射 data.sections:[{title,body}]
+  degraded     Int       @default(0) @db.TinyInt // 映射 data.degraded
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt // 软删：用户可删除自己文档
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId, careerId], map: "idx_user_career") // 按用户+目标职业查历史文档
+  @@index([userId, type], map: "idx_user_type") // 按用户+文档类型筛选
+  @@map("ai_resume_doc")
+}
+
+/// AI 双人/团队协作分析结果表（§3.1 登录用户保存结果才落库，可长期保存 + 软删）
+model AiCollabAnalysis {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId      BigInt    @map("user_id") @db.UnsignedBigInt // 数据隔离；游客试用不入库
+  membersData Json      @map("members_data") // 映射入参 members:[{name?,mbtiType}]
+  scene       String?   @db.VarChar(64) // 可选场景，如"项目协作"
+  summary     String    @db.Text // 映射 data.summary
+  pairsData   Json      @map("pairs_data") // 映射 data.pairs:[{a,b,synergy,advice}]
+  risksData   Json      @map("risks_data") // 映射 data.risks:string[]
+  degraded    Int       @default(0) @db.TinyInt // 映射 data.degraded
+  isDeleted   Int       @default(0) @map("is_deleted") @db.TinyInt // 软删
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([userId], map: "idx_user_id") // 按用户查已保存的协作分析
+  @@map("ai_collab_analysis")
+}
+
+// ============ 11. AI 能力拓展 P3（模拟面试/题库/日报/职业库草稿，护城河隔离） ============
+
+/// AI 模拟面试会话表（§4.1）
+/// 逻辑关联 user/career，无物理外键/无级联/无反向 relation。
+model AiInterview {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId          BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  careerId        BigInt   @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id，无物理外键
+  difficulty      String?  @db.VarChar(16) // 可选：easy/medium/hard
+  status          Int      @default(0) @db.TinyInt // 0=进行中 1=已结束（控制 4520 已结束不可再答）
+  overallScore    Int?     @map("overall_score") // 结束后汇总总分
+  dimensionsData  Json?    @map("dimensions_data") // 各维度评分
+  suggestionsData Json?    @map("suggestions_data") // 建议
+  degraded        Int      @default(0) @db.TinyInt // 1=降级兜底
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId], map: "idx_user_id")
+  @@index([userId, careerId], map: "idx_user_career")
+  @@map("ai_interview")
+}
+
+/// AI 面试问答明细表（§4.1 属于某个 interview）
+/// 逻辑关联 ai_interview.id，无物理外键/无级联/无反向 relation。
+model AiInterviewQa {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  interviewId BigInt   @map("interview_id") @db.UnsignedBigInt // 逻辑关联 ai_interview.id，无物理外键
+  userId      BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  seq         Int      // 轮次序号
+  question    String   @db.Text // 面试问题
+  answer      String?  @db.Text // 用户作答，可空（未答）
+  score       Int?     // 单题评分
+  feedback    String?  @db.Text // 单题反馈
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([interviewId, seq], map: "idx_interview_seq") // 按会话取轮次
+  @@map("ai_interview_qa")
+}
+
+/// AI 面试题库表（§4.2 AI 生成 + 人工审核发布）
+/// 逻辑关联 career，无物理外键；未审核不对外（status=0）。
+model InterviewQuestion {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  careerId     BigInt    @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id，无物理外键
+  difficulty   String    @db.VarChar(16) // easy/medium/hard
+  question     String    @db.Text // 题干
+  tagsData     Json?     @map("tags_data") // 标签数组，可选
+  sampleAnswer String?   @map("sample_answer") @db.Text // 参考答案，可选
+  status       Int       @default(0) @db.TinyInt // 0=草稿待审 1=已发布（人工审核控制）
+  isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt // 软删
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([careerId, status], map: "idx_career_status") // 按职业筛已发布题
+  @@map("interview_question")
+}
+
+/// 职业热点日报表（§4.3 个性化，ops 审核后发布）
+/// 逻辑关联 user；每人每天一份（唯一约束）；无物理外键。
+model DailyBrief {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离，个性化
+  briefDate DateTime @map("brief_date") @db.Date // 日报日期
+  itemsData Json     @map("items_data") // [{title,summary,careerId?}]
+  status    Int      @default(0) @db.TinyInt // 0=待审 1=已发布
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, briefDate], map: "uk_user_date") // 每人每天一份
+  @@map("daily_brief")
+}
+
+/// 日报订阅设置表（§4.3 一人一条）
+/// 逻辑关联 user；userId 唯一；无物理外键。
+model DailyBriefSubscription {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId         BigInt   @map("user_id") @db.UnsignedBigInt // 数据隔离
+  enabled        Int      @default(1) @db.TinyInt // 1=开启 0=关闭
+  categoriesData Json     @map("categories_data") // 订阅品类
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId], map: "uk_user_id") // 一人一条订阅设置
+  @@map("daily_brief_subscription")
+}
+
+/// 职业库 AI 草稿表（§4.4 S-04 铁律：AI 生成先入草稿，绝不直接写正式表）
+/// approve 后由业务层同步 career/career_skill；逻辑关联 creator，无物理外键/无级联。
+model CareerAiDraft {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  creatorId      BigInt   @map("creator_id") @db.UnsignedBigInt // 逻辑关联生成的管理员，无物理外键
+  name           String   @db.VarChar(128) // 职业名
+  category       String   @db.VarChar(64) // 品类
+  draftData     Json     @map("draft_data") // 岗位描述/职责/薪资区间等草稿全量
+  skillsData     Json     @map("skills_data") // 技能清单草稿
+  refSourcesData Json?    @map("ref_sources_data") // 权威数据源，严禁招聘平台，可选
+  status         Int      @default(0) @db.TinyInt // 0=待审 1=已通过approve 2=已拒绝reject（控制 4462 已审核不可重复、S-04 未审核不入正式表）
+  reviewRemark   String?  @map("review_remark") @db.VarChar(255) // 审核备注，可选
+  syncedCareerId BigInt?  @map("synced_career_id") @db.UnsignedBigInt // approve 后同步生成的 career.id，可选
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([status], map: "idx_status")
+  @@index([creatorId], map: "idx_creator")
+  @@map("career_ai_draft")
 }

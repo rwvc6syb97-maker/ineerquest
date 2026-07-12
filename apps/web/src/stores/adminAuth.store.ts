@@ -19,17 +19,18 @@ import {
 } from '../api/admin-token';
 
 /**
- * 后台 Mock 登录兜底（无真实后端时可直接预览后台）。
- * 开启 VITE_AUTH_MOCK_MODE 后，用固定账号密码 admin / admin888 登录即可，
- * 直接签发 admin token 与全通配权限点 `*`。
+ * 后台 Mock 登录兜底（仅开发预览用，生产构建编译期剔除）。
+ * 仅当 import.meta.env.DEV 为真且显式开启 VITE_AUTH_MOCK_MODE 时可用，
+ * 用固定账号密码 admin / admin888 登录即�签发 admin token 与全通配权限点 `*`。
+ * 生产构建下 import.meta.env.DEV 为编译期常量 false，整个 mock 分支被tree-shake 剔除。
  */
 const ADMIN_MOCK_USERNAME = 'admin';
 const ADMIN_MOCK_PASSWORD = 'admin888';
 
 function isMockAuthEnabled(): boolean {
-  // 生产构建强制关闭后台 mock 登录：即使 VITE_AUTH_MOCK_MODE=true，
-  // 在生产构建下也不可用，强制走后端真实登录 adminAuthApi.login。
-  if (import.meta.env.PROD || import.meta.env.MODE === 'production') return false;
+  // 编译期门控：生产构建 import.meta.env.DEV=false，此函数恒返回 false 并被静态剔除，
+  // 生产产物中不存在任何 mock 登录路径，无法用假凭证进入后台。
+  if (!import.meta.env.DEV) return false;
   const raw = import.meta.env.VITE_AUTH_MOCK_MODE;
   if (!raw) return false;
   return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());
@@ -65,8 +66,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
   login: async (params) => {
     set({ loading: true });
     try {
-      // Mock 模式：固定账号密码直接签发 admin 登录态（无需后端）
-      if (isMockAuthEnabled()) {
+      // Mock 模式：固定账号密码直接签发 admin 登录态（仅开发预览，生产构建编译期剔除）
+      if (import.meta.env.DEV && isMockAuthEnabled()) {
         if (
           params.username === ADMIN_MOCK_USERNAME &&
           params.password === ADMIN_MOCK_PASSWORD

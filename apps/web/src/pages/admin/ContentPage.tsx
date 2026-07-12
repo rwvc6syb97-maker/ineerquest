@@ -3,7 +3,7 @@
  * -------------------------------------------------------------
  * - Tab「职业词条」：CRUD（career:read / career:write）。
  * - Tab「学习资源」：CRUD（resource:read / resource:write）。
- * - Tab「话题」：后端返回 501，捕获后展示「功能暂未开放」占位（不白屏）。
+ * - Tab「话题」：CRUD + 审核（topic:review），接口失败走错误态，禁止 mock 兜底。
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,8 @@ import type {
   ResourceItem,
   UpsertCareerParams,
   UpsertResourceParams,
+  TopicItem,
+  CreateTopicParams,
 } from '../../api/modules/admin-content.api';
 import { Card } from '../../components/ui/Card';
 import {
@@ -441,21 +443,243 @@ function ResourcesTab() {
 }
 
 function TopicsTab() {
-  // 后端 topics 返回 501，捕获后展示占位，避免白屏。
-  const q = useQuery({
-    queryKey: ['admin', 'topics'],
-    queryFn: () => adminContentApi.listTopics(),
-    retry: false,
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [editing, setEditing] = useState<TopicItem | 'new' | null>(null);
+  const [delTarget, setDelTarget] = useState<TopicItem | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<TopicItem | null>(null);
+
+  const AUDIT_TEXT: Record<number, { text: string; tone: 'green' | 'slate' }> = {
+    0: { text: '待审核', tone: 'slate' },
+    1: { text: '已通过', tone: 'green' },
+    2: { text: '已驳回', tone: 'slate' },
+  };
+
+  const list = useQuery({
+    queryKey: ['admin', 'topics', { page, pageSize }],
+    queryFn: () => adminContentApi.listTopics({ page, pageSize }),
   });
 
+  const { register, handleSubmit, reset } = useForm<CreateTopicParams>();
+
+  const saveMut = useMutation({
+    mutationFn: (data: CreateTopicParams) =>
+      editing === 'new'
+        ? adminContentApi.createTopic(data)
+        : adminContentApi.updateTopic((editing as TopicItem).id, data),
+    onSuccess: () => {
+      toast('保存成功');
+      setEditing(null);
+      qc.invalidateQueries({ queryKey: ['admin', 'topics'] });
+    },
+    onError: (e) => toast(errMsg(e), 'error'),
+  });
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => adminContentApi.deleteTopic(id),
+    onSuccess: () => {
+      toast('已删除');
+      setDelTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin', 'topics'] });
+    },
+    onError: (e) => toast(errMsg(e), 'error'),
+  });
+
+  const reviewMut = useMutation({
+    mutationFn: (v: { id: string; auditStatus: 1 | 2 }) =>
+      adminContentApi.reviewTopic(v.id, { auditStatus: v.auditStatus }),
+    onSuccess: () => {
+      toast('审核完成');
+      setReviewTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin', 'topics'] });
+    },
+    onError: (e) => toast(errMsg(e), 'error'),
+  });
+
+  const openEdit = (item: TopicItem | 'new') => {
+    if (item === 'new') {
+      reset({ title: '', content: '', category: '', tags: '', isPinned: 0 });
+    } else {
+      reset({
+        title: item.title,
+        content: item.content,
+        category: item.category ?? '',
+        tags: item.tags ?? '',
+        isPinned: item.isPinned,
+      });
+    }
+    setEditing(item);
+  };
+
+  const rows = list.data?.list ?? [];
+
   return (
-    <Card>
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <p className="text-base font-medium text-slate-700">功能暂未开放</p>
-        <p className="text-sm text-slate-400">
-          {q.isError ? '话题管理后端尚未实现（501），敬请期待。' : '加载中…'}
-        </p>
-      </div>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <PermGate need="topic:review">
+        <button
+          type="button"
+          onClick={() => openEdit('new')}
+          className="self-start rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+        >
+          新增话题
+        </button>
+      </PermGate>
+
+      <Card padding="none">
+        {list.isLoading ? (
+          <p className="py-10 text-center text-sm text-slate-400">加载中…</p>
+        ) : list.isError ? (
+          <p className="py-10 text-center text-sm text-red-500">{errMsg(list.error, '加载失败')}</p>
+        ) : rows.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-400">暂无话题</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">标题</th>
+                  <th className="px-4 py-3">类别</th>
+                  <th className="px-4 py-3">审核</th>
+                  <th className="px-4 py-3">状态</th>
+                  <th className="px-4 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((t) => (
+                  <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3 text-slate-800">{t.title}</td>
+                    <td className="px-4 py-3 text-slate-600">{t.category ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge {...(AUDIT_TEXT[t.auditStatus] ?? AUDIT_TEXT[0])} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge {...STATUS_TEXT[t.status]} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <PermGate need="topic:review">
+                        <div className="flex gap-3">
+                          {t.auditStatus === 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setReviewTarget(t)}
+                              className="text-xs text-emerald-600 hover:underline"
+                            >
+                              审核
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openEdit(t)}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDelTarget(t)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </PermGate>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-4">
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={list.data?.total ?? 0}
+                onChange={setPage}
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* 编辑/新增弹窗 */}
+      <ConfirmDialog
+        open={!!editing}
+        title={editing === 'new' ? '新增话题' : '编辑话题'}
+        danger={false}
+        confirmText="保存"
+        loading={saveMut.isPending}
+        onCancel={() => setEditing(null)}
+        onConfirm={handleSubmit((data) => saveMut.mutate(data))}
+      >
+        <div className="flex flex-col gap-3">
+          <input
+            {...register('title', { required: true })}
+            placeholder="标题"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <textarea
+            {...register('content', { required: true })}
+            placeholder="正文"
+            rows={4}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            {...register('category')}
+            placeholder="类别（可选）"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            {...register('tags')}
+            placeholder="标签（可选，逗号分隔）"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <select
+            {...register('isPinned', { valueAsNumber: true })}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value={0}>不置顶</option>
+            <option value={1}>置顶</option>
+          </select>
+        </div>
+      </ConfirmDialog>
+
+      {/* 审核弹窗 */}
+      <ConfirmDialog
+        open={!!reviewTarget}
+        title="审核话题"
+        confirmText="通过"
+        loading={reviewMut.isPending}
+        onCancel={() => setReviewTarget(null)}
+        onConfirm={() =>
+          reviewTarget && reviewMut.mutate({ id: reviewTarget.id, auditStatus: 1 })
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-slate-600">话题「{reviewTarget?.title}」</p>
+          <button
+            type="button"
+            onClick={() =>
+              reviewTarget && reviewMut.mutate({ id: reviewTarget.id, auditStatus: 2 })
+            }
+            className="self-start rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+          >
+            驳回
+          </button>
+        </div>
+      </ConfirmDialog>
+
+      {/* 删除确认 */}
+      <ConfirmDialog
+        open={!!delTarget}
+        title="删除话题"
+        confirmText="删除"
+        loading={delMut.isPending}
+        onCancel={() => setDelTarget(null)}
+        onConfirm={() => delTarget && delMut.mutate(delTarget.id)}
+      >
+        确定删除「{delTarget?.title}」？该操作不可撤销。
+      </ConfirmDialog>
+    </div>
   );
 }

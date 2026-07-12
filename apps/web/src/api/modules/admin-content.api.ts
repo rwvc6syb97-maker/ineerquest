@@ -4,10 +4,9 @@
  * 对齐后端 ops/content controller：
  *   /admin/content/careers   CRUD（career:read / career:write）
  *   /admin/content/resources CRUD（resource:read / resource:write）
- *   /admin/content/topics    ⚠️ 返回 501 NotImplemented（无 Topic model，blocked）
+ *   /admin/content/topics    CRUD + 审核（topic:review）
  *
- * 删除操作需 confirm=true。topics 相关方法调用后会抛 ApiError(code=501)，
- * 页面据此展示「功能暂未开放」占位，禁止白屏。
+ * 删除操作需 confirm=true。接口失败统一抛 ApiError 交页面错误态，禁止 mock 兜底。
  */
 import { adminRequest } from '../admin-client';
 
@@ -123,15 +122,97 @@ export function deleteResource(id: string): Promise<void> {
   });
 }
 
-// ---- 话题管理（blocked：后端返回 501，页面需优雅占位）----
-/** 话题（占位类型，后端 Topic model 未落地） */
+// ---- 话题管理（topic:review）----
+
+/** 审核状态：0 待审核 / 1 已通过 / 2 已驳回（对齐后端 Topic.auditStatus） */
+export type TopicAuditStatus = 0 | 1 | 2;
+
+/**
+ * 话题（对齐后端 Prisma Topic model + serialize，bigint 序列化为 string）。
+ * 出参字段以后端 admin-content.service.ts serialize 透传为准。
+ */
 export interface TopicItem {
   id: string;
   title: string;
+  content: string;
+  category: string | null;
+  tags: string | null;
+  authorId: string;
+  viewCount: number;
+  likeCount: number;
+  replyCount: number;
+  /** 0 不置顶 / 1 置顶 */
+  isPinned: number;
+  auditStatus: TopicAuditStatus;
   status: ContentStatus;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-/** ⚠️ 调用即抛 ApiError(code=501)，页面据此展示占位。 */
-export function listTopics(params?: ContentListParams): Promise<ContentListResult<TopicItem>> {
+/** 话题列表查询参数（对齐后端 listTopics query） */
+export interface TopicListParams {
+  auditStatus?: TopicAuditStatus;
+  status?: ContentStatus;
+  category?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 话题新增请求体（对齐 CreateTopicDto） */
+export interface CreateTopicParams {
+  title: string;
+  content: string;
+  category?: string;
+  tags?: string;
+  /** 0 / 1 */
+  isPinned?: number;
+}
+
+/** 话题编辑请求体（对齐 UpdateTopicDto） */
+export interface UpdateTopicParams {
+  title?: string;
+  content?: string;
+  category?: string;
+  tags?: string;
+  isPinned?: number;
+  status?: ContentStatus;
+}
+
+/** 话题审核请求体（对齐 ReviewTopicDto：auditStatus 1 通过 / 2 驳回） */
+export interface ReviewTopicParams {
+  auditStatus: 1 | 2;
+  auditRemark?: string;
+}
+
+export function listTopics(params?: TopicListParams): Promise<ContentListResult<TopicItem>> {
   return adminRequest({ url: '/admin/content/topics', method: 'GET', params });
+}
+
+export function topicDetail(id: string): Promise<TopicItem> {
+  return adminRequest<TopicItem>({ url: `/admin/content/topics/${id}`, method: 'GET' });
+}
+
+export function createTopic(body: CreateTopicParams): Promise<TopicItem> {
+  return adminRequest<TopicItem>({ url: '/admin/content/topics', method: 'POST', data: body });
+}
+
+export function updateTopic(id: string, body: UpdateTopicParams): Promise<TopicItem> {
+  return adminRequest<TopicItem>({ url: `/admin/content/topics/${id}`, method: 'PUT', data: body });
+}
+
+export function deleteTopic(id: string, reason?: string): Promise<{ id: string; removed: boolean; reason: string | null }> {
+  return adminRequest({
+    url: `/admin/content/topics/${id}`,
+    method: 'DELETE',
+    data: { confirm: true, reason },
+  });
+}
+
+export function reviewTopic(id: string, body: ReviewTopicParams): Promise<TopicItem> {
+  return adminRequest<TopicItem>({
+    url: `/admin/content/topics/${id}/review`,
+    method: 'POST',
+    data: body,
+  });
 }

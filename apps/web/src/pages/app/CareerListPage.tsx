@@ -3,12 +3,16 @@
  * -------------------------------------------------------------
  * 精致化重构：TOP 职业按匹配度排序，卡片墙错落（非三等分栅格），
  *  每卡 mono 匹配度数值 + 进度条（橙指引）、薪资 StatPill、标签 Tag；
- *  分类 Chip 筛选 + 关键词搜索 +地收藏。点击跳 P13。
- * 数据 hook（useRecommendCareers）与 mock 兜底保持不变，仅重构 UI。
+ *  分类 Chip 筛选 + 关键词搜索 + 收藏。点击跳 P13。
+ * 收藏走真实后端接口（useFavorites，React Query），收藏态由服务端列表驱动，
+ *  未登录点击收藏（后端返 4010）引导登录。
  */
 import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useRecommendCareers } from '../../hooks/useCareer';
+import { useFavorites } from '../../hooks/useFavorites';
+import { ApiError } from '../../api/client';
+import { CommonCode } from '@innerquest/shared';
 import {
   Card,
   Tag,
@@ -20,16 +24,6 @@ import {
 } from '../../components';
 import { COLORS } from '../../theme/tokens';
 
-const FAV_KEY = 'iq_career_favorites';
-
-function loadFavorites(): Set<string> {
-  try {
-    return new Set<string>(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
 export function CareerListPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -39,16 +33,26 @@ export function CareerListPage() {
 
   const [keyword, setKeyword] = useState('');
   const [activeCat, setActiveCat] = useState<string>('全部');
-  const [favorites, setFavorites] = useState<Set<string>>(loadFavorites);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  const toggleFav = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem(FAV_KEY, JSON.stringify([...next]));
-      return next;
-    });
+  const goLogin = () => {
+    const back = `/app/career${window.location.search}`;
+    navigate(`/auth/login?redirect=${encodeURIComponent(back)}`);
+  };
+
+  const toggleFav = async (id: string) => {
+    try {
+      await toggleFavorite(id);
+    } catch (err) {
+      // 未登录：引导登录；其余业务错误（如 4403 重复/4402 下架）用后端 message 提示
+      if (err instanceof ApiError && err.code === CommonCode.UNAUTHORIZED) {
+        goLogin();
+        return;
+      }
+      if (err instanceof ApiError) {
+        window.alert(err.message);
+      }
+    }
   };
 
   // 分类集合（含「全部」）
@@ -172,7 +176,7 @@ export function CareerListPage() {
             const score = c.matchScore ?? 0;
             // 错落：每第 3 张（lg 下）纵向占 2 行制造墙面节奏
             const tall = i % 3 === 0;
-            const faved = favorites.has(c.id);
+            const faved = isFavorite(c.id);
             return (
               <RevealItem key={c.id} index={i} className={tall ? 'lg:row-span-2' : ''}>
                 <Card
@@ -194,7 +198,7 @@ export function CareerListPage() {
                       aria-pressed={faved}
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleFav(c.id);
+                        void toggleFav(c.id);
                       }}
                       className="shrink-0 rounded-full p-1.5 text-neutral-300 transition-colors hover:bg-neutral-100"
                       style={faved ? { color: COLORS.accent } : undefined}

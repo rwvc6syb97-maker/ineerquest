@@ -118,6 +118,10 @@ export const BizCode = {
   AI_GENERATE_FAILED: 4505,
   /** AI 响应超时：上游超时（映射 5003） */
   AI_TIMEOUT: 4506,
+  /** 报告人话翻译：sectionKey 非法（不属于该报告章节） */
+  PLAIN_TALK_SECTION_INVALID: 4511,
+  /** 追问式校准：四维均无临界，无需校准 */
+  NO_NEED_CALIBRATE: 4514,
 
   // ============ 激活码兑换域 46xx ============
   /** 激活码无效：不存在/格式错误 */

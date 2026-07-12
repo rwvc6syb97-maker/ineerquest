@@ -9,6 +9,7 @@ export * as careerApi from './modules/career.api';
 export * as paymentApi from './modules/payment.api';
 export * as membershipApi from './modules/membership.api';
 export * as aiChatApi from './modules/ai-chat.api';
+export * as aiPlusApi from './modules/ai-plus.api';
 export * as careerPlanApi from './modules/career-plan.api';
 export * as coachingApi from './modules/coaching.api';
 

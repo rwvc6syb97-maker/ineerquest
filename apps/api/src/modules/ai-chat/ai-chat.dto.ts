@@ -40,3 +40,18 @@ export class SendMessageDto {
   @MaxLength(10000)
   content!: string;
 }
+
+/** L-P0-2 深度个性化问答请求（复用 ai-chat 流式，注入用户 MBTI 上下文）。 */
+export class PersonalizedChatDto {
+  /** 会话编号 conv_no（须为本人已存在会话）。 */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  convNo!: string;
+
+  /** 本轮用户消息内容。业务上限 2000 由 controller 显式抛 AI_CONTENT_TOO_LONG(4504)。 */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(10000)
+  content!: string;
+}

@@ -9,8 +9,12 @@ build/
 out/
 *.tsbuildinfo
 
-# temp / scratch (类型检查临时输出等)
+# temp / scratch (类型检查/测试临时输出等)
 tsc-out.txt
+tsc_*.txt
+*_check.txt
+*_out.txt
+jest_*.txt
 
 # env
 .env

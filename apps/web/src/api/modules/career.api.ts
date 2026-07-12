@@ -3,7 +3,7 @@
  * 对齐契约：
  *  GET /careers           职业列表
  *  GET /careers/:id       职业详情
- *  GET /careers/recommend MBTI 匹配 TOP10
+ *  GET /careers/recommendations MBTI 匹配 TOP10
  *  GET /careers/search    搜索
  */
 import { request } from '../client';
@@ -125,7 +125,7 @@ function toCareerDetail(raw: RawCareerDetail): CareerDetail {
   };
 }
 
-/** 后端推荐项（GET /careers/recommend 返回 list 元素） */
+/** 后端推荐项（GET /careers/recommendations 返回 list 元素） */
 export interface RecommendItem {
   rankNo: number;
   matchScore: number;
@@ -179,5 +179,67 @@ export function searchCareers(keyword: string): Promise<CareerCard[]> {
     url: '/careers/search',
     method: 'GET',
     params: { keyword },
+  });
+}
+
+/* ============ L4 收藏（对齐《需求文档-接口与测试用例权威规范》§7.1-7.4） ============ */
+
+/** POST /careers/:careerId/favorite 出参 */
+export interface FavoriteAddResult {
+  favorited: true;
+  favoriteId: string;
+  /** 北京时间字符串 */
+  createdAt: string;
+}
+
+/** DELETE /careers/:careerId/favorite 出参（幂等，未收藏取消也返 favorited=false） */
+export interface FavoriteRemoveResult {
+  favorited: false;
+}
+
+/** GET /careers/favorites 列表元素 */
+export interface FavoriteItem {
+  favoriteId: string;
+  careerId: number;
+  name: string;
+  category: string;
+  salaryRange: string;
+  outlook: string;
+  /** 北京时间字符串 */
+  createdAt: string;
+}
+
+/** GET /careers/favorites 出参 */
+export interface FavoriteListResult {
+  list: FavoriteItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** 收藏职业（需登录，无 Body）。重复收藏 4403 / 职业不存在或下架 4402 / 未登录 4010 */
+export function addFavorite(careerId: string | number): Promise<FavoriteAddResult> {
+  return request<FavoriteAddResult>({
+    url: `/careers/${careerId}/favorite`,
+    method: 'POST',
+  });
+}
+
+/** 取消收藏（需登录，无 Body，幂等） */
+export function removeFavorite(careerId: string | number): Promise<FavoriteRemoveResult> {
+  return request<FavoriteRemoveResult>({
+    url: `/careers/${careerId}/favorite`,
+    method: 'DELETE',
+  });
+}
+
+/** 我的收藏列表（需登录，userId 强隔离；page/pageSize 可选） */
+export function listFavorites(
+  params: { page?: number; pageSize?: number } = {},
+): Promise<FavoriteListResult> {
+  return request<FavoriteListResult>({
+    url: '/careers/favorites',
+    method: 'GET',
+    params,
   });
 }

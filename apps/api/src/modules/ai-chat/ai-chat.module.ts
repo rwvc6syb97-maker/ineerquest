@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LlmGatewayModule } from '../llm-gateway/llm-gateway.module';
 import { AiChatController } from './ai-chat.controller';
+import { AiChatPersonalizedController } from './ai-chat-personalized.controller';
 import { AiChatService } from './ai-chat.service';
 import { ContextService } from './context.service';
 
@@ -10,7 +11,7 @@ import { ContextService } from './context.service';
  */
 @Module({
   imports: [LlmGatewayModule],
-  controllers: [AiChatController],
+  controllers: [AiChatController, AiChatPersonalizedController],
   providers: [AiChatService, ContextService],
   exports: [AiChatService],
 })

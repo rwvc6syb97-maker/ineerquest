@@ -4,7 +4,7 @@
   "private": true,
   "description": "InnerQuest 后端 NestJS 10 服务（模块化单体，10 服务模块）",
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate && nest build",
     "start": "prisma generate && prisma migrate deploy && prisma db seed && nest start",
     "start:dev": "nest start --watch",
     "start:prod": "prisma migrate deploy && node dist/main.js",

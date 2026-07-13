@@ -1,5 +1,5 @@
 import { buildSections, describeDimension, getProfile } from './report-content.builder';
-import { DEEP_SECTION_FALLBACK, PAID_SECTION_KEYS } from './report.constants';
+import { DEEP_SECTION_FALLBACK, PAID_SECTION_KEYS, ReportStatus, resolveGenerateStatus } from './report.constants';
 
 describe('report-content.builder（纯函数）', () => {
   describe('getProfile', () => {
@@ -85,6 +85,33 @@ describe('report-content.builder（纯函数）', () => {
       const dim = sections.find((s) => s.sectionKey === 'dimension_scores');
       const dims = (dim!.content as { dimensions: unknown[] }).dimensions;
       expect(dims).toHaveLength(4);
+    });
+  });
+
+  describe('resolveGenerateStatus（概览终态优先判定）', () => {
+    it('全降级→FAILED：即便付费段未实际生成(fallback 恒 true)也返回 failed，避免概览轮询死循环', () => {
+      expect(resolveGenerateStatus(ReportStatus.FAILED, false)).toBe('failed');
+    });
+
+    it('FAILED 终态优先：即使付费段已生成也返回 failed', () => {
+      expect(resolveGenerateStatus(ReportStatus.FAILED, true)).toBe('failed');
+    });
+
+    it('READY 且付费段已实际生成 → done（既有分支不变）', () => {
+      expect(resolveGenerateStatus(ReportStatus.READY, true)).toBe('done');
+    });
+
+    it('GENERATING 且付费段已实际生成 → generating（既有分支不变）', () => {
+      expect(resolveGenerateStatus(ReportStatus.GENERATING, true)).toBe('generating');
+    });
+
+    it('非终态但付费段未实际生成(fallback!==false) → pending，避免中途误判 done', () => {
+      expect(resolveGenerateStatus(ReportStatus.GENERATING, false)).toBe('pending');
+      expect(resolveGenerateStatus(ReportStatus.READY, false)).toBe('pending');
+    });
+
+    it('已创建未触发深度(默认状态)且未生成付费段 → pending', () => {
+      expect(resolveGenerateStatus(999, false)).toBe('pending');
     });
   });
 });

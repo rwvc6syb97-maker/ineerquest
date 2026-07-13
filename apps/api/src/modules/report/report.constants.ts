@@ -38,6 +38,27 @@ export function mapGenerateStatus(status: number): GenerateStatus {
   }
 }
 
+/**
+ * 概览 generateStatus 终态优先判定（纯函数，供 buildReportOverview 复用与单测）。
+ *
+ * 语义（与 BUG8 主链路终态自洽）：
+ * 1. FAILED 是终态：优先于付费段判定直接返回 'failed'。
+ *    全降级场景下 report.status 已被主链路置为 FAILED，但付费段 content.fallback 恒 true
+ *    会使 hasGeneratedPaidSection=false，若不优先判定终态则会被误覆盖为 'pending' 造成概览轮询死循环。
+ * 2. 非终态（GENERATING/未触发）：仅当付费段已实际生成(content.fallback===false)才走 mapGenerateStatus，
+ *    否则保持 'pending'，避免 GENERATING 中途被误判为已完成。
+ * 3. READY：付费段已实际生成 → mapGenerateStatus(READY)='done'，维持原判定不变。
+ *
+ * @param status report.status 数字状态
+ * @param hasGeneratedPaidSection 是否存在 content.fallback===false 的付费段
+ */
+export function resolveGenerateStatus(status: number, hasGeneratedPaidSection: boolean): GenerateStatus {
+  if (status === ReportStatus.FAILED) {
+    return 'failed';
+  }
+  return hasGeneratedPaidSection ? mapGenerateStatus(status) : 'pending';
+}
+
 /** MBTI 家族（性格四大类），由 mbtiType 推导，前端不得反解（PM v2.1）。 */
 export type MbtiFamily = 'analyst' | 'diplomat' | 'sentinel' | 'explorer';
 

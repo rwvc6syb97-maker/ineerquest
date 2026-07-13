@@ -116,6 +116,8 @@ export function AppRoutes() {
         <Route path="app" element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
+          {/* P2-1 团队协作分析（登录态带侧栏；游客仍走 PublicLayout 下的 /collab） */}
+          <Route path="collab" element={<CollabAnalyzePage />} />
           {/* 报告 */}
           <Route path="report/history" element={<HistoryPage />} />
           {/* P11 报告对比（静态段，须置于 report/:id 之前） */}

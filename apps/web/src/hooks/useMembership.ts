@@ -7,12 +7,24 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { membershipApi } from '../api';
-import type { MembershipPlan } from '../api/modules/membership.api';
+import type { MembershipPlan, MembershipStatus } from '../api/modules/membership.api';
 
 export const membershipKeys = {
   plans: ['membership', 'plans'] as const,
   plan: (planId: number) => ['membership', 'plan', planId] as const,
+  me: ['membership', 'me'] as const,
 };
+
+/**
+ * 我的会员状态（GET /memberships/me，需登录）
+ * 直连后端，失败不做 mock 兜底，交由页面 isLoading / isError 呈现真实态。
+ */
+export function useMembershipStatus() {
+  return useQuery<MembershipStatus>({
+    queryKey: membershipKeys.me,
+    queryFn: () => membershipApi.getMembershipStatus(),
+  });
+}
 
 /** 上架套餐列表（数据来源：后端，失败或空均降级为 []） */
 export function usePlans() {

@@ -17,7 +17,7 @@ import {
   ReportType,
   SHARE_CODE_ALPHABET,
   deriveFamily,
-  mapGenerateStatus,
+  resolveGenerateStatus,
 } from './report.constants';
 import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 import { REPORT_DEEP_PROMPT } from '../llm-gateway/llm-gateway.constants';
@@ -379,6 +379,8 @@ export class ReportService {
       relationship: '人际关系解读',
     };
 
+    // 统计真实写回（LLM 未降级且有内容）的段数：只要有一段真实生成即视为成功。
+    let successCount = 0;
     for (const key of sectionKeys) {
       const topic = sceneTitles[key] ?? key;
       try {
@@ -394,22 +396,36 @@ export class ReportService {
         });
 
         if (!res.degraded && res.text && res.text.trim()) {
-          // 回写 section content
+          // 回写 section content：补齐 fallback:false，与 report-content.builder 结构统一，
+          // 使幂等分支/概览的 fallback===false 判定能正确落定为 done。
           await this.prisma.reportSection.updateMany({
             where: { reportId, sectionKey: key },
-            data: { content: { text: res.text } },
+            data: { content: { text: res.text, fallback: false } },
           });
+          successCount += 1;
         }
       } catch (err) {
         this.logger.warn(`deep generation degraded for ${key}: ${(err as Error).message}`);
       }
     }
 
-    // 全部完成后置 status=READY
-    await this.prisma.report.update({
-      where: { id: reportId },
-      data: { status: ReportStatus.READY, generatedAt: new Date() },
-    });
+    // BUG8 修复：终态需与 generateStatus 语义自洽，禁止 READY+fallback=true 却恒 pending 的死循环。
+    // - 至少一段真实写回 → READY（generateStatus=done）；
+    // - 全部降级/失败（0 段真实写回）→ FAILED（generateStatus=failed，前端停止轮询并提示重试）。
+    if (successCount > 0) {
+      await this.prisma.report.update({
+        where: { id: reportId },
+        data: { status: ReportStatus.READY, generatedAt: new Date() },
+      });
+    } else {
+      this.logger.warn(
+        `deep generation produced no real content for report ${reportId} (all degraded), mark FAILED`,
+      );
+      await this.prisma.report.update({
+        where: { id: reportId },
+        data: { status: ReportStatus.FAILED },
+      });
+    }
   }
 
   // ============ T1-15 报告查询 ============
@@ -536,13 +552,15 @@ export class ReportService {
     const family = deriveFamily(report.mbtiType);
     const dimensions = this.buildDimensionScores(report.result);
     const summary = this.renderSummaryText(report.mbtiType, family, report.summary);
-    // B7 契约：付费段 content.fallback === false 才视为已实际生成，否则 generateStatus 恒 pending。
+    // B7 契约：付费段 content.fallback === false 才视为已实际生成。
     const hasGeneratedPaidSection = report.sections.some(
       (s) =>
         PAID_SECTION_KEYS.includes(s.sectionKey) &&
         (s.content as { fallback?: boolean } | null)?.fallback === false,
     );
-    const generateStatus = hasGeneratedPaidSection ? mapGenerateStatus(report.status) : 'pending';
+    // 终态优先判定（FAILED 直接 failed，非终态未生成付费段则 pending），
+    // 封装在纯函数 resolveGenerateStatus 中以便单测覆盖全降级→FAILED 场景，避免概览轮询死循环。
+    const generateStatus = resolveGenerateStatus(report.status, hasGeneratedPaidSection);
 
     return {
       id: report.id.toString(),

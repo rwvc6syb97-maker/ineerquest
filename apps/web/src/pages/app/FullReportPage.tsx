@@ -30,6 +30,7 @@ import {
   BackButton,
 } from '../../components';
 import { FAMILY_COLORS, FAMILY_LABEL, COLORS } from '../../theme/tokens';
+import { ReportChapterBlock } from '../../components/ai/ReportChapterBlock';
 
 /** dimensions{dimension,...} → DimensionBar 的可读中文维度名 */
 const DIM_LABEL: Record<string, string> = {
@@ -274,6 +275,9 @@ export function FullReportPage() {
           </div>
         )}
       </section>
+
+      {/* ============ 深度报告扩展章节（DEEP 专享）============ */}
+      <ReportChapterBlock reportId={id} />
 
       {/* ============ 行动区 CTA ============ */}
       <section className="mt-14 flex flex-col items-center gap-4 rounded-3xl bg-neutral-50 px-6 py-12 text-center">

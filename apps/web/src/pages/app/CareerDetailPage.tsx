@@ -6,6 +6,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCareerDetail } from '../../hooks/useCareer';
 import { COLORS } from '../../theme/tokens';
+import { CareerAiToolsTabs } from '../../components/ai/CareerAiToolsTabs';
 import {
   Card,
   SectionHeading,
@@ -215,6 +216,8 @@ export function CareerDetailPage() {
           </section>
         </aside>
       </div>
+
+      <CareerAiToolsTabs careerId={id} />
     </article>
   );
 }

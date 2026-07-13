@@ -29,6 +29,8 @@ import {
   BackButton,
 } from '../../components';
 import { FAMILY_COLORS, FAMILY_LABEL } from '../../theme/tokens';
+import { PlainTalkPanel } from '../../components/ai/PlainTalkPanel';
+import { CalibrationPanel } from '../../components/ai/CalibrationPanel';
 
 /** dimensions{dimension,left,right,score} → DimensionBar props；label 用可读中文维度名 */
 const DIM_LABEL: Record<string, string> = {
@@ -271,6 +273,11 @@ export function ReportPage() {
         </div>
       </section>
 
+      {/* ============ L-P0-3 · AI 追问式测评校准（对模糊维度精修） ============ */}
+      <section className="mt-14">
+        <CalibrationPanel resultId={report.recordId} accentColor={color} />
+      </section>
+
       {/* ============ 性格解读 · 优势/盲点非对称分栏 ============ */}
       <section className="mt-14">
         <SectionHeading size="md" eyebrow="INSIGHT" title="性格解读" />
@@ -308,6 +315,15 @@ export function ReportPage() {
             </Card>
           ))}
         </div>
+      </section>
+
+      {/* ============ L-P0-1 · AI 报告人话解读（把专业解读翻译成人话） ============ */}
+      <section className="mt-8">
+        <PlainTalkPanel
+          reportId={report.id}
+          accentColor={color}
+          sections={report.sections.map((s) => ({ sectionKey: s.sectionKey, title: s.title }))}
+        />
       </section>
 
       {/* ============ 付费锁态段 ============ */}

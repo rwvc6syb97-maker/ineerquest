@@ -15,6 +15,7 @@ import { About } from './pages/system/About';
 import { HomePage } from './pages/public/HomePage';
 import { PersonalityTypesPage } from './pages/public/PersonalityTypesPage';
 import { PersonalityTypeDetailPage } from './pages/public/PersonalityTypeDetailPage';
+import { CollabAnalyzePage } from './pages/public/CollabAnalyzePage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { IntroPage } from './pages/assessment/IntroPage';
 import { QuizPage } from './pages/assessment/QuizPage';
@@ -22,6 +23,7 @@ import { GeneratingPage } from './pages/assessment/GeneratingPage';
 import { ResumePage } from './pages/assessment/ResumePage';
 import { ReportPage } from './pages/app/ReportPage';
 import { FullReportPage } from './pages/app/FullReportPage';
+import { DailyBriefPage } from './pages/app/DailyBriefPage';
 import { SharePage } from './pages/app/SharePage';
 import { CareerListPage } from './pages/app/CareerListPage';
 import { CareerDetailPage } from './pages/app/CareerDetailPage';
@@ -58,6 +60,7 @@ import { QuestionsPage } from './pages/admin/QuestionsPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { CoachesPage } from './pages/admin/CoachesPage';
 import { ContentPage } from './pages/admin/ContentPage';
+import { CareerDraftsPage } from './pages/admin/CareerDraftsPage';
 import { ActivationCodesPage } from './pages/admin/ActivationCodesPage';
 import { PlansPage } from './pages/admin/PlansPage';
 
@@ -83,6 +86,8 @@ export function AppRoutes() {
           {/* P02 人格类型总览 / P03 详情 */}
           <Route path="personality-types" element={<PersonalityTypesPage />} />
           <Route path="personality-types/:typeCode" element={<PersonalityTypeDetailPage />} />
+          {/* P2-1 团队协作分析（游客可用，派单标注 /app/collab，因 /app 全体守卫改挂 /collab） */}
+          <Route path="collab" element={<CollabAnalyzePage />} />
           {/* 系统 / 公共页（S03-S05） */}
           <Route path="about" element={<About />} />
           <Route path="legal/privacy" element={<Privacy />} />
@@ -141,6 +146,8 @@ export function AppRoutes() {
           <Route path="me/plan" element={<MyPlanPage />} />
           {/* 订单（登录后） */}
           <Route path="orders" element={<OrdersPage />} />
+          {/* P3-3 职业热点日报（登录可见） */}
+          <Route path="daily-brief" element={<DailyBriefPage />} />
           {/* 职业 */}
           <Route path="career" element={<CareerListPage />} />
           {/* P28 职业百科（静态段，须置于 career/:id 之前） */}
@@ -211,6 +218,14 @@ export function AppRoutes() {
             element={
               <RequireAdmin need="career:read">
                 <ContentPage />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="career-drafts"
+            element={
+              <RequireAdmin need="career:read">
+                <CareerDraftsPage />
               </RequireAdmin>
             }
           />

@@ -6,6 +6,8 @@ const navItems = [
   { to: '/app', label: '个人中心', end: true },
   { to: '/app/report/history', label: '我的报告' },
   { to: '/app/career', label: '职业规划' },
+  { to: '/collab', label: '协作分析' },
+  { to: '/app/daily-brief', label: '职业日报' },
   { to: '/app/coaching', label: 'AI 对话', end: true },
   { to: '/app/coaching/coaches', label: '辅导师' },
   { to: '/app/coaching/orders', label: '我的辅导' },

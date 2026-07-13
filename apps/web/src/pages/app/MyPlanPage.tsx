@@ -19,6 +19,8 @@ import {
 } from '../../components';
 import { COLORS } from '../../theme/tokens';
 import { useGrowthPlans } from '../../hooks/useCareerPlan';
+import { useGrowthPlan } from '../../hooks/useAiPlus';
+import { useFavoriteList } from '../../hooks/useFavorites';
 import { careerPlanApi } from '../../api';
 import type { GrowthPlan } from '../../api/modules/career-plan.api';
 
@@ -27,6 +29,140 @@ const STATUS_LABEL: Record<GrowthPlan['status'], string> = {
   2: '已完成',
   3: '已放弃',
 };
+
+/**
+ * AI 成长计划区块（P1-1，会员专享）
+ * -------------------------------------------------------------
+ * 复用 useGrowthPlan()（POST /ai/career/growth-plan）。目标职业下拉源自收藏列表。
+ * - 4515 非会员 → memberOnly 引导开通会员（非报错弹窗）
+ * - degraded=true（规则版）仍正常展示 weeks + amber 轻提示
+ * - 其它错误码展示后端 message + errorCode，不回退 mock
+ */
+function AiGrowthPlanSection() {
+  const navigate = useNavigate();
+  const { data: favData, isLoading: favLoading } = useFavoriteList({ pageSize: 50 });
+  const favorites = favData?.list ?? [];
+  const { data, loading, error, errorCode, memberOnly, degraded, run } = useGrowthPlan();
+
+  const [careerId, setCareerId] = useState('');
+  const [targetMonths, setTargetMonths] = useState(3);
+
+  const generate = () => {
+    if (!careerId) return;
+    void run({ careerId, targetMonths });
+  };
+
+  return (
+    <Card padding="lg" className="mt-8">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-lg font-semibold text-brand-primary-950">AI 成长计划</h3>
+          <p className="mt-0.5 text-xs text-neutral-400">
+            选择目标职业，AI 为你生成分周成长路线（会员专享）
+          </p>
+        </div>
+        <Tag tone="accent" size="sm">AI 生成</Tag>
+      </div>
+
+      {/* 目标职业 + 目标月数 + 生成 */}
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex-1">
+          <span className="mb-1 block text-xs text-neutral-500">目标职业（来自你的收藏）</span>
+          <select
+            value={careerId}
+            onChange={(e) => setCareerId(e.target.value)}
+            disabled={favLoading || favorites.length === 0}
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-800 focus:border-brand-primary-500 focus:outline-none focus:ring-2 focus:ring-brand-primary-500/20 disabled:bg-neutral-50 disabled:text-neutral-300"
+          >
+            <option value="">请选择目标职业…</option>
+            {favorites.map((f) => (
+           <option key={f.favoriteId} value={String(f.careerId)}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sm:w-32">
+          <span className="mb-1 block text-xs text-neutral-500">目标月数</span>
+          <select
+         value={targetMonths}
+            onChange={(e) => setTargetMonths(Number(e.target.value))}
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-800 focus:border-brand-primary-500 focus:outline-none focus:ring-2 focus:ring-brand-primary-500/20"
+          >
+            {[1, 3, 6, 12].map((m) => (
+              <option key={m} value={m}>{m} 个月</option>
+            ))}
+          </select>
+        </label>
+        <SpringButton variant="accent" disabled={loading || !careerId} onClick={generate}>
+          {loading ? '生成中…' : '生成计划'}
+        </SpringButton>
+      </div>
+
+      {favorites.length === 0 && !favLoading ? (
+        <p className="mt-3 text-xs text-neutral-400">
+          还没有收藏的目标职业，先去职业库收藏一个吧。
+        </p>
+      ) : null}
+
+      {/* 非会员引导（4515，引导型非报错弹窗） */}
+      {memberOnly ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">{error ?? 'AI 成长计划为会员专享，开通会员即可解锁。'}</p>
+          <SpringButton variant="accent" className="mt-2" onClick={() => navigate('/app/membership')}>
+            开通会员
+          </SpringButton>
+        </div>
+      ) : error ? (
+        // 常规错误：展示后端 message + errorCode，不回退 mock
+        <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+          {errorCode ? <span className="ml-1 font-mono text-xs opacity-70">({errorCode})</span> : null}
+        </p>
+      ) : null}
+
+      {/* degraded 轻提示 */}
+      {data && degraded ? (
+        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          当前为规则版计划（AI 服务繁忙），内容仍可参考。
+        </p>
+      ) : null}
+
+      {/* 分周计划展示 */}
+      {data && data.weeks.length > 0 ? (
+        <div className="mt-5 flex flex-col gap-4">
+          {data.weeks.map((w) => (
+            <div key={w.weekNo} className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4">
+              <p className="text-sm font-semibold text-brand-primary-900">
+                第 {w.weekNo} 周 · {w.theme}
+              </p>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {w.tasks.map((t, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-neutral-700">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS.accent }} />
+                  <span className="flex-1">
+                      {t.title}
+                      {t.resourceUrl ? (
+                        <a
+                          href={t.resourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-xs text-brand-primary-600 hover:underline"
+                        >
+                          参考资源
+                        </a>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
 
 export function MyPlanPage() {
   const navigate = useNavigate();
@@ -79,6 +215,9 @@ export function MyPlanPage() {
         title="我的成长计划"
         subtitle="把目标拆成一个个可执行的任务，逐项打卡，让改变发生。"
       />
+
+      {/* P1-1 AI 成长计划（会员专享，内嵌区块） */}
+      <AiGrowthPlanSection />
 
       {isLoading ? (
         <p className="mt-10 text-center font-serif text-neutral-400">计划加载中…</p>

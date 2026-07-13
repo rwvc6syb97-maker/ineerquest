@@ -2,21 +2,24 @@
  * P15 AI 深度对话页（/app/coaching）
  * -------------------------------------------------------------
  * 左侧会话列表侧栏（新建 / 切换 / 删除），右侧对话流。
- * 关键能力（T3-08 验收）：
- *  - 流式逐字渲染（打字机效果）：useChatStream 逐 token 追加
- *  - 中断重连：AbortController 中断 + 重发最后一条消息恢复
- *  - 轮次提示：展示 round/50，接近或超限（50002）友好提示；配额超限（50001）提示
- *  - 会话列表 / 新建 / 删除
- * 真实接口未联通时自动 mock fallback（见 useAiChat）。
+ * 关键能力（L-P0-2 深度个性化问答）：
+ *  - 发送走新契约 SSE 接口 POST /ai/chat/personalized（usePersonalizedChat）
+ *  - 流式逐字渲染（打字机）：onDelta 逐段追加；degraded=true 仍正常展示 + 轻量降级提示
+ *  - 会话管理与历史仍走 /conversations 系列（AiConversation.id 即后端 convNo）
+ *  - 错误码分流：4504 超长 / 4502 轮次上限 / 4501 配额用尽（文案优先后端 message）
+ * 全走真实接��，禁止 mock 兜底掩盖契约。
  */
 import { useEffect, useRef, useState } from 'react';
 import { SectionHeading, EmptyState } from '../../components';
 import { COLORS } from '../../theme/tokens';
+import { BizCode } from '@innerquest/shared';
+import { aiChatApi } from '../../api';
+import type { AiMessage } from '../../api/modules/ai-chat.api';
 import {
   useConversations,
   useConversationActions,
-  useChatStream,
 } from '../../hooks/useAiChat';
+import { usePersonalizedChat } from '../../hooks/useAiPlus';
 
 export function AiChatPage() {
   const { data: conversations = [], isLoading } = useConversations();
@@ -112,46 +115,88 @@ export function AiChatPage() {
   );
 }
 
-/** 单会话对话面板（打字机 / 轮次 / 中断重连） */
+/** 单会话对话面板（新契约 SSE 打字机 / degraded 降级 / 错误码分流） */
 function ChatPane({ conversationId }: { conversationId: string }) {
-  const {
-    messages,
-    round,
-    maxRound,
-    isStreaming,
-    error,
-    roundLimited,
-    quotaLimited,
-    send,
-    abort,
-    reconnect,
-  } = useChatStream(conversationId);
+  // conversationId 即后端 convNo（AiConversation.id 已在 api 层归一化 convNo→id）
+  const { answer, streaming, degraded, error, errorCode, send, abort } = usePersonalizedChat();
+  const [messages, setMessages] = useState<AiMessage[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 记录本轮已定稿的 answer，避免重复入库到 messages
+  const committedRef = useRef(false);
 
-  // 消息更新时滚到底部
+  // 加载历史消息（真实接口，失败暴露错误态，禁止 mock 兜底）
+  useEffect(() => {
+    if (!conversationId) return;
+    let alive = true;
+    setHistoryError(null);
+    (async () => {
+      try {
+        const list = await aiChatApi.listMessages(conversationId);
+        if (alive) setMessages(list);
+      } catch {
+        if (alive) {
+          setMessages([]);
+          setHistoryError('历史消息加载失败，请稍后重试');
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [conversationId]);
+
+  // 流式结束（streaming false 且有 answer）后把 AI 回答落入消息列表
+  useEffect(() => {
+    if (!streaming && answer && !committedRef.current) {
+      committedRef.current = true;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          conversationId,
+          role: 'assistant',
+          content: answer,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    }
+  }, [streaming, answer, conversationId]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, answer]);
 
-  const nearLimit = round >= maxRound - 5 && round < maxRound;
-  const reachedLimit = round >= maxRound || roundLimited;
-  const disabled = isStreaming || reachedLimit || quotaLimited;
+  const roundLimited = errorCode === BizCode.AI_ROUND_LIMIT;
+  const quotaLimited = errorCode === BizCode.AI_QUOTA_LIMIT;
+  const disabled = streaming || roundLimited || quotaLimited;
 
   const submit = () => {
-    if (!input.trim()) return;
-    send(input);
+    const content = input.trim();
+    if (!content || disabled) return;
+    // 先把用户消息入列，重置本轮定稿标记
+    committedRef.current = false;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `u-${Date.now()}`,
+        conversationId,
+        role: 'user',
+        content,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    void send({ convNo: conversationId, content });
     setInput('');
   };
 
   return (
     <div className="flex h-[70vh] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-      {/* 轮次提示条 */}
+      {/* 顶部：停止生成 + degraded 提示 */}
       <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 text-xs">
-        <span className="font-mono text-neutral-500">
-          轮次 <span className="tabular-nums" style={{ color: nearLimit || reachedLimit ? COLORS.accent : undefined }}>{Math.min(round, maxRound)}</span> / {maxRound}
-        </span>
-        {isStreaming && (
+        <span className="font-mono text-neutral-500">职业深度对话</span>
+        {streaming && (
           <button type="button" onClick={abort} className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-600 hover:bg-neutral-200">
             停止生成
           </button>
@@ -160,6 +205,9 @@ function ChatPane({ conversationId }: { conversationId: string }) {
 
       {/* 消息流 */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+        {historyError && (
+          <p className="text-center text-xs text-red-500">{historyError}</p>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
@@ -170,34 +218,37 @@ function ChatPane({ conversationId }: { conversationId: string }) {
               }`}
             >
               {m.content}
-              {m.streaming && (
-                <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse align-middle" style={{ backgroundColor: COLORS.accent }} />
-              )}
             </div>
           </div>
         ))}
+        {/* 流式进�中的 AI 回答（打字机） */}
+        {streaming && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-neutral-100 px-4 py-2.5 text-sm leading-relaxed text-neutral-800">
+              {answer}
+              <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse align-middle" style={{ backgroundColor: COLORS.accent }} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 提示区：轮次 / 配额 / 错误 */}
-      {(reachedLimit || quotaLimited || error) && (
-        <div className="border-t border-neutral-100 px-4 py-2.5 text-xs">
-          {quotaLimited ? (
-            <p style={{ color: COLORS.accent }}>今日 AI 使用配额已用尽，明日再来或升级会员获取更多额度。</p>
-          ) : reachedLimit ? (
-            <p style={{ color: COLORS.accent }}>本次对话已达 {maxRound} 轮上限，请新建会话或升级会员继续深入。</p>
-          ) : (
-            <div className="flex items-center gap-3">
-              <span className="text-red-500">{error}</span>
-              <button type="button" onClick={reconnect} className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-700 hover:bg-neutral-200">
-                重连并重试
-              </button>
-            </div>
-          )}
+      {/* degraded 轻量提示（绝不白屏，仍展示上方内容） */}
+      {degraded && (
+        <div className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+          AI 服务当前处于降级模式，以上内容为简化生成，可稍后重试获取更完整的回答。
         </div>
       )}
-      {nearLimit && !reachedLimit && (
-        <div className="border-t border-neutral-100 px-4 py-2 text-xs text-neutral-500">
-          即将接近 {maxRound} 轮上限，注意收敛你的核心问题。
+
+      {/* 错误分流：配额 / 轮次 / 其他（文案优先后端 message） */}
+      {error && (
+        <div className="border-t border-neutral-100 px-4 py-2.5 text-xs">
+          {quotaLimited ? (
+            <p style={{ color: COLORS.accent }}>{error || '今日 AI 使用配额已用尽，明日再来或升级会员获取更多额度。'}</p>
+          ) : roundLimited ? (
+            <p style={{ color: COLORS.accent }}>{error || '本次对话已达轮次上限，请新建会话或升级会员继续深入。'}</p>
+          ) : (
+            <p className="text-red-500">{error}</p>
+          )}
         </div>
       )}
 

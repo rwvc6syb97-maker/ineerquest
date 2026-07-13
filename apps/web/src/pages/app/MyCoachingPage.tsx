@@ -10,6 +10,14 @@ import { useCoachingOrders, useReviewCoaching } from '../../hooks/useCoaching';
 import type { CoachingOrder } from '../../api/modules/coaching.api';
 import { Card, Tag, SectionHeading, SpringButton, EmptyState, Reveal, RevealItem } from '../../components';
 import { COLORS } from '../../theme/tokens';
+import { usePreBrief, useCoachingSummary } from '../../hooks/useAiPlus';
+
+/** P1-2 咨询前梳理固定引导问题 */
+const PRE_BRIEF_QUESTIONS = [
+  '你本次咨询最想解决的核心问题是什么？',
+  '你目前的职业/岗位现状是怎样的？',
+  '你期望通过这次咨询达成什么结果？',
+];
 
 /** 订单状态 -> 标签文案与色调 */
 const STATUS_META: Record<
@@ -121,6 +129,8 @@ function OrderCard({
     (order.status === 'paid' || order.status === 'ongoing' || order.status === 'completed') &&
     !!order.sessionId;
   const canReview = order.status === 'completed' && !order.reviewed;
+  const canBrief = order.status === 'paid' || order.status === 'ongoing';
+  const canSummary = order.status === 'completed';
 
   return (
     <Card padding="md" className="flex flex-col gap-3">
@@ -155,7 +165,156 @@ function OrderCard({
           ) : null}
         </div>
       </div>
+
+      {/* P1-2 咨询前梳理（paid/ongoing 订单可用） */}
+      {canBrief ? <PreBriefBlock order={order} /> : null}
+
+      {/* P1-3 咨询后纪要（completed 订单可用） */}
+      {canSummary ? <SummaryBlock order={order} /> : null}
     </Card>
+  );
+}
+
+/**
+ * P1-2 咨询前梳理内嵌区块（幂等 POST /ai/coaching/pre-brief）
+ * -------------------------------------------------------------
+ * 仅对 paid/ongoing 订单展示。填写固定引导问答后生成结构化提纲。
+ * - degraded=true 正常展示 outline + amber 轻提示
+ * - 错误码 4004/4003/4710/4005 → 展示后端 message + errorCode，不回退 mock
+ */
+function PreBriefBlock({ order }: { order: CoachingOrder }) {
+  const { data, loading, error, errorCode, degraded, run } = usePreBrief();
+  const [open, setOpen] = useState(false);
+  const [answers, setAnswers] = useState<string[]>(() => PRE_BRIEF_QUESTIONS.map(() => ''));
+
+  const canSubmit = answers.some((a) => a.trim().length > 0);
+
+  const submit = () => {
+    const payload = PRE_BRIEF_QUESTIONS.map((q, i) => ({ question: q, answer: answers[i].trim() }))
+      .filter((a) => a.answer.length > 0);
+    if (payload.length === 0) return;
+    void run({ orderId: order.id, answers: payload });
+  };
+
+  return (
+    <div className="mt-1 border-t border-neutral-100 pt-3">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-sm font-medium text-brand-primary-600 hover:underline"
+        >
+          生成咨询提纲（AI）
+        </button>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-neutral-500">回答以下问题，AI 帮你梳理咨询提纲：</p>
+          {PRE_BRIEF_QUESTIONS.map((q, i) => (
+            <label key={i} className="block">
+              <span className="mb-1 block text-xs text-neutral-600">{q}</span>
+              <textarea
+                value={answers[i]}
+                onChange={(e) =>
+                  setAnswers((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
+                }
+                rows={2}
+                className="w-full resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-brand-primary-500 focus:outline-none focus:ring-2 focus:ring-brand-primary-500/20"
+              />
+            </label>
+          ))}
+          <div className="flex justify-end gap-2">
+            <SpringButton variant="ghost" onClick={() => setOpen(false)}>
+              收起
+            </SpringButton>
+            <SpringButton variant="accent" disabled={loading || !canSubmit} onClick={submit}>
+              {loading ? '生成中…' : '生成提纲'}
+            </SpringButton>
+          </div>
+        </div>
+      )}
+
+      {error ? (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+          {errorCode ? <span className="ml-1 font-mono text-xs opacity-70">({errorCode})</span> : null}
+        </p>
+      ) : null}
+
+      {data && data.outline ? (
+        <div className="mt-3 rounded-xl border border-neutral-100 bg-neutral-50/60 p-3">
+          {degraded ? (
+            <p className="mb-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+              当前为规则版提纲（AI 服务繁忙），内容仍可参考。
+            </p>
+          ) : null}
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">{data.outline}</p>
+          {data.tags.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {data.tags.map((t) => (
+                <Tag key={t} tone="brand" size="sm">{t}</Tag>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SummaryBlock({ order }: { order: CoachingOrder }) {
+  const { data, loading, error, errorCode, degraded, run } = useCoachingSummary();
+  const [started, setStarted] = useState(false);
+
+  const generate = () => {
+    setStarted(true);
+    void run({ orderId: order.id });
+  };
+
+  return (
+    <div className="mt-1 border-t border-neutral-100 pt-3">
+      {!started || (!data && !loading && !error) ? (
+        <button
+          type="button"
+          onClick={generate}
+          className="text-sm font-medium text-brand-primary-600 hover:underline"
+        >
+          生成咨询纪要（AI）
+        </button>
+      ) : null}
+
+      {loading ? <p className="text-sm text-neutral-400">正在整理咨询纪要…</p> : null}
+
+      {error ? (
+        <p className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+          {errorCode ? <span className="ml-1 font-mono text-xs opacity-70">({errorCode})</span> : null}
+          <button type="button" onClick={generate} className="ml-2 font-medium underline">
+            重试
+          </button>
+        </p>
+      ) : null}
+
+      {data && data.summary ? (
+        <div className="mt-1 rounded-xl border border-neutral-100 bg-neutral-50/60 p-3">
+          {degraded ? (
+            <p className="mb-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+              当前为规则版纪要（AI 服务繁忙），内容仍可参考。
+            </p>
+          ) : null}
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">{data.summary}</p>
+          {data.todos && data.todos.length > 0 ? (
+            <ul className="mt-3 space-y-1.5">
+              {data.todos.map((t, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-neutral-700">
+                  <span className="mt-0.5 text-brand-primary-600">{t.done ? '☑' : '☐'}</span>
+                  <span className={t.done ? 'line-through text-neutral-400' : ''}>{t.title}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

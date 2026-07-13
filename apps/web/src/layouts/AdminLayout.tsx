@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/activation-codes', label: '激活码', perm: 'payment:manage' },
   { to: '/admin/coaches', label: '辅导师管理', perm: 'coach:audit' },
   { to: '/admin/content', label: '内容管理', perm: 'career:read' },
+  { to: '/admin/career-drafts', label: 'AI 职业草稿', perm: 'career:read' },
 ];
 
 export function AdminLayout() {

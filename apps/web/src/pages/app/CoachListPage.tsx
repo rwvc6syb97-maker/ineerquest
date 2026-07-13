@@ -7,6 +7,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCoaches } from '../../hooks/useCoaching';
+import { useCoachingMatch } from '../../hooks/useAiPlus';
+import { MATCH_DEMAND_MAX } from '../../api/modules/ai-plus.api';
 import {
   Card,
   Tag,
@@ -44,10 +46,18 @@ function Stars({ rating }: { rating: number }) {
 export function CoachListPage() {
   const navigate = useNavigate();
   const { data: coaches = [], isLoading, isError, refetch } = useCoaches();
-
   const [keyword, setKeyword] = useState('');
   const [activeDomain, setActiveDomain] = useState<string>('全部');
 
+  // P1-4 智能匹配
+  const { data: matchData, loading: matching, error: matchError, errorCode: matchCode, noCoach, degraded: matchDegraded, run: runMatch, reset: resetMatch } = useCoachingMatch();
+  const [demand, setDemand] = useState('');
+  const demandOver = demand.length > MATCH_DEMAND_MAX;
+  const doMatch = () => {
+    const d = demand.trim();
+    if (!d || demandOver) return;
+    void runMatch({ demand: d, topN: 3 });
+  };
   // 领域集合（含「全部」）
   const domains = useMemo(() => {
     const set = new Set<string>();
@@ -77,6 +87,76 @@ export function CoachListPage() {
         title="选择你的职业辅导师"
         subtitle="真人 1v1 深度咨询——从职业转型到决策困惑，找到最懂你的那位。"
       />
+
+      {/* P1-4 描述诉求 · AI 智能匹配辅导师 */}
+      <div className="mt-8 rounded-2xl border border-brand-primary-100 bg-brand-primary-50/50 p-5">
+        <p className="text-sm font-semibold text-brand-primary-900">用一句话描述你的诉求，AI 帮你匹配</p>
+        <p className="mt-0.5 text-xs text-neutral-500">例如：想从测试转产品经理，缺乏方法论，希望有过转型经验的导师。</p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">
+          <div className="flex-1">
+            <textarea
+              value={demand}
+              onChange={(e) => setDemand(e.target.value)}
+              rows={2}
+              placeholder="描述你的职业困惑或咨询目标…"
+              className="w-full resize-none rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-brand-primary-500 focus:outline-none focus:ring-2 focus:ring-brand-primary-500/20"
+            />
+            <div className="mt-1 flex justify-end">
+              <span className={`font-mono text-xs ${demandOver ? 'text-red-600' : 'text-neutral-400'}`}>
+                {demand.length}/{MATCH_DEMAND_MAX}
+              </span>
+            </div>
+          </div>
+          <SpringButton variant="accent" disabled={matching || !demand.trim() || demandOver} onClick={doMatch}>
+            {matching ? '匹配中…' : '智能匹配'}
+          </SpringButton>
+        </div>
+
+        {matchError ? (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {matchError}
+            {matchCode ? <span className="ml-1 font-mono text-xs opacity-70">({matchCode})</span> : null}
+          </p>
+        ) : null}
+
+        {noCoach ? (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            暂时没有完全匹配的辅导师，你可以浏览下方全部辅导师，或稍后再试。
+          </p>
+        ) : null}
+
+        {matchData && matchData.matches.length > 0 ? (
+          <div className="mt-3">
+            {matchDegraded ? (
+              <p className="mb-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                当前为规则版匹配（AI 服务繁忙），结果仍可参考。
+              </p>
+            ) : null}
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-neutral-500">为你推荐 {matchData.matches.length} 位辅导师</p>
+              <button type="button" onClick={() => { resetMatch(); setDemand(''); }} className="text-xs text-neutral-400 hover:underline">
+                清除
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {matchData.matches.map((m) => (
+                <button
+                  key={m.coachId}
+                  type="button"
+                  onClick={() => navigate(`/app/coaching/coaches/${m.coachId}`)}
+                  className="rounded-xl border border-neutral-200 bg-white p-3 text-left transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-neutral-800">{m.name}</span>
+                    <Tag tone="accent" size="sm">{Math.round(m.matchScore)}分</Tag>
+                  </div>
+                  <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-neutral-500">{m.reason}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {/* 搜索 + 领域筛选 */}
       <div className="mt-8 flex flex-col gap-4">

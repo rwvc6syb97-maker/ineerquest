@@ -57,7 +57,7 @@ function CompassLoader() {
 
 export function GeneratingPage() {
   const navigate = useNavigate();
-  const { recordId, setRecordId, setResultId, answeredCount, toAnswers } =
+  const { setRecordId, setResultId, answeredCount, toAnswers, reset } =
     useAssessmentStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const createRecord = useCreateRecord();
@@ -67,6 +67,12 @@ export function GeneratingPage() {
   const [error, setError] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const started = useRef(false);
+  // 方案A：复跑防护仅在「本次 run 生命周期内」已建记录时防重复，
+  // 用组件内 ref 而非跨会话持久化的 store.recordId 判断，
+  // 杜绝登录后复用残留 recordId 导致 getOwnedRecord 查不到（4203/4204）。
+  const sessionRecordId = useRef<string | null>(null);
+  // 4203/4204 兜底自动重试的一次性开关，避免无限重试。
+  const retriedRef = useRef(false);
 
   // 步骤推进（视觉反馈）
   useEffect(() => {
@@ -99,11 +105,13 @@ export function GeneratingPage() {
 
     const timeout = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
     try {
-      // 复跑防护：已有 recordId 则不重复建记录。
-      let rid = recordId;
+      // 方案A铁律：登录后进入提交流程，绝不复用 store/localStorage 残留 recordId。
+      // 复跑防护仅认「本次 run 生命周期内」已建的 sessionRecordId（组件内 ref）。
+      let rid = sessionRecordId.current;
       if (!rid) {
         const record = await createRecord.mutateAsync('v2');
         rid = record.id;
+        sessionRecordId.current = rid;
         setRecordId(rid);
       }
       await saveAnswers.mutateAsync({ recordId: rid, answers: toAnswers() });
@@ -134,6 +142,22 @@ export function GeneratingPage() {
           );
           return;
         }
+        // 残留/失效 recordId 兜底：查不到记录或状态非法（多因跨会话残留 recordId），
+        // 清掉本地会话态与草稿中的 recordId，本次 run 内自动以本地答案重试一次新建提交。
+        if (
+          err.code === BizCode.ASSESSMENT_RECORD_NOT_FOUND ||
+          err.code === BizCode.ASSESSMENT_STATUS_INVALID
+        ) {
+          sessionRecordId.current = null;
+          reset();
+          if (!retriedRef.current) {
+            retriedRef.current = true;
+            void run();
+            return;
+          }
+          setError('记录已失效，请重试');
+          return;
+        }
       }
       // 其他错误：不再本地兜底，展示通用错误态供用户重试
       setError('生成失败，请稍后重试');
@@ -141,8 +165,8 @@ export function GeneratingPage() {
   }, [
     answeredCount,
     isAuthenticated,
-    recordId,
     setRecordId,
+    reset,
     createRecord,
     saveAnswers,
     submit,
@@ -159,6 +183,7 @@ export function GeneratingPage() {
   }, []);
 
   const retry = () => {
+    retriedRef.current = false;
     void run();
   };
 

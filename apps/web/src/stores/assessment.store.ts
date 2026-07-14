@@ -9,6 +9,8 @@ import type { Answer } from '../api/modules/assessment.api';
 const STORAGE_KEY = 'iq_assessment_draft';
 
 interface DraftSnapshot {
+  // 方案A：recordId 属「提交会话态」，仅内存持有，绝不跨会话持久化，
+  // 避免上一次会话/旧用户/历史流程的 recordId 残留污染登录后的新提交。
   recordId: string | null;
   answers: Record<string, string>;
   page: number;
@@ -57,17 +59,23 @@ function load(): DraftSnapshot {
     if (raw) {
       const snap = JSON.parse(raw) as DraftSnapshot;
       const cleanAnswers = sanitizeAnswers(snap.answers);
+      // 方案A：recordId/resultId 为提交会话态，永不从缓存 hydrate，
+      // 每次登录后进入生成页必须以本地答案新建 recordId。
+      const base = {
+        recordId: null,
+        resultId: null,
+        answers: cleanAnswers,
+        page: snap.page ?? 0,
+      };
       // 若清洗后条目数变化，说明存在脏草稿，回写清洗结果避免复燃
       if (Object.keys(cleanAnswers).length !== Object.keys(snap.answers ?? {}).length) {
-        const fixed = { ...snap, answers: cleanAnswers };
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(fixed));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ answers: cleanAnswers, page: base.page }));
         } catch {
           /* ignore */
         }
-        return fixed;
       }
-      return snap;
+      return base;
     }
   } catch {
     /* ignore */
@@ -77,13 +85,12 @@ function load(): DraftSnapshot {
 
 function persist(state: DraftSnapshot): void {
   try {
+    // 仅持久化答题草稿（answers/page）；recordId/resultId 为会话态，不落盘。
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        recordId: state.recordId,
         answers: state.answers,
         page: state.page,
-        resultId: state.resultId,
       }),
     );
   } catch {

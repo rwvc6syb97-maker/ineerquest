@@ -49,12 +49,18 @@ export class AllExceptionFilter implements ExceptionFilter {
         message = message.join('; ');
       }
       code = this.mapHttpToBiz(httpStatus);
-    } else if (exception instanceof Error) {
-      message = exception.message;
+      this.logger.error(`[${traceId}] ${httpStatus} ${message}`);
+      res.status(httpStatus).json(fail(code, message, traceId));
+      return;
     }
 
-    this.logger.error(`[${traceId}] ${httpStatus} ${message}`);
-    res.status(httpStatus).json(fail(code, message, traceId));
+    // 未知原生 Error / 非受控异常：INTERNAL_ERROR 兜底
+    // 响应体统一固定文案，绝不透传内部错误细节；原始 message 仅记入日志。
+    const rawMessage =
+      exception instanceof Error ? exception.message : String(exception);
+    const safeMessage = '服务繁忙，请稍后重试';
+    this.logger.error(`[${traceId}] ${httpStatus} ${rawMessage}`);
+    res.status(httpStatus).json(fail(code, safeMessage, traceId));
   }
 
   private mapHttpToBiz(status: number): number {

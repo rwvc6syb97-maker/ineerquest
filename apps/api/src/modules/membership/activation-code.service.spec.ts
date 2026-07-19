@@ -9,7 +9,7 @@ import { BizCode, CommonCode } from '../../common/response';
  *  - 兑换流程：命中未用 → 升级用户 → 标记已用
  *  - 边界：已用码（status=1）→ 拒绝
  *  - 边界：过期码（expireAt < now）→ 自动标记 status=2 → 拒绝
- *  - 边界：无效码 → 40400
+ *  - 边界：无效码 → 4601
  *  - 边界：套餐已下架 → 拒绝
  *  - 会员叠加：已有有效会员从到期日叠加
  */
@@ -32,7 +32,18 @@ describe('ActivationCodeService', () => {
         update: jest.fn(),
       },
       membershipRedeemRecord: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue({
+          id: 1n,
+          redeemNo: 'RD-TEST-0001',
+          userId: 7n,
+          codeId: 100n,
+          code: 'AAAA-BBBB-CCCC-DD',
+          planCode: 'pro-monthly',
+          planName: 'Pro 月度',
+          membershipLevel: 2,
+          durationDays: 30,
+          expireAt: null,
+        }),
       },
       $transaction: jest.fn((arg: unknown) => {
         if (Array.isArray(arg)) return Promise.all(arg);
@@ -111,7 +122,7 @@ describe('ActivationCodeService', () => {
       prisma.membershipPlan.findFirst.mockResolvedValue(null);
       await expect(
         svc.generate({ planCode: 'no-such-plan', count: 1 }),
-      ).rejects.toMatchObject({ bizCode: 40000 });
+      ).rejects.toMatchObject({ bizCode: 4000 });
     });
   });
 

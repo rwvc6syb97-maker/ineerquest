@@ -53,19 +53,19 @@ describe('PaymentService', () => {
       expect(vo.statusLabel).toBe('pending');
     });
 
-    it('会员下架 → 70004', async () => {
+    it('会员下架 → 4040', async () => {
       const { svc, prisma } = build();
       prisma.membershipPlan.findFirst.mockResolvedValue({ id: 2n, name: 'vip', price: 5000n, status: 0 });
       await expect(svc.createOrder('7', BizType.MEMBERSHIP, '2')).rejects.toMatchObject({
-        bizCode: 70004,
+        bizCode: 4040,
       });
     });
 
-    it('报告不存在 → 70005', async () => {
+    it('报告不存在 → 4704', async () => {
       const { svc, prisma } = build();
       prisma.report.findFirst.mockResolvedValue(null);
       await expect(svc.createOrder('7', BizType.REPORT_UNLOCK, '9')).rejects.toMatchObject({
-        bizCode: 70005,
+        bizCode: 4704,
       });
     });
   });
@@ -88,11 +88,11 @@ describe('PaymentService', () => {
       return { ...body, sign };
     };
 
-    it('签名非法 → 70007', async () => {
+    it('签名非法 → 4030', async () => {
       const { svc } = build();
       await expect(
         svc.handleCallback('wechat', { payNo: 'PAY1', channelTradeNo: 'TX1', amount: 990, sign: 'bad' }),
-      ).rejects.toMatchObject({ bizCode: 70007 });
+      ).rejects.toMatchObject({ bizCode: 4030 });
     });
 
     it('首次回调成功：置 PAID 并解锁报告', async () => {
@@ -138,13 +138,13 @@ describe('PaymentService', () => {
       expect(prisma.report.updateMany).not.toHaveBeenCalled();
     });
 
-    it('金额不符 → 70003', async () => {
+    it('金额不符 → 4000', async () => {
       const { svc, prisma, wechat } = build();
       prisma.paymentOrder.findFirst.mockResolvedValue({
         id: 1n, payNo: 'PAY1', amount: 1000n, userId: 7n, bizType: 1, bizId: 5n,
       });
       await expect(svc.handleCallback('wechat', validBody(wechat, 990))).rejects.toMatchObject({
-        bizCode: 70003,
+        bizCode: 4000,
       });
     });
   });
@@ -167,22 +167,22 @@ describe('PaymentService', () => {
       );
     });
 
-    it('超额退款 → 70006', async () => {
+    it('超额退款 → 4705', async () => {
       const { svc, prisma } = build();
       prisma.paymentOrder.findFirst.mockResolvedValue({
         id: 1n, payNo: 'PAY1', amount: 990n, refundedAmount: 900n, userId: 7n,
         status: OrderStatus.PARTIAL_REFUNDED, channel: PayChannel.WECHAT, isDeleted: 0,
       });
-      await expect(svc.refund('7', '1', 200)).rejects.toMatchObject({ bizCode: 70006 });
+      await expect(svc.refund('7', '1', 200)).rejects.toMatchObject({ bizCode: 4705 });
     });
 
-    it('未支付订单退款 → 70006', async () => {
+    it('未支付订单退款 → 4705', async () => {
       const { svc, prisma } = build();
       prisma.paymentOrder.findFirst.mockResolvedValue({
         id: 1n, payNo: 'PAY1', amount: 990n, refundedAmount: 0n, userId: 7n,
         status: OrderStatus.PENDING, channel: null, isDeleted: 0,
       });
-      await expect(svc.refund('7', '1')).rejects.toMatchObject({ bizCode: 70006 });
+      await expect(svc.refund('7', '1')).rejects.toMatchObject({ bizCode: 4705 });
     });
   });
 

@@ -9,9 +9,9 @@ import { BizType } from '../payment/payment.constants';
  *
  * 逐条验收：
  *  - 游客只读上架套餐（listPublicPlans 过滤 status=1）
- *  - getPublicPlanByCode 未上架/不存在 → 40400
+ *  - getPublicPlanByCode 未上架/不存在 → 4040
  *  - 后台 CRUD 与 PATCH status 上下架
- *  - 下架套餐下单（bizType=3）→ 70004（在 PaymentService 中校验）
+ *  - 下架套餐下单（bizType=3）→ 4040（在 PaymentService 中校验）
  */
 describe('MembershipService (T2-10)', () => {
   const row = (over: Record<string, unknown> = {}) => ({
@@ -68,11 +68,11 @@ describe('MembershipService (T2-10)', () => {
       expect(vo.code).toBe('vip_year');
     });
 
-    it('getPublicPlanByCode 未上架/不存在 → 40400', async () => {
+    it('getPublicPlanByCode 未上架/不存在 → 4040', async () => {
       const { svc, prisma } = build();
       prisma.membershipPlan.findFirst.mockResolvedValue(null);
       await expect(svc.getPublicPlanByCode('none')).rejects.toMatchObject({
-        bizCode: 40400,
+        bizCode: 4040,
       });
     });
   });
@@ -90,12 +90,12 @@ describe('MembershipService (T2-10)', () => {
       expect(vo.statusLabel).toBe('offline');
     });
 
-    it('createPlan code 冲突 → 40000', async () => {
+    it('createPlan code 冲突 → 4000', async () => {
       const { svc, prisma } = build();
       prisma.membershipPlan.findFirst.mockResolvedValue(row());
       await expect(
         svc.createPlan({ code: 'vip_year', name: 'x', price: 1 } as any),
-      ).rejects.toMatchObject({ bizCode: 40000 });
+      ).rejects.toMatchObject({ bizCode: 4000 });
     });
 
     it('updateStatus 上架切换 status=1', async () => {
@@ -121,7 +121,7 @@ describe('MembershipService (T2-10)', () => {
   });
 
   describe('下单上架校验（与 PaymentService 协同）', () => {
-    it('下架套餐下单 bizType=3 → 70004', async () => {
+    it('下架套餐下单 bizType=3 → 4040', async () => {
       const prisma: any = {
         paymentOrder: { create: jest.fn() },
         membershipPlan: {
@@ -139,7 +139,7 @@ describe('MembershipService (T2-10)', () => {
       const coaching: any = { confirmAfterPaid: jest.fn() };
       const pay = new PaymentService(prisma, redis, analytics, new WechatPayAdapter(), coaching);
       await expect(pay.createOrder('7', BizType.MEMBERSHIP, '2')).rejects.toMatchObject({
-        bizCode: 70004,
+        bizCode: 4040,
       });
     });
   });

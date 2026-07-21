@@ -5,7 +5,7 @@
  * 复用 useReport（含 mock 兜底），按 sectionId 匹配 section.sectionKey。
  */
 import { useParams, useNavigate } from 'react-router-dom';
-import { useReport } from '../../hooks/useReport';
+import { useReport, useSectionDetail } from '../../hooks/useReport';
 import {
   Card,
   Quote,
@@ -22,6 +22,9 @@ export function ReportSectionPage() {
   const { id = '', sectionId = '' } = useParams();
   const navigate = useNavigate();
   const { data: report, isLoading, isError } = useReport(id);
+  // 缺陷1：概览接口对深度付费章节只下发预览/空 content，完整深度内容须走章节详情接口。
+  // 已解锁章节用 detail.content 渲染，避免"深度报告无内容展示"。
+  const { data: detail } = useSectionDetail(id, sectionId);
 
   if (isLoading) {
     return <p className="py-16 text-center font-serif text-neutral-400">加载章节…</p>;
@@ -109,7 +112,7 @@ export function ReportSectionPage() {
               </h2>
             </div>
             <p className="mt-5 whitespace-pre-line text-base leading-loose text-neutral-700">
-              {section.content}
+              {detail?.content ?? section.content}
             </p>
           </Card>
         </Reveal>

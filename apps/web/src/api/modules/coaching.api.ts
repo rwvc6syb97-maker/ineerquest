@@ -275,5 +275,8 @@ export function cancelOrder(orderId: string): Promise<void> {
 
 /** 我的辅导订单列表（BUG-3：GET /coaching/orders） */
 export function listOrders(): Promise<CoachingOrder[]> {
-  return request<CoachingOrder[]>({ url: '/coaching/orders', method: 'GET' });
+  // 后端返回 { list: [...] } 对象，需取 .list（缺陷5：曾按裸数组解析致 orders.map 崩溃 → 500 页）
+  return request<{ list: CoachingOrder[] }>({ url: '/coaching/orders', method: 'GET' }).then(
+    (r) => r?.list ?? [],
+  );
 }

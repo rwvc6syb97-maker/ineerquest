@@ -542,7 +542,7 @@ export class ReportService {
       isUnlocked: number;
       createdAt: Date;
       summary: unknown;
-      result: { recordId: bigint; scoreEi: unknown; scoreSn: unknown; scoreTf: unknown; scoreJp: unknown };
+      result: { id: bigint; recordId: bigint; scoreEi: unknown; scoreSn: unknown; scoreTf: unknown; scoreJp: unknown };
       sections: Array<{ sectionKey: string; content: unknown }>;
     },
     sections: Array<{ sectionKey: string; title: string; content: string | null; sortOrder: number; paid: boolean }>,
@@ -565,6 +565,8 @@ export class ReportService {
     return {
       id: report.id.toString(),
       recordId: report.result.recordId.toString(),
+      // resultId = assessmentResult.id，供 AI 追问校准接口（GET/POST /ai/assessment/calibration/:resultId）使用
+      resultId: report.result.id.toString(),
       reportNo: report.reportNo,
       mbtiType: report.mbtiType,
       family,

@@ -275,7 +275,7 @@ export function ReportPage() {
 
       {/* ============ L-P0-3 · AI 追问式测评校准（对模糊维度精修） ============ */}
       <section className="mt-14">
-        <CalibrationPanel resultId={report.recordId} accentColor={color} />
+        <CalibrationPanel resultId={report.resultId} accentColor={color} />
       </section>
 
       {/* ============ 性格解读 · 优势/盲点非对称分栏 ============ */}

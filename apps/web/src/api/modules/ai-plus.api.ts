@@ -22,6 +22,14 @@ import { getAccessToken } from '../token';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
+/**
+ * AI LLM 生成类接口专用超时（毫秒）。
+ * 缺陷3/4：人话翻译/成长计划等走 LLM 实时生成，耗时常 >15s，
+ * 全局 15s 超时（client.ts）会误报 "timeout of 15000ms exceeded"。
+ * 这些接口显式透传更长 timeout；仍非流式，故设 60s 上限。
+ */
+const AI_LLM_TIMEOUT = 60000;
+
 // ============================================================
 // L-P0-1 报告人话翻译
 // ============================================================
@@ -58,6 +66,7 @@ export function plainTalk(params: PlainTalkParams): Promise<PlainTalkResult> {
   return request<Partial<PlainTalkResult> | undefined>({
     url: '/ai/report/plain-talk',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       reportId: params.reportId,
       tone: params.tone ?? 'warm',
@@ -397,6 +406,7 @@ export function growthPlan(params: GrowthPlanParams): Promise<GrowthPlanResult> 
   return request<Partial<GrowthPlanResult> | undefined>({
     url: '/ai/career/growth-plan',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       careerId: params.careerId,
       targetMonths: params.targetMonths,
@@ -448,6 +458,7 @@ export function preBrief(params: PreBriefParams): Promise<PreBriefResult> {
   return request<Partial<PreBriefResult> | undefined>({
     url: '/ai/coaching/pre-brief',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       orderId: params.orderId,
       answers: params.answers.map((a) => ({ question: a.question, answer: a.answer })),
@@ -497,6 +508,7 @@ export function coachingSummary(params: SummaryParams): Promise<SummaryResult> {
   return request<Partial<SummaryResult> | undefined>({
     url: '/ai/coaching/summary',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: { orderId: params.orderId },
   }).then((data) => ({
     summaryId: data?.summaryId ?? '',
@@ -550,6 +562,7 @@ export function coachingMatch(params: MatchParams): Promise<MatchResult> {
   return request<Partial<MatchResult> | undefined>({
     url: '/ai/coaching/match',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       demand: params.demand,
       ...(params.topN != null ? { topN: params.topN } : {}),
@@ -634,6 +647,7 @@ export function collabAnalyze(params: CollabAnalyzeParams): Promise<CollabAnalyz
   return request<Partial<CollabAnalyzeResult> | undefined>({
     url: '/ai/collab/analyze',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       members: params.members.map((m) => ({
         ...(m.name ? { name: m.name } : {}),
@@ -720,6 +734,7 @@ export function resumeGenerate(params: ResumeGenerateParams): Promise<ResumeGene
   return request<Partial<ResumeGenerateResult> | undefined>({
     url: '/ai/resume/generate',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       careerId: params.careerId,
       type: params.type ?? 'resume',
@@ -814,6 +829,7 @@ export function interviewStart(params: InterviewStartParams): Promise<InterviewS
   return request<Partial<InterviewStartResult> | undefined>({
     url: '/ai/interview/start',
     method: 'POST',
+    timeout: AI_LLM_TIMEOUT,
     data: {
       careerId: params.careerId,
       ...(params.difficulty ? { difficulty: params.difficulty } : {}),

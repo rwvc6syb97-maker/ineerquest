@@ -52,6 +52,8 @@ export interface Report {
   id: string;
   /** 关联测评记录（后端必填下发） */
   recordId: string;
+  /** 关联测评结果 id（assessmentResult.id），供 AI 追问校准接口使用 */
+  resultId: string;
   /** 报告编号（如 RPT-20260709-XXXX） */
   reportNo: string;
   mbtiType: string;

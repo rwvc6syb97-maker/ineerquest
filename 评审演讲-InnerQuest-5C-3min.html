@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InnerQuest 向内求索 · 5C 评审演讲（3分钟）</title>
+<style>
+:root{
+  --brand-primary-500:#3b82f6; --brand-primary-700:#1d4ed8;
+  --brand-primary-900:#1e3a8a; --brand-primary-950:#101a39;
+  --brand-accent-400:#fb923c; --brand-accent-500:#f97316; --brand-accent-600:#ea580c;
+  --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5;
+  --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-700:#404040; --neutral-900:#171717;
+  --analyst:#3b82f6; --diplomat:#8b5cf6; --sentinel:#22c55e; --explorer:#f97316;
+  --font-display:'Plus Jakarta Sans','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  --font-sans:'Inter','PingFang SC','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;
+  --font-serif:'Noto Serif SC','Songti SC',Georgia,serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --radius-lg:12px; --radius-2xl:20px; --radius-3xl:28px; --radius-full:999px;
+  --shadow-md:0 4px 12px rgba(23,23,23,.08);
+  --shadow-lg:0 12px 32px rgba(23,23,23,.12);
+  --shadow-accent:0 8px 24px rgba(249,115,22,.28);
+  --shadow-primary:0 8px 24px rgba(59,130,246,.22);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  --dur-fast:.22s; --dur-normal:.4s; --dur-slow:.7s;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:var(--font-sans); color:var(--neutral-900);
+  background:var(--neutral-100); overflow:hidden;
+}
+.deck{height:100vh;width:100vw;position:relative}
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:5.5vh 7vw;opacity:0;visibility:hidden;
+  transition:opacity var(--dur-normal) ease;
+  overflow:hidden;
+}
+.slide.active{opacity:1;visibility:visible}
+.slide.active [data-reveal]{opacity:1;transform:none}
+[data-reveal]{
+  opacity:0;transform:translateY(28px);
+  transition:opacity var(--dur-slow) var(--ease-spring),transform var(--dur-slow) var(--ease-spring);
+  transition-delay:calc(var(--i,0)*90ms);
+}
+/* 眉标 */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+  letter-spacing:.04em;color:var(--brand-accent-600);margin-bottom:14px;
+}
+.eyebrow::before{content:"";width:26px;height:3px;border-radius:var(--radius-full);background:var(--brand-accent-500)}
+h1{font-family:var(--font-display);font-size:clamp(34px,5vw,60px);font-weight:800;letter-spacing:-.02em;line-height:1.08}
+h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,42px);font-weight:700;letter-spacing:-.015em;line-height:1.12}
+.lead{font-size:clamp(16px,1.5vw,21px);color:var(--neutral-700);line-height:1.7;max-width:52ch}
+.serif{font-family:var(--font-serif);font-style:italic;color:var(--neutral-500)}
+/* 页码/进度 */
+.pager{position:fixed;right:26px;bottom:22px;font-family:var(--font-mono);font-size:13px;color:var(--neutral-400);z-index:50}
+.pager b{color:var(--brand-accent-600)}
+.progress{position:fixed;left:0;top:0;height:4px;background:var(--brand-accent-500);width:0;transition:width var(--dur-normal) var(--ease-spring);z-index:60}
+.hint{position:fixed;left:26px;bottom:22px;font-size:12px;color:var(--neutral-400);z-index:50}
+/* 封面 split */
+.cover{display:grid;grid-template-columns:7fr 5fr;gap:5vw;align-items:center;height:100%}
+.cover-visual{position:relative;height:70vh;display:flex;align-items:center;justify-content:center}
+.orbit{position:relative;width:min(34vw,420px);aspect-ratio:1}
+.orbit .ring{position:absolute;inset:0;border:1.5px solid var(--brand-primary-200,#bfdbfe);border-radius:50%;opacity:.55}
+.orbit .ring.r2{inset:14%;border-color:var(--brand-accent-200,#fed7aa)}
+.orbit .ring.r3{inset:30%;border-color:var(--brand-primary-300,#93c5fd)}
+.orbit .core{position:absolute;inset:40%;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,var(--brand-accent-400),var(--brand-accent-600));
+  box-shadow:var(--shadow-accent)}
+.dot{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--brand-primary-500);box-shadow:var(--shadow-primary)}
+.dot.d1{top:-4px;left:48%} .dot.d2{bottom:6%;right:2%;background:var(--diplomat)}
+.dot.d3{bottom:0;left:8%;background:var(--sentinel)} .dot.d4{top:22%;right:-4px;background:var(--explorer)}
+.badge-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.badge{font-family:var(--font-mono);font-size:13px;padding:8px 14px;border-radius:var(--radius-full);
+  background:#fff;border:1px solid var(--neutral-200);box-shadow:var(--shadow-md);color:var(--neutral-700)}
+.badge b{color:var(--brand-accent-600)}
+.cta{display:inline-flex;align-items:center;gap:8px;margin-top:26px;padding:14px 26px;border-radius:var(--radius-lg);
+  background:var(--brand-accent-500);color:#fff;font-weight:600;font-size:16px;box-shadow:var(--shadow-accent);
+  transition:transform var(--dur-fast) var(--ease-spring)}
+.cta:hover{transform:translateY(-2px)}
+/* 内容通用两栏 */
+.split{display:grid;grid-template-columns:5fr 7fr;gap:4vw;align-items:center;flex:1;min-height:0}
+.split.rev{grid-template-columns:7fr 5fr}
+.weight-tag{display:inline-block;font-family:var(--font-mono);font-size:13px;font-weight:600;color:#fff;
+  background:var(--brand-primary-700);padding:5px 12px;border-radius:var(--radius-full);margin-left:10px;vertical-align:middle}
+.weight-tag.hot{background:var(--brand-accent-500)}
+/* 卡片 */
+.cards{display:flex;flex-direction:column;gap:14px}
+.card{background:#fff;border-radius:var(--radius-2xl);padding:20px 22px;box-shadow:var(--shadow-md);
+  border-left:4px solid var(--brand-accent-500)}
+.card h3{font-family:var(--font-display);font-size:19px;margin-bottom:6px}
+.card p{font-size:15px;color:var(--neutral-700);line-height:1.6}
+.card.blue{border-left-color:var(--brand-primary-500)}
+.formula{background:var(--brand-primary-950);color:var(--neutral-50);border-radius:var(--radius-2xl);
+  padding:22px 24px;font-family:var(--font-display);font-weight:600;font-size:clamp(16px,1.7vw,22px);line-height:1.5;box-shadow:var(--shadow-lg)}
+.formula .hi{color:var(--brand-accent-400)}
+/* 闭环流程 */
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.step{background:#fff;border:1px solid var(--neutral-200);border-radius:var(--radius-full);
+  padding:11px 18px;font-weight:600;font-size:15px;box-shadow:var(--shadow-md)}
+.arrow{color:var(--brand-accent-500);font-weight:800;font-size:18px}
+/* 指标 */
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.metric{background:#fff;border-radius:var(--radius-2xl);padding:22px;box-shadow:var(--shadow-md);text-align:left}
+.metric .num{font-family:var(--font-mono);font-weight:700;font-size:clamp(30px,3.6vw,46px);color:var(--brand-primary-700)}
+.metric .num.accent{color:var(--brand-accent-600)}
+.metric .lbl{font-size:14px;color:var(--neutral-500);margin-top:4px}
+/* 双列价值 */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:#fff;border-radius:var(--radius-2xl);padding:24px;box-shadow:var(--shadow-md)}
+.panel h3{font-family:var(--font-display);font-size:20px;margin-bottom:14px;color:var(--brand-primary-900)}
+.panel ul{list-style:none;display:flex;flex-direction:column;gap:11px}
+.panel li{font-size:15px;color:var(--neutral-700);line-height:1.5;padding-left:22px;position:relative}
+.panel li::before{content:"";position:absolute;left:0;top:8px;width:9px;height:9px;border-radius:50%;background:var(--brand-accent-500)}
+/* 结语 */
+.closing{align-items:center;justify-content:center;text-align:center;background:
+  radial-gradient(120% 120% at 80% 10%,var(--brand-primary-900),var(--brand-primary-950));color:var(--neutral-50)}
+.closing h1{color:#fff;max-width:20ch;margin:0 auto}
+.closing .lead{color:var(--neutral-200);margin:22px auto 0}
+.closing .site{margin-top:30px;font-family:var(--font-mono);font-size:clamp(20px,2.4vw,32px);color:var(--brand-accent-400);font-weight:700}
+@media (prefers-reduced-motion:reduce){
+  [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}
+  .slide{transition:none}
+  .cta:hover{transform:none}
+}
+@media (max-width:900px){
+  .cover,.split,.split.rev,.two,.metrics{grid-template-columns:1fr;gap:22px}
+  .cover-visual{height:34vh}
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 封面 -->
+  <section class="slide active">
+    <div class="cover">
+      <div>
+        <span class="eyebrow" data-reveal style="--i:0">京东黑马 · 5C 评审演讲 · 3 分钟</span>
+        <h1 data-reveal style="--i:1">InnerQuest<br>向内求索</h1>
+        <p class="lead" data-reveal style="--i:2;margin-top:18px">
+          把 <b>MBTI 人格测评</b> 与 <b>AI 职业规划</b> 打通的一站式平台。<br>
+          <span class="serif">让年轻人：测得准、看得懂、用得上。</span>
+        </p>
+        <div class="badge-row" data-reveal style="--i:3">
+          <span class="badge"><b>122+</b> 后端接口</span>
+          <span class="badge"><b>7</b> 环节业务闭环</span>
+          <span class="badge"><b>237</b> 单测全绿</span>
+          <span class="badge"><b>15</b> 项 AI 能力</span>
+        </div>
+        <a class="cta" href="https://innerquest.online" target="_blank" data-reveal style="--i:4">现场体验 innerquest.online →</a>
+      </div>
+      <div class="cover-visual" data-reveal style="--i:2">
+        <div class="orbit">
+          <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <div class="core"></div>
+          <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 创新性 -->
+  <section class="slide">
+    <div class="split rev">
+      <div>
+        <span class="eyebrow" data-reveal style="--i:0">一、创新性 Creative<span class="weight-tag hot">权重 50%</span></span>
+        <h2 data-reveal style="--i:1">报告结果稳定靠谱<br>AI 只做加分项</h2>
+        <p class="lead" data-reveal style="--i:2;margin-top:16px">
+          我们和所有 MBTI 竞品最大的不同：<b>基础报告用固定的专业逻辑生成</b>，稳定准确、绝不瞎编；AI 只做锦上添花，就算它罢工，你的报告照样拿得到。
+        </p>
+        <div class="formula" data-reveal style="--i:4;margin-top:22px">
+          稳定的基础报告<span class="serif" style="color:var(--neutral-400)">（免费·随时可用）</span>
+          <span class="hi"> × </span>AI 增值服务<span class="serif" style="color:var(--neutral-400)">（付费·更深更强）</span>
+          <br><span class="hi">= 成本低到能白送 × 价值高到能收费</span>
+        </div>
+      </div>
+      <div class="cards" data-reveal style="--i:3">
+        <div class="card blue">
+          <h3>基础报告：稳定、不瞎编</h3>
+          <p>同一份答卷永远得到同一份专业结果，不会像纯 AI 那样忽悠人、也不踩合规红线。生成一份几乎不花钱，所以能免费送给海量用户，这就是我们的成本优势。</p>
+        </div>
+        <div class="card">
+          <h3>AI 能力：只做加分，不动根基</h3>
+          <p>AI 帮你写简历、出深度解读、陪你对话答疑，都是加在报告之上的增值服务。它出问题也不影响你拿基础报告，而每一项 AI 服务都能自然对应一个收费点。</p>
+        </div>
+        <div class="card">
+          <h3>15 项 AI 能力全部上线</h3>
+          <p>真实的大模型已经接通并跑在线上，15 项 AI 能力分三批全部落地，且始终守住一条底线：AI 只加分、绝不影响你的基础报告。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 聚焦性 -->
+  <section class="slide">
+    <div>
+      <span class="eyebrow" data-reveal style="--i:0">二、聚焦性 Central<span class="weight-tag">权重 30%</span></span>
+      <h2 data-reveal style="--i:1">只解决一个痛点：<br>测完之后"我到底该干什么"</h2>
+    </div>
+    <div class="split" style="margin-top:24px">
+      <div class="cards" data-reveal style="--i:2">
+        <div class="card"><h3>痛点 1 · 测完即止</h3><p>市面测评只给性格标签，不解决职业选择。</p></div>
+        <div class="card"><h3>痛点 2 · 咨询昂贵</h3><p>真人职业咨询 ¥500-2000/次且非标，年轻人负担不起。</p></div>
+        <div class="card"><h3>痛点 3 · 不落地</h3><p>报告看不懂、推荐不落地、缺技能差距与学习路径。</p></div>
+      </div>
+      <div data-reveal style="--i:3">
+        <p class="lead" style="margin-bottom:18px">我们的聚焦点：一条完整闭环，全程不跳出：</p>
+        <div class="flow">
+          <span class="step">测评</span><span class="arrow">→</span>
+          <span class="step">报告</span><span class="arrow">→</span>
+          <span class="step">职业推荐</span><span class="arrow">→</span>
+          <span class="step">成长路线图</span><span class="arrow">→</span>
+          <span class="step">技能差距</span><span class="arrow">→</span>
+          <span class="step">学习资源</span><span class="arrow">→</span>
+          <span class="step">真人辅导</span>
+        </div>
+        <p class="lead serif" style="margin-top:20px">体验聚焦一站式 · 成本聚焦 AI 替代人工 · 增长聚焦免费引流付费转化。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 可行性 -->
+  <section class="slide">
+    <div class="split rev">
+      <div>
+        <span class="eyebrow" data-reveal style="--i:0">三、可行性 Credible</span>
+        <h2 data-reveal style="--i:1">不是 PPT，<br>是已上线的真实产品</h2>
+        <p class="lead" data-reveal style="--i:2;margin-top:16px">
+          网站已经真实部署上线，真实的大模型也已接通。
+          全部功能都经过统一规范和安全加固，防止信息泄露、拦住恶意访问。
+          <br><span class="serif">整条流程从头到尾跑通、安全检查全部达标，已经具备正式上线条件。</span>
+        </p>
+        <a class="cta" href="https://innerquest.online" target="_blank" data-reveal style="--i:3">现场打开 innerquest.online 走一遍完整流程 →</a>
+      </div>
+      <div class="metrics" data-reveal style="--i:2">
+        <div class="metric"><div class="num">122<span style="font-size:.6em">+</span></div><div class="lbl">功能接口已落地</div></div>
+        <div class="metric"><div class="num accent">0</div><div class="lbl">代码报错遗留</div></div>
+        <div class="metric"><div class="num">237</div><div class="lbl">自动化测试全部通过</div></div>
+        <div class="metric"><div class="num accent">0</div><div class="lbl">核心流程严重缺陷</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 价值贡献 -->
+  <section class="slide">
+    <div>
+      <span class="eyebrow" data-reveal style="--i:0">四、价值贡献 Contributory<span class="weight-tag">权重 20%</span></span>
+      <h2 data-reveal style="--i:1">用户价值与商业变现双赢</h2>
+    </div>
+    <div class="two" style="margin-top:26px">
+      <div class="panel" data-reveal style="--i:2">
+        <h3>用户价值</h3>
+        <ul>
+          <li>免费获得专业级 MBTI + 职业匹配报告</li>
+          <li>极低成本获得深度报告、AI 简历、学习路径规划</li>
+          <li>需要时衔接真人辅导，一站式不跳出</li>
+        </ul>
+      </div>
+      <div class="panel" data-reveal style="--i:3">
+        <h3>商业变现路径（多层递进）</h3>
+        <ul>
+          <li>免费测评：零门槛引流获客、支持裂变分享</li>
+          <li>付费解锁：会员 / 完整报告 / 章节深度解读</li>
+          <li>AI 增值 + 真人辅导：高客单价转化</li>
+        </ul>
+      </div>
+    </div>
+    <div class="formula" data-reveal style="--i:4;margin-top:24px">
+      稳定的基础报告让<span class="hi">免费送也不烧钱</span>，AI 增值服务不断<span class="hi">抬高愿意付费的上限</span>，用户和商业双赢。
+    </div>
+  </section>
+
+  <!-- 6 孵化潜力 -->
+  <section class="slide">
+    <div class="split">
+      <div>
+        <span class="eyebrow" data-reveal style="--i:0">五、孵化潜力 Chance</span>
+        <h2 data-reveal style="--i:1">一条可孵化、<br>可复制、可增长的曲线</h2>
+        <p class="lead serif" data-reveal style="--i:3;margin-top:18px">
+          稳定的基础报告保证低成本、能规模化推广，AI 增值服务不断把产品价值往上抬。
+        </p>
+      </div>
+      <div class="cards" data-reveal style="--i:2">
+        <div class="card blue"><h3>能力复用</h3><p>这套 AI 能力和报告生成逻辑，可以直接搬到其他测评、咨询场景，快速复制。</p></div>
+        <div class="card"><h3>B 端延展</h3><p>面向 HR 招聘、企业团队画像、职业培训机构，输出团队版能力。</p></div>
+        <div class="card blue"><h3>资产沉淀</h3><p>职业百科、学习资源、测评数据沉淀为内容与数据壁垒。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 结语 -->
+  <section class="slide closing">
+    <div>
+      <span class="eyebrow" data-reveal style="--i:0;color:var(--brand-accent-400)">结语</span>
+      <h1 data-reveal style="--i:1">稳定的基础报告<br>× 加分的 AI 服务</h1>
+      <p class="lead" data-reveal style="--i:2">
+        独创架构做到<b style="color:#fff">低成本、高天花板</b>。<br>
+        产品已真实上线、质量可验收、商业路径清晰。
+      </p>
+      <div class="site" data-reveal style="--i:3">innerquest.online</div>
+      <p class="serif" data-reveal style="--i:4;color:var(--neutral-400);margin-top:14px">欢迎评审现场体验 · 感谢！</p>
+    </div>
+  </section>
+
+</div>
+<div class="pager" id="pager"><b>01</b> / 07</div>
+<div class="hint">← / → 或 空格 翻页 · F 全屏</div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var total=slides.length, idx=0;
+  var pager=document.getElementById('pager');
+  var progress=document.getElementById('progress');
+  function pad(n){return n<10?'0'+n:''+n;}
+  function show(n){
+    n=Math.max(0,Math.min(total-1,n));
+    slides[idx].classList.remove('active');
+    idx=n;
+    slides[idx].classList.add('active');
+    pager.innerHTML='<b>'+pad(idx+1)+'</b> / '+pad(total);
+    progress.style.width=((idx)/(total-1)*100)+'%';
+  }
+  function next(){show(idx+1);}
+  function prev(){show(idx-1);}
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();next();}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();prev();}
+    else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(total-1);}
+    else if(e.key==='f'||e.key==='F'){
+      if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}
+      else{document.exitFullscreen&&document.exitFullscreen();}
+    }
+  });
+  document.getElementById('deck').addEventListener('click',function(e){
+    if(e.target.closest('a'))return;
+    if(e.clientX < window.innerWidth*0.28){prev();}else{next();}
+  });
+  show(0);
+})();
+</script>
+</body>
+</html>

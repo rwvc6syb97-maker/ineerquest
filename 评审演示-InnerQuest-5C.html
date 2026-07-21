@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InnerQuest 向内求索 · 黑马评审演示（5C 模型）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --red: #e1251b; --red-d: #b71c13; --ink: #1a1a2e; --gray: #6b7280;
+    --bg: #f5f6fa; --card: #ffffff; --line: #eceef3; --gold: #d4a017;
+  }
+  body { font-family: "Microsoft YaHei","PingFang SC",sans-serif; background:#0d0d17; color:var(--ink); overflow:hidden; }
+  .deck { width:100vw; height:100vh; position:relative; }
+  .slide {
+    position:absolute; inset:0; padding:5vh 6vw; display:none;
+    flex-direction:column; background:var(--bg);
+    animation:fade .5s ease; overflow:hidden;
+  }
+  .slide.active { display:flex; }
+  @keyframes fade { from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:none;} }
+  h1 { font-size:2.6rem; color:var(--red); line-height:1.25; }
+  h2 { font-size:1.9rem; color:var(--ink); margin-bottom:.6em; border-left:8px solid var(--red); padding-left:.5em; }
+  h3 { font-size:1.25rem; color:var(--red-d); margin:.5em 0; }
+  p, li { font-size:1.05rem; line-height:1.85; color:#333; }
+  .sub { color:var(--gray); font-size:1.15rem; margin-top:.8em; }
+  .tag { display:inline-block; background:var(--red); color:#fff; padding:.15em .8em; border-radius:20px; font-size:.85rem; margin-right:.4em; }
+  .center { justify-content:center; align-items:center; text-align:center; }
+  .cover-badge { font-size:1.1rem; letter-spacing:.4em; color:var(--gold); margin-bottom:1.5em; }
+  .cover-slogan { font-size:1.2rem; color:#555; margin-top:1.2em; font-style:italic; }
+  .grid { display:grid; gap:1.2em; margin-top:1em; }
+  .g2 { grid-template-columns:1fr 1fr; }
+  .g3 { grid-template-columns:repeat(3,1fr); }
+  .card { background:var(--card); border-radius:14px; padding:1.4em 1.6em; box-shadow:0 6px 22px rgba(0,0,0,.06); border-top:4px solid var(--red); }
+  .card.blue { border-top-color:#2563eb; }
+  .card.green { border-top-color:#16a34a; }
+  .card.gold { border-top-color:var(--gold); }
+  .card h3 { margin-top:0; }
+  .weight { position:absolute; top:1.2em; right:1.4em; font-size:1.6rem; font-weight:800; color:var(--red); }
+  .flow { display:flex; align-items:center; flex-wrap:wrap; gap:.4em; margin-top:1.2em; }
+  .flow span { background:#fff; border:2px solid var(--red); color:var(--red); padding:.5em 1em; border-radius:10px; font-weight:700; font-size:.98rem; }
+  .flow em { color:var(--red); font-size:1.3rem; font-style:normal; }
+  .kpi { display:flex; gap:2em; margin-top:1.4em; flex-wrap:wrap; }
+  .kpi div { text-align:center; }
+  .kpi .num { font-size:2.6rem; font-weight:800; color:var(--red); }
+  .kpi .lbl { color:var(--gray); font-size:.95rem; }
+  table { width:100%; border-collapse:collapse; margin-top:1em; font-size:.95rem; background:#fff; border-radius:10px; overflow:hidden; }
+  th,td { padding:.7em 1em; text-align:left; border-bottom:1px solid var(--line); }
+  th { background:var(--red); color:#fff; }
+  tr:last-child td { border-bottom:none; }
+  .hl { color:var(--red); font-weight:700; }
+  ul { padding-left:1.4em; margin-top:.5em; }
+  .nav { position:fixed; bottom:2vh; right:3vw; display:flex; gap:.6em; z-index:50; }
+  .nav button { background:var(--red); color:#fff; border:none; width:44px; height:44px; border-radius:50%; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 12px rgba(225,37,27,.4); }
+  .nav button:hover { background:var(--red-d); }
+  .page-no { position:fixed; bottom:3vh; left:3vw; color:var(--gray); font-size:.9rem; z-index:50; }
+  .footer-brand { position:fixed; top:3vh; right:4vw; color:var(--gray); font-size:.85rem; letter-spacing:.2em; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 封面 -->
+  <section class="slide active center">
+    <div class="cover-badge">黑马大赛 · 项目评审演示</div>
+    <h1>InnerQuest 向内求索</h1>
+    <p class="sub">MBTI 人格探索 × AI 职业规划一体化平台</p>
+    <p class="cover-slogan">"向内求索，探寻内在本心，奔赴专属职业前路"</p>
+    <div class="kpi">
+      <div><div class="num">122+</div><div class="lbl">后端接口</div></div>
+      <div><div class="num">7</div><div class="lbl">环节业务闭环</div></div>
+      <div><div class="num">237</div><div class="lbl">单测全绿</div></div>
+      <div><div class="num">15</div><div class="lbl">AI 能力矩阵</div></div>
+    </div>
+  </section>
+
+  <!-- 2 评审模型对齐 -->
+  <section class="slide">
+    <h2>评审视角 · 5C 模型对齐</h2>
+    <p class="sub">本次演示严格按海选评分权重组织，聚焦创新性与聚焦性。</p>
+    <div class="grid g3">
+      <div class="card"><span class="weight">50%</span><h3>创新性 Creative</h3><p>MBTI 报告"纯规则本体 + AI 旁挂增值层"的护城河隔离架构，行业内独创。</p></div>
+      <div class="card blue"><span class="weight">30%</span><h3>聚焦性 Central</h3><p>只聚焦一个痛点：让年轻人"测得准 → 看得懂 → 用得上"地做职业决策。</p></div>
+      <div class="card green"><h3>可行性 Credible</h3><p>已完整落地并部署上线，双端 TS 零错、237 单测全绿。</p></div>
+    </div>
+    <div class="grid g2" style="margin-top:1.2em;">
+      <div class="card gold"><span class="weight">20%</span><h3>价值贡献 Contributory</h3><p>免费引流 + 激活码/辅导/AI 增值付费，多层商业化变现路径清晰。</p></div>
+      <div class="card"><h3>孵化潜力 Chance</h3><p>AI 能力矩阵可横向复用，向 B 端 HR、企业培训、内容资产延展。</p></div>
+    </div>
+  </section>
+
+  <!-- 3 痛点与聚焦 -->
+  <section class="slide">
+    <h2>聚焦性 · 我们只解决一个痛点</h2>
+    <p class="sub">不做"大而全的平台"，只钉住职业决策链路上的真实断点。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3>用户痛点</h3>
+        <ul>
+          <li>市面 MBTI 测评"测完即止"，只给性格标签，不解决"我该干什么"。</li>
+          <li>职业咨询昂贵（¥500-2000/次）且非标准化，年轻人负担不起。</li>
+          <li>报告看不懂、职业推荐不落地、缺技能差距与学习路径。</li>
+        </ul>
+      </div>
+      <div class="card blue">
+        <h3>我们的聚焦点</h3>
+        <ul>
+          <li>体验：测评 → 报告 → 职业一站式，无跳出。</li>
+          <li>成本：AI 替代人工咨询，边际成本趋零。</li>
+          <li>增长：免费测评引流，付费深度报告与辅导转化。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow">
+      <span>测评</span><em>›</em><span>报告</span><em>›</em><span>职业推荐</span><em>›</em><span>路线图</span><em>›</em><span>技能差距</span><em>›</em><span>学习资源</span><em>›</em><span>真人辅导</span>
+    </div>
+  </section>
+
+  <!-- 4 创新性核心：护城河隔离架构 -->
+  <section class="slide">
+    <h2>创新性 · 护城河：报告"纯规则本体 + AI 旁挂增值层"</h2>
+    <p class="sub">这是我们区别于所有 MBTI 竞品的核心架构决策。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3>报告本体：纯规则、零 LLM</h3>
+        <ul>
+          <li>基础报告由确定性规则引擎生成，<span class="hl">结果稳定、可复现、零推理成本</span>。</li>
+          <li>规避 LLM 幻觉与合规风险，报告结论可审计、可解释。</li>
+          <li>免费海量分发不烧钱——成本护城河。</li>
+        </ul>
+      </div>
+      <div class="card blue">
+        <h3>AI 能力：一律"旁挂增值层"</h3>
+        <ul>
+          <li>AI 简历、深度报告个性化章节、AI 对话辅导等<span class="hl">嫁接在报告之上</span>，不侵入本体。</li>
+          <li>AI 挂了不影响主链路，架构可用性护城河。</li>
+          <li>增值能力天然对应付费点，商业化护城河。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow">
+      <span>规则报告本体（免费·稳定）</span><em>+</em><span>AI 旁挂层（付费·增值）</span><em>=</em><span>低成本 × 高天花板</span>
+    </div>
+  </section>
+
+  <!-- 5 创新性：AI 能力矩阵 -->
+  <section class="slide">
+    <h2>创新性 · 15 项 AI 能力矩阵（分批扩展）</h2>
+    <p class="sub">Agnes AI 通道已联通（流式 + 非流式），能力矩阵按 P0→远期分批落地。</p>
+    <table>
+      <tr><th>批次</th><th>代表能力</th><th>状态</th></tr>
+      <tr><td>P0 已上线</td><td>AI 简历生成 · 深度报告个性化章节 · 协作分析</td><td class="hl">已交付上线</td></tr>
+      <tr><td>P1 已上线</td><td>AI 对话辅导 · 职业问答 · 面试题库</td><td class="hl">已交付上线</td></tr>
+      <tr><td>P2 已上线</td><td>深度报告章节扩展 · 简历优化 · 多轮协作</td><td class="hl">已交付上线</td></tr>
+      <tr><td>远期规划</td><td>模拟面试 · 学习路径智能编排 · B 端团队画像</td><td>Roadmap</td></tr>
+    </table>
+    <p class="sub">全部 AI 能力遵循"旁挂不侵入报告本体"隔离原则，保障主链路稳定。</p>
+  </section>
+
+  <!-- 6 可行性 -->
+  <section class="slide">
+    <h2>可行性 · 不是 PPT，是已上线的真实产品</h2>
+    <p class="sub">现场即可打开 innerquest.online 演示完整闭环。</p>
+    <div class="kpi">
+      <div><div class="num">122+</div><div class="lbl">后端接口落地</div></div>
+      <div><div class="num">0</div><div class="lbl">双端 TS 编译错误</div></div>
+      <div><div class="num">237</div><div class="lbl">单测全绿 / 27 套件</div></div>
+      <div><div class="num">100%</div><div class="lbl">核心链路 P0 清零</div></div>
+    </div>
+    <div class="grid g3" style="margin-top:1.4em;">
+      <div class="card green"><h3>已部署上线</h3><p>前端 GitHub Pages + 后端 Railway，Agnes AI 真实通道联通。</p></div>
+      <div class="card green"><h3>工程质量</h3><p>统一契约 v2.0、全局异常兜底防泄露、CORS 白名单无反射。</p></div>
+      <div class="card green"><h3>可验收</h3><p>端到端回归通过，生产安全核查达标，判定可上线。</p></div>
+    </div>
+  </section>
+
+  <!-- 7 价值贡献 -->
+  <section class="slide">
+    <h2>价值贡献 · 多层变现，用户与商业双赢</h2>
+    <div class="grid g2">
+      <div class="card gold">
+        <h3>用户价值</h3>
+        <ul>
+          <li>免费获得专业级 MBTI + 职业匹配报告。</li>
+          <li>以极低成本获得深度报告、AI 简历、学习路径。</li>
+          <li>需要时可衔接真人辅导，一站式不跳出。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>商业变现路径</h3>
+        <ul>
+          <li><span class="hl">免费测评</span>引流获客，零门槛裂变。</li>
+          <li><span class="hl">激活码</span>兑换 Pro / 完整报告 / 章节详情。</li>
+          <li><span class="hl">AI 增值 + 真人辅导</span>高客单价转化。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow">
+      <span>免费引流</span><em>›</em><span>Pro 付费</span><em>›</em><span>AI 增值</span><em>›</em><span>真人辅导</span>
+    </div>
+  </section>
+
+  <!-- 8 孵化潜力 -->
+  <section class="slide">
+    <h2>孵化潜力 · 从C 端工具到平台生态</h2>
+    <div class="grid g3">
+      <div class="card"><h3>能力复用</h3><p>AI 能力矩阵与规则引擎可横向迁移到其他测评/咨询场景。</p></div>
+      <div class="card blue"><h3>B 端延展</h3><p>面向 HR 招聘、企业团队画像、职业培训机构输出团队版能力。</p></div>
+      <div class="card gold"><h3>资产沉淀</h3><p>职业百科、学习资源、测评数据持续沉淀为内容与数据壁垒。</p></div>
+    </div>
+    <p class="sub" style="margin-top:1.6em;">规则本体保证低成本规模化，AI 旁挂层持续抬高价值天花板——这是一条可孵化、可复制、可增长的产品曲线。</p>
+  </section>
+
+  <!-- 9 结语 -->
+  <section class="slide center">
+    <div class="cover-badge">向内求索 · 遇见更好的职业前路</div>
+    <h1>InnerQuest</h1>
+    <p class="sub">测得准 · 看得懂 · 用得上</p>
+    <p class="cover-slogan">纯规则报告本体 × AI 旁挂增值层 —— 低成本，高天花板</p>
+    <p style="margin-top:1.5em; color:#888;">感谢评审 · 欢迎现场体验 innerquest.online</p>
+  </section>
+
+  <div class="footer-brand">INNERQUEST</div>
+  <div class="page-no" id="pageNo">1 / 9</div>
+  <div class="nav">
+    <button onclick="go(-1)">‹</button>
+    <button onclick="go(1)">›</button>
+  </div>
+</div>
+<script>
+  let cur = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  function render(){
+    slides.forEach((s,i)=>s.classList.toggle('active', i===cur));
+    document.getElementById('pageNo').textContent = (cur+1)+' / '+total;
+  }
+  function go(d){ cur = Math.max(0, Math.min(total-1, cur+d)); render(); }
+  document.addEventListener('keydown', e=>{
+    if(e.key==='ArrowRight'||e.key===' ') go(1);
+    if(e.key==='ArrowLeft') go(-1);
+  });
+  render();
+</script>
+</body>
+</html>

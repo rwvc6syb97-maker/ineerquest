@@ -767,6 +767,32 @@ async function main(): Promise<void> {
     console.log('[seed] 默认管理员账号已更新');
   }
 
+  // ===== 5.1 额外超级管理员账号（superadmin / InnerQuest@2026）=====
+  console.log('[seed] 写入 superadmin 账号 …');
+  const superUsername = 'superadmin';
+  // bcrypt(cost=10) of 'InnerQuest@2026'
+  const superPasswordHash = '$2b$10$.iivoCwGAk693YW3Xiqrh.L/aIKXOrU0J0wKN5O8N0AtgscxKx5uK';
+  const superExists = await prisma.admin.findFirst({ where: { username: superUsername } });
+  if (!superExists) {
+    await prisma.admin.create({
+      data: {
+        username: superUsername,
+        passwordHash: superPasswordHash,
+        nickname: '超级管理员',
+        email: 'superadmin@innerquest.local',
+        role: 3,
+        status: 1,
+      },
+    });
+    console.log('[seed] superadmin 账号创建成功');
+  } else {
+    await prisma.admin.update({
+      where: { id: superExists.id },
+      data: { passwordHash: superPasswordHash, nickname: '超级管理员', role: 3, status: 1, isDeleted: 0 },
+    });
+    console.log('[seed] superadmin 账号已更新');
+  }
+
   // ===== 6. 核心链路 seed：技能/路线图/学习资源/辅导师（按职业关联）=====
   console.log('[seed] 写入核心链路数据（技能/路线图/资源/教练）…');
   let skillCount = 0;

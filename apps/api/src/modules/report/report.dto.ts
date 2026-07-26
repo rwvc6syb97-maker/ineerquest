@@ -46,7 +46,36 @@ export class GenerateDeepContentDto {
   sections?: string[];
 }
 
+/**
+ * POST /reports/:id/feedback 报告反馈请求。
+ * rating/content 精确错误码（4310 缺失/4311 越界/4312 超长）由 service 判定，
+ * 此处仅宽松声明，避免 class-validator 抢先抛通用 4000。
+ * isSatisfied 由后端 rating>=4 自动计算，前端不得传入。
+ */
+export class CreateFeedbackDto {
+  /** 报告评分星级：1~5 整数，必填 */
+  @IsOptional()
+  rating?: number;
+
+  /** 文字反馈，可选，最长 200 字符 */
+  @IsOptional()
+  @IsString()
+  content?: string;
+}
+
 // ============ 出参 DTO（Swagger 文档，PM 权威裁定 v2.1 §6.2①） ============
+
+/** POST /reports/:id/feedback 出参 data */
+export class ReportFeedbackResultDto {
+  @ApiProperty({ description: '反馈记录 id（字符串化 BigInt）' })
+  feedbackId!: string;
+
+  @ApiProperty({ description: '评分星级 1~5', example: 5 })
+  rating!: number;
+
+  @ApiProperty({ description: '满意度：rating>=4 → 1，否则 0', enum: [0, 1] })
+  isSatisfied!: number;
+}
 
 /** 概览维度项（固定 4 项 EI/SN/TF/JP） */
 export class ReportDimensionDto {

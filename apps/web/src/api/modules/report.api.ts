@@ -160,6 +160,51 @@ export function getSectionDetail(id: string, sectionKey: string): Promise<Report
   });
 }
 
+// ============ 报告评分反馈（POST /reports/:id/feedback） ============
+
+/**
+ * 提交评分反馈入参
+ * 严禁前端传 isSatisfied，由后端按 rating>=4 计算。
+ */
+export interface ReportFeedbackPayload {
+  /** 评分：必填，1~5 整数 */
+  rating: number;
+  /** 反馈文字：可选，≤200 */
+  content?: string;
+}
+
+/** 提交评分反馈返回（isSatisfied 由后端计算下发） */
+export interface ReportFeedbackResult {
+  feedbackId: string;
+  rating: number;
+  isSatisfied: 0 | 1;
+}
+
+/**
+ * 反馈接口业务错误码（与后端契约一致，前端仅用于提示分流）
+ * 4310 评分缺失 / 4311 评分越界 / 4312 反馈超长 / 4313 报告不存在 / 4314 越权 / 4315 重复提交
+ */
+export const FEEDBACK_CODE = {
+  RATING_MISSING: 4310,
+  RATING_OUT_OF_RANGE: 4311,
+  CONTENT_TOO_LONG: 4312,
+  REPORT_NOT_FOUND: 4313,
+  FORBIDDEN: 4314,
+  DUPLICATE: 4315,
+} as const;
+
+/** 提交报告评分反馈（需登录） */
+export function submitReportFeedback(
+  id: string,
+  payload: ReportFeedbackPayload,
+): Promise<ReportFeedbackResult> {
+  return request<ReportFeedbackResult>({
+    url: `/reports/${id}/feedback`,
+    method: 'POST',
+    data: payload,
+  });
+}
+
 /** 触发 LLM 深度生成（§6.1 #4） */
 export function generateDeepContent(
   id: string,

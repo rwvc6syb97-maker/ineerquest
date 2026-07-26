@@ -10,6 +10,9 @@
  *   全部经 prefers-reduced-motion 全局降级。
  */
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { statsApi } from '../../api';
+import type { HomeStats } from '../../api/modules/stats.api';
 import { SpringButton, SpringLink } from '../../components/system/SpringButton';
 import { Reveal, RevealItem, SectionHeading, StatPill, Quote, TiltCard } from '../../components';
 import { FAMILY_COLORS, FAMILY_LABEL, type Family } from '../../theme/tokens';
@@ -22,11 +25,23 @@ const FAMILIES: { key: Family; blurb: string; typeCount: string }[] = [
   { key: 'explorer', blurb: '灵活、大胆、活在当下，用行动在真实世界里创造惊喜。', typeCount: 'ISTP · ISFP · ESTP · ESFP' },
 ];
 
-const STATS = [
-  { label: '已完成测评', value: '38.6万+' },
-  { label: '用户满意度', value: '96%' },
-  { label: '职业方向库', value: '120+' },
-];
+// —— 首页真实指标格式化（纯展示，无业务判断）——
+/** 计数格式化：≥1万显示 "X.X万+"，否则原样 "N+"（0 显示 "0"） */
+function formatCount(n?: number): string {
+  const v = typeof n === 'number' && n >= 0 ? n : 0;
+  if (v >= 10000) return `${(v / 10000).toFixed(1)}万+`;
+  return v > 0 ? `${v}+` : '0';
+}
+/** 满意度格式化：0~100 整数加 %（判空兜底 0） */
+function formatRate(n?: number): string {
+  const v = typeof n === 'number' && n >= 0 ? Math.round(n) : 0;
+  return `${v}%`;
+}
+/** 报告评分格式化：保留 1 位 / 5（判空兜底 0.0） */
+function formatRating(n?: number): string {
+  const v = typeof n === 'number' && n >= 0 ? n : 0;
+  return `${v.toFixed(1)} / 5`;
+}
 
 const STEPS =[
   { no: '01', title: '10 分钟深度测评', desc: '40 道基于四维认知的科学题目，还原真实的你。', span: 'md:col-span-3' },
@@ -37,6 +52,27 @@ const STEPS =[
 
 export function HomePage() {
   const navigate = useNavigate();
+
+  // —— 首页真实指标：GET /stats/home（公开、后端 5 分钟缓存）——
+  // 接口失败/无数据一律兜底 0（禁止回退旧写死 mock 值）。
+  const { data: stats } = useQuery<HomeStats>({
+    queryKey: ['stats', 'home'],
+    queryFn: statsApi.getHomeStats,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const completedText = formatCount(stats?.completedCount);
+  const satisfactionText = formatRate(stats?.satisfactionRate);
+  const careerText = formatCount(stats?.careerCount);
+  const ratingText = formatRating(stats?.avgReportRating);
+
+  // Hero 区三枚指标（数据全部来自后端，字段可选判空由格式化函数兜底）
+  const heroStats = [
+    { label: '已完成测评', value: completedText },
+    { label: '用户满意度', value: satisfactionText },
+    { label: '职业方向库', value: careerText },
+  ];
 
   return (
     // 突破 PublicLayout 的 max-w-5xl 容器，营销页自管理全宽留白
@@ -88,7 +124,7 @@ export function HomePage() {
               className="mt-10 flex animate-fadeUp flex-wrap gap-3"
               style={{ animationDelay: '320ms' }}
             >
-              {STATS.map((s) => (
+              {heroStats.map((s) => (
                 <StatPill key={s.label} label={s.label} value={s.value} tone="neutral" />
               ))}
             </div>
@@ -179,10 +215,10 @@ export function HomePage() {
       <section className="border-y border-neutral-200 bg-white px-6 py-16">
         <Reveal className="mx-auto grid max-w-4xl grid-cols-2 gap-8 text-center md:grid-cols-4" as="div">
           {[
-            { v: '38.6万+', l: '完成测评人数' },
-            { v: '96%', l: '用户满意度' },
-            { v: '4.8 / 5', l: '报告评分' },
-            { v: '120+', l: '职业方向库' },
+            { v: completedText, l: '完成测评人数' },
+            { v: satisfactionText, l: '用户满意度' },
+            { v: ratingText, l: '报告评分' },
+            { v: careerText, l: '职业方向库' },
           ].map((s, i) => (
             <RevealItem key={s.l} index={i}>
               <div className="font-display text-3xl font-bold text-brand-primary-600 md:text-4xl">{s.v}</div>

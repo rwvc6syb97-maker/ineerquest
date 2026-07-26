@@ -36,6 +36,7 @@ import { LlmGatewayModule } from './modules/llm-gateway/llm-gateway.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { StatsModule } from './modules/stats/stats.module';
 
 @Module({
 imports: [
@@ -63,6 +64,7 @@ imports: [
     AiInterviewModule,
     DailyBriefModule,
     CareerAiModule,
+    StatsModule,
 ],
 controllers: [AppController],
 providers: [

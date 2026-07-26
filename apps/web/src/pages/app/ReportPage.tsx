@@ -31,6 +31,7 @@ import {
 import { FAMILY_COLORS, FAMILY_LABEL } from '../../theme/tokens';
 import { PlainTalkPanel } from '../../components/ai/PlainTalkPanel';
 import { CalibrationPanel } from '../../components/ai/CalibrationPanel';
+import { ReportFeedback } from '../../components/report/ReportFeedback';
 
 /** dimensions{dimension,left,right,score} → DimensionBar props；label 用可读中文维度名 */
 const DIM_LABEL: Record<string, string> = {
@@ -353,6 +354,11 @@ export function ReportPage() {
           </Reveal>
         </section>
       ) : null}
+
+      {/* ============ 报告评分反馈入口 ============ */}
+      <section className="mt-14">
+        <ReportFeedback reportId={report.id} accentColor={color} />
+      </section>
 
       {/* ============ 行动区 CTA ============ */}
       <section className="mt-14 flex flex-col items-center gap-4 rounded-3xl bg-neutral-50 px-6 py-12 text-center">

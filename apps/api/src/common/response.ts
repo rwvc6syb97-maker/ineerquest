@@ -6,7 +6,7 @@
  *   200        成功
  *   40xx       通用错误（4000 参数/4010 未登录/4011 Token 无效/4012 refresh 失效/4030 无权限/4040 不存在/4090 重复提交）
  *   41xx       认证账号域（4101 验证码错误/4102 发码频繁/4103 账密错误/4104 邮箱已注册/4105 封禁/4106 注销冷静期/4107 弱密码）
- *   42xx       测评域   43xx 报告域44xx 职业域   45xx AI 对话域
+ *   42xx       测评域   43xx 报告域（含 4310~4315 报告反馈子域）   44xx 职业域   45xx AI 对话域
  *   46xx       激活码兑换域   47xx 辅导预约域   48xx 运营后台域
  *   50xx       系统/第三方（5000 内部/5001 DB/5002 第三方/5003 上游超时）
  *   9001       全局限流
@@ -82,6 +82,20 @@ export const BizCode = {
   REPORT_GENERATE_FAILED: 4304,
   /** 章节不存在：sectionKey 非法 */
   REPORT_SECTION_NOT_FOUND: 4305,
+
+  // ---- 报告反馈子域（首页真实指标数据源，归属报告域 43xx；避开职业域已占用的 44xx 段）----
+  /** 报告反馈：评分缺失（rating 未传） */
+  REPORT_FEEDBACK_RATING_REQUIRED: 4310,
+  /** 报告反馈：rating 越界（非 1~5 整数） */
+  REPORT_FEEDBACK_RATING_INVALID: 4311,
+  /** 报告反馈：content 超长（>200） */
+  REPORT_FEEDBACK_CONTENT_TOO_LONG: 4312,
+  /** 报告反馈：报告不存在或已软删除 */
+  REPORT_FEEDBACK_REPORT_NOT_FOUND: 4313,
+  /** 报告反馈：越权（报告 userId ≠ 当前登录用户） */
+  REPORT_FEEDBACK_FORBIDDEN: 4314,
+  /** 报告反馈：重复提交（uk_user_report 冲突 P2002，请改用 PATCH 修改） */
+  REPORT_FEEDBACK_DUPLICATE: 4315,
 
   // ============ 职业域 44xx ============
   /** 无可用测评结果：用户未完成测评，无法推荐 */

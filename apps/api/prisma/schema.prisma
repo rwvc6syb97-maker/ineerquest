@@ -295,6 +295,7 @@ model Report {
   sections     ReportSection[]
   shares       ReportShare[]
   careerMatches CareerMatch[]
+  feedbacks    ReportFeedback[]
 
   @@unique([reportNo], map: "uk_report_no")
   @@index([userId, reportType, createdAt], map: "idx_user_type_created")
@@ -343,6 +344,31 @@ model ReportShare {
   @@index([reportId], map: "idx_report_id")
   @@index([userId], map: "idx_user_id")
   @@map("report_share")
+}
+
+/// 报告反馈表 —— 采集用户对报告的评分与满意度，作为首页"用户满意度""报告评分"两个真实指标的数据源
+model ReportFeedback {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId    BigInt    @map("report_id") @db.UnsignedBigInt
+  /// 数据隔离：所属用户
+  userId      BigInt    @map("user_id") @db.UnsignedBigInt
+  /// 报告评分星级，取值 1~5（应用层校验区间）
+  rating      Int       @db.TinyInt
+  /// 满意度：0=否 1=是（业务约定 rating>=4 记为 1，由应用层写入）
+  isSatisfied Int       @default(0) @map("is_satisfied") @db.TinyInt
+  /// 文字反馈，可空
+  content     String?   @db.VarChar(200)
+  isDeleted   Int       @default(0) @map("is_deleted") @db.TinyInt
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  report Report @relation(fields: [reportId], references: [id])
+
+  @@unique([userId, reportId], map: "uk_user_report")
+  @@index([reportId], map: "idx_report")
+  @@index([rating], map: "idx_rating")
+  @@map("report_feedback")
 }
 
 // ============ 7. 职业规划 ============

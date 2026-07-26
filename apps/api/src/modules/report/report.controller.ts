@@ -5,7 +5,7 @@ import { getTraceId } from '../../common/middleware/trace.middleware';
 import { ok, BizCode, BizException } from '../../common/response';
 import { CurrentUser, CurrentUserPayload } from '../user/auth/current-user.decorator';
 import { ReportService } from './report.service';
-import { CreateShareDto, GenerateDeepContentDto, GenerateReportDto, GetReportQueryDto, ListReportsQueryDto, ReportOverviewDto } from './report.dto';
+import { CreateShareDto, GenerateDeepContentDto, GenerateReportDto, GetReportQueryDto, ListReportsQueryDto, ReportOverviewDto, CreateFeedbackDto, ReportFeedbackResultDto } from './report.dto';
 
 /**
  * ReportController — 报告生成/查询/分享（T1-14 / T1-15 / T1-17）。
@@ -87,6 +87,30 @@ export class ReportController {
   ) {
     const uid = this.requireUser(user);
     return ok(await this.report.createShare(uid, reportId, dto?.channel), getTraceId(req), '分享已创建');
+  }
+
+  /** 报告反馈 POST /api/v1/reports/:id/feedback（需登录） */
+  @Post(':id/feedback')
+  @ApiOperation({
+    summary: '提交报告反馈（评分/满意度）',
+    description:
+      '需登录。Body:{rating(1~5整数,必填), content?(≤200字)}。返回 {feedbackId, rating, isSatisfied}。' +
+      'isSatisfied 由后端按 rating>=4 计算，前端不得传入。' +
+      '错误码：4310 评分缺失 / 4311 评分越界 / 4312 反馈超长 / 4313 报告不存在 / 4314 越权 / 4315 重复提交(改用 PATCH)。',
+  })
+  @ApiOkResponse({ description: '外层 {code,message,data}，data 为下述结构', type: ReportFeedbackResultDto })
+  async submitFeedback(
+    @CurrentUser() user: CurrentUserPayload | undefined,
+    @Param('id') reportId: string,
+    @Body() dto: CreateFeedbackDto,
+    @Req() req: Request,
+  ) {
+    const uid = this.requireUser(user);
+    return ok(
+      await this.report.submitFeedback(uid, reportId, dto?.rating, dto?.content),
+      getTraceId(req),
+      '反馈已提交',
+    );
   }
 
   /** T2-05 报告解锁 POST /api/v1/reports/:id/unlock */

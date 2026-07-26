@@ -783,6 +783,74 @@ export class ReportService {
     };
   }
 
+  // ============ 报告反馈（首页真实指标数据源） ============
+
+  /**
+   * POST /reports/:id/feedback：提交报告评分与满意度。
+   * 校验顺序（错误码严格对齐契约 43xx 反馈子域）：
+   * 1) rating 缺失 → 4310；2) rating 非 1~5 整数 → 4311；3) content 超长(>200) → 4312；
+   * 4) reportId 非法 / 报告不存在或已软删除 → 4313；5) 报告非本人 → 4314；6) 重复提交(P2002) → 4315。
+   * isSatisfied 后端按 rating>=4 计算写入，前端不得传入。
+   */
+  async submitFeedback(userId: string, reportId: string, rating?: number, content?: string) {
+    // 1) rating 必填
+    if (rating === undefined || rating === null) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_RATING_REQUIRED, '评分不能为空');
+    }
+    // 2) rating 必须为 1~5 整数
+    if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_RATING_INVALID, '评分必须为 1~5 的整数');
+    }
+    // 3) content 超长（只统计有效文本）
+    if (content !== undefined && content !== null && content.length > 200) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_CONTENT_TOO_LONG, '文字反馈不能超过 200 字');
+    }
+
+    // 4) reportId 合法性 + 报告存在性（先按 id+未删除 查，再比对归属以区分不存在/越权）
+    if (!/^\d+$/.test(reportId)) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_REPORT_NOT_FOUND, '报告不存在或无权访问');
+    }
+    const report = await this.prisma.report.findFirst({
+      where: { id: BigInt(reportId), isDeleted: 0 },
+      select: { id: true, userId: true },
+    });
+    if (!report) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_REPORT_NOT_FOUND, '报告不存在或无权访问');
+    }
+    // 5) 越权：报告归属校验（数据隔离）
+    if (report.userId !== BigInt(userId)) {
+      throw new BizException(BizCode.REPORT_FEEDBACK_FORBIDDEN, '无权对该报告提交反馈');
+    }
+
+    // 满意度由后端计算，过滤前端多余传参
+    const isSatisfied = rating >= 4 ? 1 : 0;
+    const trimmedContent = content !== undefined && content !== null && content.length > 0 ? content : null;
+
+    try {
+      const created = await this.prisma.reportFeedback.create({
+        data: {
+          reportId: report.id,
+          userId: BigInt(userId),
+          rating,
+          isSatisfied,
+          content: trimmedContent,
+        },
+        select: { id: true, rating: true, isSatisfied: true },
+      });
+      return {
+        feedbackId: created.id.toString(),
+        rating: created.rating,
+        isSatisfied: created.isSatisfied,
+      };
+    } catch (err) {
+      // 6) uk_user_report 唯一键冲突 → 重复提交
+      if ((err as { code?: string }).code === 'P2002') {
+        throw new BizException(BizCode.REPORT_FEEDBACK_DUPLICATE, '已提交过反馈，请改用修改接口更新');
+      }
+      throw err;
+    }
+  }
+
   // ============ T2-05 报告解锁 ============
 
   /**

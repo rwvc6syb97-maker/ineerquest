@@ -12,6 +12,7 @@ export * as aiChatApi from './modules/ai-chat.api';
 export * as aiPlusApi from './modules/ai-plus.api';
 export * as careerPlanApi from './modules/career-plan.api';
 export * as coachingApi from './modules/coaching.api';
+export * as statsApi from './modules/stats.api';
 
 // ---- 运营后台（scope=admin，独立 token 通道）----
 export { adminHttp, adminRequest } from './admin-client';

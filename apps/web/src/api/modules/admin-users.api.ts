@@ -9,6 +9,7 @@
  *   GET  /admin/users/:id        详情（user:read；latestReport + dimensions）
  */
 import { adminRequest } from '../admin-client';
+import { adminHttp } from '../admin-client';
 
 /** 用户状态：1 正常 / 0 封禁 / 2 注销中 */
 export type UserStatus = 0 | 1 | 2;
@@ -95,4 +96,58 @@ export interface AdminUserDetail extends AdminUser {
 
 export function getUser(id: string): Promise<AdminUserDetail> {
   return adminRequest<AdminUserDetail>({ url: `/admin/users/${id}`, method: 'GET' });
+}
+
+/** 文件流下载结果：blob + 从响应头解析出的文件名（可能缺失，交由调用方兜底） */
+export interface ExportFileResult {
+  blob: Blob;
+  filename?: string;
+}
+
+/**
+ * 从 Content-Disposition 头解析文件名。
+ * 兼容 `filename*=UTF-8''xxx`（RFC5987，优先）与普通 `filename="xxx"`。
+ */
+function parseFilename(disposition?: string): string | undefined {
+  if (!disposition) return undefined;
+  // RFC5987：filename*=UTF-8''%E4%B8%AD%E6%96%87.pdf
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].replace(/^"|"$/g,''));
+    } catch {
+      /* 解码失败则回退普通字段 */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  return plain?.[1];
+}
+
+/**
+ * 单用户报告导出（PDF 详版：最新 MBTI 报告全文 + 四维度）。
+ * GET /admin/users/:id/report/export?format=pdf → application/pdf 文件流。
+ * 走 blob 响应类型，避免命中 JSON 契约解包。
+ */
+export async function exportUserReport(id: string): Promise<ExportFileResult> {
+  const resp = await adminHttp.request<Blob>({
+    url: `/admin/users/${id}/report/export`,
+    method: 'GET',
+    params: { format: 'pdf' },
+    responseType: 'blob',
+  });
+  return { blob: resp.data, filename: parseFilename(resp.headers?.['content-disposition']) };
+}
+
+/**
+ * 批量用户汇总导出（xlsx：UTF-8 BOM CSV，Excel 可直开），复用当前列表筛选条件。
+ * GET /admin/users/export?format=xlsx&status=&role=&keyword= → 文件流。
+ */
+export async function exportUsers(params?: ListUsersParams): Promise<ExportFileResult> {
+  const resp = await adminHttp.request<Blob>({
+    url: '/admin/users/export',
+    method: 'GET',
+    params: { format: 'xlsx', ...(params ?? {}) },
+    responseType: 'blob',
+  });
+  return { blob: resp.data, filename: parseFilename(resp.headers?.['content-disposition']) };
 }

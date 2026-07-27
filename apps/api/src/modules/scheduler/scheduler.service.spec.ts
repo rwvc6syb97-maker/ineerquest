@@ -10,6 +10,8 @@ describe('SchedulerService (BE-11)', () => {
       $executeRawUnsafe: jest.fn().mockResolvedValue(0),
       coachSchedule: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       activationCode: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      career: { findMany: jest.fn().mockResolvedValue([]) },
+      dailyBrief: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn().mockResolvedValue({ id: 1n }) },
     };
     const svc = new SchedulerService(prisma as any);
     return { svc, prisma };
@@ -95,6 +97,56 @@ describe('SchedulerService (BE-11)', () => {
           where: expect.objectContaining({ status: 0 }),
           data: { status: 2 },
         }),
+      );
+    });
+  });
+
+  describe('backfillDailyBriefs (缺陷1 历史回补)', () => {
+    it('为全体活跃用户回补缺失日期的日报（幂等跳过已存在）', async () => {
+      const { svc, prisma } = build();
+      prisma.career.findMany.mockResolvedValue([
+        { id: 10n, name: '产品经理', description: '产品方向', prospect: '前景良好' },
+        { id: 11n, name: '数据分析师', description: '数据方向', prospect: null },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: 100n }, { id: 200n }]);
+      // 100 号用户已有 today 日报 → 应跳过当天，仅补其余日期。
+      // today 用与被测代码相同的运行时 UTC 零点算法，确保日期键命中。
+      const now = new Date();
+      const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      prisma.dailyBrief.findMany.mockImplementation((args: any) =>
+        Promise.resolve(args.where.userId === 100n ? [{ briefDate: today }] : []),
+      );
+
+      const r = await svc.backfillDailyBriefs(3);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { isDeleted: 0, status: 1 },
+        select: { id: true },
+      });
+      expect(r.users).toBe(2);
+      // 用户100补2天(3-1已存在)、用户200补3天 = 5
+      expect(prisma.dailyBrief.create).toHaveBeenCalledTimes(5);
+      const firstCreate = prisma.dailyBrief.create.mock.calls[0][0];
+      expect(firstCreate.data.status).toBe(1);
+      expect(Array.isArray(firstCreate.data.itemsData)).toBe(true);
+      expect(firstCreate.data.itemsData[0]).toHaveProperty('careerId');
+    });
+
+    it('career 表为空时跳过生成', async () => {
+      const { svc, prisma } = build();
+      prisma.career.findMany.mockResolvedValue([]);
+      const r = await svc.backfillDailyBriefs(7);
+      expect(r.created).toBe(0);
+      expect(prisma.dailyBrief.create).not.toHaveBeenCalled();
+    });
+
+    it('P2002 并发重复视为幂等成功不抛错', async () => {
+      const { svc, prisma } = build();
+      prisma.career.findMany.mockResolvedValue([{ id: 1n, name: 'A', description: 'd', prospect: null }]);
+      prisma.user.findMany.mockResolvedValue([{ id: 1n }]);
+      prisma.dailyBrief.create.mockRejectedValue({ code: 'P2002' });
+      await expect(svc.backfillDailyBriefs(1)).resolves.toEqual(
+        expect.objectContaining({ users: 1, created: 0, days: 1 }),
       );
     });
   });

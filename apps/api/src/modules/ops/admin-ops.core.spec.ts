@@ -129,6 +129,97 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
     });
   });
 
+  // 后台整改 · 任务A 出参字段对齐前端 AdminUser 契约
+  describe('AdminUserService.detail 出参字段名对齐前端契约', () => {
+    const baseUser = {
+      id: 200n, userNo: 'U200', nickname: '李四', avatarUrl: null,
+      phone: '13900001111', email: 'lisi@example.com', phoneCountry: '+86',
+      gender: 1, role: 1, status: 1, isPaid: 1, lastLoginAt: null,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'), isDeleted: 0,
+    };
+    const prisma = {
+      user: { findFirst: jest.fn(async () => baseUser) },
+      report: { findFirst: jest.fn(async () => null) },
+    } as any;
+    const token = { banUser: jest.fn(), unbanUser: jest.fn() } as any;
+
+    it('输出 registeredAt/lastActiveAt/paid/masked，且无旧字段名', async () => {
+      const svc = new AdminUserService(prisma, token);
+      const res = (await svc.detail('200', false)) as any;
+      expect(res.registeredAt).toEqual(baseUser.createdAt);
+      expect(res).toHaveProperty('lastActiveAt');
+      expect(res.paid).toBe(true);
+      expect(res.masked).toBe(true); // 无 pii → 脱敏
+      // 旧字段名不再出现
+      expect(res.createdAt).toBeUndefined();
+      expect(res.lastLoginAt).toBeUndefined();
+      expect(res.isPaid).toBeUndefined();
+    });
+
+    it('持 pii：masked=false', async () => {
+      const svc = new AdminUserService(prisma, token);
+      const res = (await svc.detail('200', true)) as any;
+      expect(res.masked).toBe(false);
+    });
+  });
+
+  // 后台整改 · 任务B 导出接口权限脱敏分支
+  describe('AdminUserService 导出接口 PII 脱敏', () => {
+    const baseUser = {
+      id: 300n, userNo: 'U300', nickname: '王五', avatarUrl: null,
+      phone: '13700002222', email: 'wangwu@example.com', phoneCountry: '+86',
+      gender: 1,role: 1, status: 1, isPaid: 1, lastLoginAt: null,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'), isDeleted: 0,
+    };
+    const token = { banUser: jest.fn(), unbanUser: jest.fn() } as any;
+
+    it('批量导出：无 pii → CSV 内手机/邮箱脱敏', async () => {
+      const prisma = {
+        user: { findMany: jest.fn(async () => [baseUser]) },
+        report: { findMany: jest.fn(async () => []) },
+      } as any;
+      const svc = new AdminUserService(prisma, token);
+      const file = await svc.exportUsersSheet({ pii: false });
+      const csv = file.buffer.toString('utf-8');
+      expect(file.contentType).toContain('ms-excel');
+      expect(csv).toContain('137****2222');
+      expect(csv).toContain('w***@example.com');
+      expect(csv).not.toContain('13700002222');
+    });
+
+    it('批量导出：持 pii → CSV 内明文', async () => {
+      const prisma = {
+        user: { findMany: jest.fn(async () => [baseUser]) },
+        report: { findMany: jest.fn(async () => []) },
+      } as any;
+      const svc = new AdminUserService(prisma, token);
+      const file = await svc.exportUsersSheet({ pii: true });
+      const csv = file.buffer.toString('utf-8');
+      expect(csv).toContain('13700002222');
+      expect(csv).toContain('wangwu@example.com');
+    });
+
+    it('单用户 PDF：用户不存在抛 NotFound', async () => {
+      const prisma = {
+        user: { findFirst: jest.fn(async () => null) },
+        report: { findFirst: jest.fn(async () => null) },
+      } as any;
+      const svc = new AdminUserService(prisma, token);
+      await expect(svc.exportUserReportPdf('999', false)).rejects.toThrow();
+    });
+
+    it('单用户 PDF：返回 application/pdf 文件流', async () => {
+   const prisma = {
+        user: { findFirst: jest.fn(async () => baseUser) },
+        report: { findFirst: jest.fn(async () => null) },
+      } as any;
+      const svc = new AdminUserService(prisma, token);
+      const file = await svc.exportUserReportPdf('300', false);
+      expect(file.contentType).toBe('application/pdf');
+      expect(file.buffer.length).toBeGreaterThan(0);
+    });
+  });
+
   // ---------------- T4-15 辅导师下线拦截 ----------------
   describe('AdminCoachService.shelf 下线拦截进行中订单', () => {
     const makePrisma = (coach: any, activeCount: number) =>

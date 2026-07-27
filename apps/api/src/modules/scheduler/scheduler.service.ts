@@ -131,4 +131,122 @@ export class SchedulerService {
       this.logger.warn(`[CRON] markExpiredActivationCodes 失败: ${(e as Error).message}`);
     }
   }
+
+  /** 日报每日条目数 / 历史回补天数（含当天）。 */
+  private static readonly BRIEF_ITEMS_PER_DAY = 3;
+  private static readonly BRIEF_BACKFILL_DAYS = 7;
+
+  /**
+   * 职业热点日报生成 + 历史回补：每天凌晨 2:00 执行。
+   *
+   * PM 裁定（方案C）：为【全体活跃用户】回补过去 N 天（含当天）缺失的 daily_brief。
+   * - 活跃用户：user.isDeleted=0 且 status=1；
+   * - 内容源：career 表（status=1, isDeleted=0）随机挑选 N 条，映射 items {title,summary,careerId}；
+   * - 幂等：借助 uk_user_date 唯一键，仅对「缺失日期」create，已存在日期跳过（不覆盖）；
+   * - status 写 1（已发布），保持 getMine 仅读 status=1 的语义不变；
+   * - 数据隔离：只写 daily_brief，userId 严格隔离。
+   */
+  @Cron('0 2 * * *', { name: 'generate-daily-brief' })
+  async generateDailyBriefs(): Promise<void> {
+    this.logger.log('[CRON] generateDailyBriefs 开始执行');
+    try {
+      const summary = await this.backfillDailyBriefs(SchedulerService.BRIEF_BACKFILL_DAYS);
+      this.logger.log(
+        `[CRON] generateDailyBriefs: 覆盖用户 ${summary.users} 人，新建日报 ${summary.created} 份（回补 ${summary.days} 天）`,
+      );
+    } catch (e) {
+      this.logger.warn(`[CRON] generateDailyBriefs 失败: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * 为全体活跃用户回补过去 days 天（含当天）缺失的日报。
+   * 幂等可重复执行；返回覆盖用户数 / 新建条目数（便于日志与单测断言）。
+   */
+  async backfillDailyBriefs(days: number): Promise<{ users: number; created: number; days: number }> {
+    const backfillDays = Math.max(1, days);
+    // 目标日期集合（UTC 零点，含当天，倒推 backfillDays-1 天）
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dates: Date[] = [];
+    for (let i = 0; i < backfillDays; i++) {
+      dates.push(new Date(today.getTime() - i * 86400_000));
+    }
+
+    // 内容源池：活跃职业库
+    const careers = await this.prisma.career.findMany({
+      where: { status: 1, isDeleted: 0 },
+      select: { id: true, name: true, description: true, prospect: true },
+    });
+    if (careers.length === 0) {
+      this.logger.warn('[CRON] backfillDailyBriefs: career 表无可用数据，跳过生成');
+      return { users: 0, created: 0, days: backfillDays };
+    }
+
+    // 全体活跃用户
+    const users = await this.prisma.user.findMany({
+      where: { isDeleted: 0, status: 1 },
+      select: { id: true },
+    });
+
+    let created = 0;
+    const earliest = dates[dates.length - 1];
+    for (const user of users) {
+      // 该用户在目标区间内已有的日报日期（去重跳过）
+      const existing = await this.prisma.dailyBrief.findMany({
+        where: { userId: user.id, briefDate: { gte: earliest, lte: today } },
+        select: { briefDate: true },
+      });
+      const existingKeys = new Set(existing.map((e) => this.dateKey(e.briefDate)));
+
+      for (const date of dates) {
+        if (existingKeys.has(this.dateKey(date))) continue;
+        const items = this.buildBriefItems(careers, date, user.id);
+        try {
+          await this.prisma.dailyBrief.create({
+            data: { userId: user.id, briefDate: date, itemsData: items, status: 1 },
+          });
+          created++;
+        } catch (e) {
+          // 并发/重复（uk_user_date, P2002）视为幂等成功；其它错误记录不中断整体回补
+          if ((e as { code?: string }).code !== 'P2002') {
+            this.logger.warn(
+              `[CRON] backfillDailyBriefs: userId=${user.id} date=${this.dateKey(date)} 生成失败: ${(e as Error).message}`,
+            );
+          }
+        }
+      }
+    }
+    return { users: users.length, created, days: backfillDays };
+  }
+
+  /** 从职业库为某日构造 items（确定性挑选，保证同一 user+date 稳定可回补）。 */
+  private buildBriefItems(
+    careers: { id: bigint; name: string; description: string | null; prospect: string | null }[],
+    date: Date,
+    userId: bigint,
+  ): { title: string; summary: string; careerId: string }[] {
+    const count = Math.min(SchedulerService.BRIEF_ITEMS_PER_DAY, careers.length);
+    // 以 (userId + 日期) 派生偏移，个性化且可复现，不引入随机不可回补性
+    const seed = Number(userId % 100000n) + Math.floor(date.getTime() / 86400_000);
+    const items: { title: string; summary: string; careerId: string }[] = [];
+    for (let i = 0; i < count; i++) {
+      const c = careers[(seed + i) % careers.length];
+      const summarySrc = (c.prospect ?? c.description ?? '').trim();
+      items.push({
+        title: `职业热点 · ${c.name}`,
+        summary: summarySrc.length > 0 ? summarySrc.slice(0, 120) : `了解 ${c.name} 的发展前景与技能要求。`,
+        careerId: c.id.toString(),
+      });
+    }
+    return items;
+  }
+
+  /** UTC 日期键 YYYY-MM-DD（用于去重比对）。 */
+  private dateKey(d: Date): string {
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 }

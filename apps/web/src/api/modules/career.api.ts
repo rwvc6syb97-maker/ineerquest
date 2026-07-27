@@ -38,15 +38,59 @@ export interface CareerDetail extends CareerCard {
   fitTypes: string[];
 }
 
-/** 职业列表 */
-export function listCareers(
+/**
+ * 后端 GET /careers 列表元素原始出参（request 已解包 data.list 元素）。
+ * 字段命名与前端 CareerCard 不一致，需 toCareerCardFromRaw 归一化；全部可选做防御性判空。
+ */
+interface RawCareerListItem {
+  id?: string | number;
+  careerCode?: string;
+  name?: string;
+  category?: string;
+  description?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  suitTypes?: string[] | null;
+}
+
+/** 后端列表项 → 前端 CareerCard（列表接口无 matchScore） */
+function toCareerCardFromRaw(raw: RawCareerListItem): CareerCard {
+  const min = raw?.salaryMin;
+  const max = raw?.salaryMax;
+  const salaryRange =
+    min != null && max != null
+      ? `${Math.round(min / 1000)}k-${Math.round(max / 1000)}k`
+      : undefined;
+  return {
+    id: String(raw?.id ?? ''),
+    title: raw?.name ?? '',
+    category: raw?.category ?? '',
+    summary: raw?.description ?? '',
+    salaryRange,
+    tags: Array.isArray(raw?.suitTypes) ? raw.suitTypes : [],
+  };
+}
+
+/**
+ * 职业库列表 GET/careers（游客可访，分页）。
+ * 后端出参 { total, page, pageSize, list }，list 元素为 RawCareerListItem，做字段归一化。
+ * data 判空：缺失时返回空分页结构，杜绝页面 undefined 崩溃。
+ */
+export async function listCareers(
   params: { page?: number; pageSize?: number; category?: string } = {},
 ): Promise<Paginated<CareerCard>> {
-  return request<Paginated<CareerCard>>({
+  const { page = 1, pageSize = 12 } = params;
+  const res = await request<Partial<Paginated<RawCareerListItem>> | undefined>({
     url: '/careers',
     method: 'GET',
-    params: { page: 1, pageSize: 12, ...params },
+    params: { page, pageSize, ...(params.category ? { category: params.category } : {}) },
   });
+  return {
+    list: Array.isArray(res?.list) ? res!.list!.map(toCareerCardFromRaw) : [],
+    total: res?.total ?? 0,
+    page: res?.page ?? page,
+    pageSize: res?.pageSize ?? pageSize,
+  };
 }
 
 /** 职业详情 */
@@ -163,14 +207,18 @@ function toCareerCard(item: RecommendItem): CareerCard {
   };
 }
 
-/** MBTI 匹配 TOP10 推荐（后端按 reportId 关联报告的 mbtiType） */
-export async function recommendCareers(reportId: string): Promise<CareerCard[]> {
-  const res = await request<RecommendResult>({
+/**
+ * MBTI 匹配 TOP10 推荐（后端按 reportId 关联报告的 mbtiType）。
+ * reportId 可选：不传时后端自动取用户最近一份报告（createdAt desc）；
+ * 仅当用户完全无报告时后端返 CAREER_NO_ASSESSMENT。
+ */
+export async function recommendCareers(reportId?: string): Promise<CareerCard[]> {
+  const res = await request<Partial<RecommendResult> | undefined>({
     url: '/careers/recommendations',
     method: 'GET',
-    params: { reportId },
+    params: reportId ? { reportId } : undefined,
   });
-  return (res.list ?? []).map(toCareerCard);
+  return Array.isArray(res?.list) ? res!.list!.map(toCareerCard) : [];
 }
 
 /** 职业搜索 */

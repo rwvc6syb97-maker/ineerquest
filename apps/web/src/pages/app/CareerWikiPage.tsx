@@ -1,12 +1,14 @@
 /**
  * P28 职业百科页（/app/careers/wiki）
  * -------------------------------------------------------------
- * 职业检索库：关键词搜索 + 分类筛选，卡片墙浏览。
- * 复用 useRecommendCareers（无 reportId 时返回全量 mock），点击跳 P13 职业详情。
+ * 职业检索库：关键词搜索 + 分类筛选 + 分页，卡片墙浏览。
+ * 数据源为 useCareerLibrary（GET /careers 全量分页，游客可访），
+ * 关键词/分类为客户端筛选，分页走后端；失败抛真实 ApiError（无 mock 兜底）。
+ * 点击跳 P13 职业详情。
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRecommendCareers } from '../../hooks/useCareer';
+import { useCareerLibrary } from '../../hooks/useCareer';
 import {
   Card,
   Tag,
@@ -19,29 +21,40 @@ import {
 
 export function CareerWikiPage() {
   const navigate = useNavigate();
-  // 无 reportId：hook 直接返回全量职业库（mock 兜底）
-  const { data: careers = [], isLoading } = useRecommendCareers('');
 
   const [keyword, setKeyword] = useState('');
   const [activeCat, setActiveCat] = useState<string>('全部');
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
 
+  // 职业库全量分页（GET /careers）。分类走后端筛选，切换分类回到第 1 页。
+  const { data, isLoading } = useCareerLibrary({
+    page,
+    pageSize,
+    category: activeCat === '全部' ? undefined : activeCat,
+  });
+  // data 判空：防 undefined 崩溃
+  const careers = useMemo(() => data?.list ?? [], [data]);
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // 分类集合（含「全部」）——由当前页数据聚合
   const categories = useMemo(() => {
     const set = new Set(careers.map((c) => c.category));
     return ['全部', ...set];
   }, [careers]);
 
+  // 关键词客户端筛选（分类已由后端过滤）
   const list = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
-    return careers
-      .filter((c) => activeCat === '全部' || c.category === activeCat)
-      .filter(
-        (c) =>
-          !kw ||
-          c.title.toLowerCase().includes(kw) ||
-          c.summary.toLowerCase().includes(kw) ||
-          c.tags.some((t) => t.toLowerCase().includes(kw)),
-      );
-  }, [careers, keyword, activeCat]);
+    return careers.filter(
+      (c) =>
+        !kw ||
+        c.title.toLowerCase().includes(kw) ||
+        c.summary.toLowerCase().includes(kw) ||
+        c.tags.some((t) => t.toLowerCase().includes(kw)),
+    );
+  }, [careers, keyword]);
 
   return (
     <section className="mx-auto max-w-5xl pb-20">
@@ -70,7 +83,10 @@ export function CareerWikiPage() {
             return (
               <button
                 key={cat}
-                onClick={() => setActiveCat(cat)}
+                onClick={() => {
+                  setActiveCat(cat);
+                  setPage(1);
+                }}
                 aria-pressed={active}
                 className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-normal ${
                   active
@@ -126,8 +142,33 @@ export function CareerWikiPage() {
                 </div>
               </Card>
             </RevealItem>
-          ))}
+         ))}
         </Reveal>
+      )}
+
+      {/* 分页：仅在无关键词筛选且多页时展示（关键词为当前页客户端筛选） */}
+      {!isLoading && totalPages > 1 && (
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            上一页
+       </button>
+          <span className="font-mono text-sm text-neutral-500">
+            {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            下一页
+          </button>
+        </div>
       )}
     </section>
   );

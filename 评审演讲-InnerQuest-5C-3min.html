@@ -120,6 +120,13 @@ h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,42px);font-weight:
 .closing h1{color:#fff;max-width:20ch;margin:0 auto}
 .closing .lead{color:var(--neutral-200);margin:22px auto 0}
 .closing .site{margin-top:30px;font-family:var(--font-mono);font-size:clamp(20px,2.4vw,32px);color:var(--brand-accent-400);font-weight:700}
+/* 视频演示页 */
+.video-slide{align-items:center;justify-content:center;background:
+  radial-gradient(120% 120% at 20% 10%,var(--brand-primary-900),var(--brand-primary-950));color:var(--neutral-50)}
+.video-wrap{width:min(80vw,1100px);max-height:78vh;display:flex;flex-direction:column;align-items:center;gap:18px}
+.video-wrap .eyebrow{color:var(--brand-accent-400)}
+.video-frame{width:100%;border-radius:var(--radius-2xl);overflow:hidden;box-shadow:var(--shadow-lg);background:#000}
+.video-frame video{display:block;width:100%;max-height:64vh;background:#000}
 @media (prefers-reduced-motion:reduce){
   [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}
   .slide{transition:none}
@@ -163,7 +170,19 @@ h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,42px);font-weight:
     </div>
   </section>
 
-  <!-- 2 创新性 -->
+  <!-- 2 产品演示视频 -->
+  <section class="slide video-slide">
+    <div class="video-wrap">
+      <span class="eyebrow" data-reveal style="--i:0">产品演示 · Product Demo</span>
+      <h2 data-reveal style="--i:1;color:#fff;text-align:center">30 秒看懂 InnerQuest 完整闭环</h2>
+      <div class="video-frame" data-reveal style="--i:2">
+        <video id="demoVideo" src="产品介绍视频.mp4" controls preload="metadata" playsinline></video>
+      </div>
+      <p class="serif" data-reveal style="--i:3;color:var(--neutral-400)">点击播放 · 测评 → 报告 → 职业规划 → AI 增值 → 真人辅导</p>
+    </div>
+  </section>
+
+  <!-- 3 创新性 -->
   <section class="slide">
     <div class="split rev">
       <div>
@@ -323,6 +342,12 @@ h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,42px);font-weight:
     slides[idx].classList.add('active');
     pager.innerHTML='<b>'+pad(idx+1)+'</b> / '+pad(total);
     progress.style.width=((idx)/(total-1)*100)+'%';
+    // 视频页：进入不自动播放（避免浏览器拦截），离开自动暂停
+    var vid=document.getElementById('demoVideo');
+    if(vid){
+      var onVideoSlide=slides[idx].classList.contains('video-slide');
+      if(!onVideoSlide && !vid.paused){vid.pause();}
+    }
   }
   function next(){show(idx+1);}
   function prev(){show(idx-1);}
@@ -337,6 +362,7 @@ h2{font-family:var(--font-display);font-size:clamp(26px,3.4vw,42px);font-weight:
   });
   document.getElementById('deck').addEventListener('click',function(e){
     if(e.target.closest('a'))return;
+    if(e.target.closest('.video-frame')||e.target.tagName==='VIDEO')return;
     if(e.clientX < window.innerWidth*0.28){prev();}else{next();}
   });
   show(0);

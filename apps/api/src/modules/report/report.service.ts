@@ -843,11 +843,31 @@ export class ReportService {
         isSatisfied: created.isSatisfied,
       };
     } catch (err) {
+      const e = err as { code?: string; meta?: unknown };
       // 6) uk_user_report 唯一键冲突 → 重复提交
-      if ((err as { code?: string }).code === 'P2002') {
+      if (e.code === 'P2002') {
         throw new BizException(BizCode.REPORT_FEEDBACK_DUPLICATE, '已提交过反馈，请改用修改接口更新');
       }
-      throw err;
+      // 6.1) 外键约束失败（report_feedback_report_id_fkey）：reportId 不存在/非法 → 报告不存在
+      if (e.code === 'P2003') {
+        this.logger.warn(
+          `[submitFeedback] 外键约束失败(P2003) userId=${userId} reportId=${reportId} rating=${rating} meta=${JSON.stringify(e.meta)}`,
+        );
+        throw new BizException(BizCode.REPORT_FEEDBACK_REPORT_NOT_FOUND, '报告不存在或无权访问');
+      }
+      // 6.2) 其它 Prisma 已知错误（错误码形如 P2xxx）：记录 code/meta 后返回明确业务码，禁止裸 throw 兜底 5000
+      if (typeof e.code === 'string' && /^P\d{4}$/.test(e.code)) {
+        this.logger.error(
+          `[submitFeedback] Prisma 已知错误 code=${e.code} userId=${userId} reportId=${reportId} rating=${rating} meta=${JSON.stringify(e.meta)}`,
+        );
+        throw new BizException(BizCode.REPORT_FEEDBACK_REPORT_NOT_FOUND, '反馈提交失败，请稍后重试');
+      }
+      // 6.3) 非 Prisma 的未知异常：打印完整堆栈+入参，抛业务级错误码（非 5000 语义）便于复测定位
+      this.logger.error(
+        `[submitFeedback] 未知异常 userId=${userId} reportId=${reportId} rating=${rating}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw new BizException(BizCode.REPORT_FEEDBACK_REPORT_NOT_FOUND, '反馈提交失败，请稍后重试');
     }
   }
 

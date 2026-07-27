@@ -10,7 +10,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminUsersApi } from '../../api';
-import type { UserStatus, AdminUser, MbtiDimension } from '../../api/modules/admin-users.api';
+import type {
+  UserStatus,
+  AdminUser,
+  MbtiDimension,
+  ExportFileResult,
+} from '../../api/modules/admin-users.api';
 import { Card } from '../../components/ui/Card';
 import {
   StatusBadge,
@@ -34,6 +39,18 @@ const DIM_POLES: Record<MbtiDimension, { left: string; right: string; label: str
   TF: { left: 'T 思考', right: 'F 情感', label: '决策方式' },
   JP: { left: 'J 判断', right: 'P 知觉', label: '生活态度' },
 };
+
+/** 触发浏览器下载：从后端文件流 blob 落地为文件，文件名优先取响应头，缺失时用兜底名。 */
+function triggerDownload(result: ExportFileResult, fallbackName: string): void {
+  const url = URL.createObjectURL(result.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = result.filename || fallbackName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export function UsersPage() {
   const qc = useQueryClient();
@@ -89,11 +106,42 @@ export function UsersPage() {
     onError: (e) => toast(errMsg(e), 'error'),
   });
 
+  // 批量导出（复用当前筛选条件 status/keyword），返回文件流 blob
+  const bulkExportMut = useMutation({
+    mutationFn: () =>
+      adminUsersApi.exportUsers({
+        status: status === '' ? undefined : status,
+        keyword: keyword || undefined,
+      }),
+    onSuccess: (res) => triggerDownload(res, 'InnerQuest-用户汇总.csv'),
+    onError: (e) => toast(errMsg(e, '导出失败，请稍后重试'), 'error'),
+  });
+
+  // 单用户报告 PDF 导出（记录正在导出的用户 id 以做行内 loading）
+  const [exportingUserId, setExportingUserId] = useState<string | null>(null);
+  const userReportExportMut = useMutation({
+    mutationFn: (id: string) => adminUsersApi.exportUserReport(id),
+    onMutate: (id: string) => setExportingUserId(id),
+    onSuccess: (res, id) => triggerDownload(res, `InnerQuest-用户报告-${id}.pdf`),
+    onError: (e) => toast(errMsg(e, '导出报告失败，请稍后重试'), 'error'),
+    onSettled: () => setExportingUserId(null),
+  });
+
   const rows = list.data?.list ?? [];
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-slate-900">用户管理</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-slate-900">用户管理</h1>
+        <button
+          type="button"
+          onClick={() => bulkExportMut.mutate()}
+          disabled={bulkExportMut.isPending}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {bulkExportMut.isPending ? '导出中…' : '批量导出'}
+        </button>
+      </div>
 
       {/* 筛选 */}
       <Card padding="sm">
@@ -185,6 +233,14 @@ export function UsersPage() {
                           className="text-xs text-blue-600 hover:underline"
                         >
                           详情
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => userReportExportMut.mutate(u.id)}
+                          disabled={exportingUserId === u.id}
+                          className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                        >
+                          {exportingUserId === u.id ? '导出中…' : '导出报告'}
                         </button>
                         <PermGate need="user:ban">
                         {u.status === 0 ? (

@@ -88,20 +88,39 @@ export class AdminAnalyticsService {
     }
   }
 
-  /** 核心漏斗：测评开始→提交→报告生成→报告解锁 计数（近 N 天 event_log 聚合）。 */
+  /**
+   * 核心转化漏斗（口径基线强制）：全漏斗弃用 event_log，改走权威业务表聚合，
+   * 与首页 stats / assessmentRate 口径完全自洽。历史问题：assessment_start /
+   * assessment_submit 全代码库无 analytics.fire 上报点，event_log 恒无这两类事件，
+   * 导致漏斗前两步恒 0（与 assessmentRate 早前弃用 event_log 属同类整改）。
+   *
+   * 四步计数（全量口径，与 assessmentRate 一致；days 保留兼容前端但不约束计数）：
+   *   step1 assessment_start  = count(assessment_record WHERE isDeleted=0)          // = assessmentRate.started
+   *   step2 assessment_submit = count(assessment_record WHERE status=2 AND isDeleted=0) // = submitted = 首页 completedCount
+   *   step3 report_generate   = count(report WHERE isDeleted=0)                     // = assessmentRate.reportCount
+   *   step4 report_unlock     = count(report WHERE isUnlocked=1 AND isDeleted=0)    // Report.isUnlocked(1=已解锁,schema.prisma:287)
+   *
+   * 返回结构不变：{ source:'assessment_record', days, funnel:[{step,count}×4] }，四步顺序不变。
+   */
   async funnel(days = 30): Promise<Record<string, unknown>> {
-    const source = (await this.chReady()) ? 'clickhouse' : 'mysql';
     const steps = ['assessment_start', 'assessment_submit', 'report_generate', 'report_unlock'];
     try {
-      const grouped = await this.prisma.eventLog.groupBy({
-        by: ['eventType'],
-        where: { eventTime: { gte: this.since(days) }, eventType: { in: steps } },
-        _count: { _all: true },
-      });
-      const counts = new Map(grouped.map((g) => [g.eventType, g._count._all]));
-      const funnel = steps.map((step) => ({ step, count: counts.get(step) ?? 0 }));
-      return { source, days, funnel };
+      const [started, submitted, reportGenerated, reportUnlocked] = await this.prisma.$transaction([
+        this.prisma.assessmentRecord.count({ where: { isDeleted: 0 } }),
+        this.prisma.assessmentRecord.count({ where: { status: 2, isDeleted: 0 } }),
+        this.prisma.report.count({ where: { isDeleted: 0 } }),
+        this.prisma.report.count({ where: { isUnlocked: 1, isDeleted: 0 } }),
+      ]);
+      const countByStep: Record<string, number> = {
+        assessment_start: started,
+        assessment_submit: submitted,
+        report_generate: reportGenerated,
+        report_unlock: reportUnlocked,
+      };
+      const funnel = steps.map((step) => ({ step, count: countByStep[step] ?? 0 }));
+      return { source: 'assessment_record', days, funnel };
     } catch (err) {
+      // 保留降级但不再返回全 event_log 空值误导：显式标 source='mock' 供前端识别
       this.logger.warn(`funnel degraded to mock: ${(err as Error).message}`);
       return { source: 'mock', days, funnel: steps.map((step) => ({ step, count: 0 })) };
     }

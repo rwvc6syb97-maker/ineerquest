@@ -14,7 +14,7 @@ import { ClickHouseService } from '../../infra/clickhouse/clickhouse.service';
  *  - growth          用户增长趋势（按天新增注册）
  *  - funnel          核心转化漏斗（测评→报告→解锁→付费）
  *  - revenue         营收趋势（按天已支付金额，单位分）
- *  - assessment-rate 测评完成率（提交/开始）
+ *  - assessment-rate 测评完成率（assessment_record 源；含报告生成数分列）
  */
 @Injectable()
 export class AdminAnalyticsService {
@@ -134,31 +134,48 @@ export class AdminAnalyticsService {
     }
   }
 
-  /** 测评完成率：提交数 / 开始数（近 N 天）。 */
+  /**
+   * 测评完成率（口径基线 §一.1 强制）：以 assessment_record 表为唯一权威源聚合。
+   *   started       = count(assessment_record WHERE isDeleted=0)
+   *   submitted     = count(assessment_record WHERE status=SUBMITTED(2) AND isDeleted=0)
+   *   completeRate  = submitted / started（无数据兜底 0）
+   * 与首页 stats.completedCount(=submitted) 完全自洽。已移除对 event_log 的比率依赖。
+   *
+   * 分列两指标（口径基线 §一.3）：
+   *   assessmentSubmitted = submitted（测评提交数，assessment_record 源）
+   *   reportCount         = count(report WHERE isDeleted=0)（报告生成数，report 源）
+   * 二者语义不同（一次提交可不生成报告 / 报告有配额），标签独立不得混用。
+   *
+   * @param days 保留入参用于兼容前端；比率口径为全量，仅趋势 series 受 days 约束（可选 event_log）。
+   */
   async assessmentRate(days = 30): Promise<Record<string, unknown>> {
-    const source = (await this.chReady()) ? 'clickhouse' : 'mysql';
     try {
-      const grouped = await this.prisma.eventLog.groupBy({
-        by: ['eventType'],
-        where: {
-          eventTime: { gte: this.since(days) },
-          eventType: { in: ['assessment_start', 'assessment_submit'] },
-        },
-        _count: { _all: true },
-      });
-      const counts = new Map(grouped.map((g) => [g.eventType, g._count._all]));
-      const started = (counts.get('assessment_start') ?? 0) as number;
-      const submitted = (counts.get('assessment_submit') ?? 0) as number;
+      const [started, submitted, reportCount] = await this.prisma.$transaction([
+        this.prisma.assessmentRecord.count({ where: { isDeleted: 0 } }),
+        this.prisma.assessmentRecord.count({ where: { status: 2, isDeleted: 0 } }),
+        this.prisma.report.count({ where: { isDeleted: 0 } }),
+      ]);
       return {
-        source,
+        source: 'assessment_record',
         days,
         started,
         submitted,
         completeRate: started ? Number((submitted / started).toFixed(4)) : 0,
+        // 分列指标：测评提交数 vs 报告生成数（禁止混用）
+        assessmentSubmitted: submitted,
+        reportCount,
       };
     } catch (err) {
-      this.logger.warn(`assessment-rate degraded to mock: ${(err as Error).message}`);
-      return { source: 'mock', days, started: 0, submitted: 0, completeRate: 0 };
+      this.logger.warn(`assessment-rate degraded to zero: ${(err as Error).message}`);
+      return {
+        source: 'mock',
+        days,
+        started: 0,
+        submitted: 0,
+        completeRate: 0,
+        assessmentSubmitted: 0,
+        reportCount: 0,
+      };
     }
   }
 }

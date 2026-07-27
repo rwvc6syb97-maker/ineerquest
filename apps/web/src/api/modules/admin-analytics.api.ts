@@ -90,6 +90,13 @@ export interface AnalyticsAssessmentRate {
   submitted: number;
   /** 完成率（0~1） */
   completeRate: number;
+  /**
+   * 测评提交数（分列指标，与 reportCount 区分口径）。
+   * 后端数据源已改 assessment_record；比率口径为全量，days 不再影响比率（兼容保留）。
+   */
+  assessmentSubmitted?: number;
+  /** 报告生成数（分列指标，与 assessmentSubmitted 区分口径） */
+  reportCount?: number;
 }
 
 export function getOverview(): Promise<AnalyticsOverview> {

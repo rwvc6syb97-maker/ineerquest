@@ -211,6 +211,25 @@ export function AnalyticsPage() {
               <p className="mt-2 text-xs text-slate-500">
                 开始 {rate.data.started.toLocaleString()} · 提交 {rate.data.submitted.toLocaleString()}
               </p>
+              {/* 分列指标：测评提交数 vs 报告生成数（口径不同，不得混用） */}
+              <div className="mt-3 grid w-full grid-cols-2 gap-2 text-center">
+                <div className="rounded-lg bg-slate-50 py-2">
+                  <p className="text-base font-bold text-slate-800">
+                    {(rate.data.assessmentSubmitted ?? rate.data.submitted).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-500">测评提交数</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 py-2">
+                  <p className="text-base font-bold text-slate-800">
+                    {(rate.data.reportCount ?? 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-500">报告生成数</p>
+                </div>
+              </div>
+              {/* 口径说明：比率为全量口径，days 不影响比率 */}
+              <p className="mt-2 text-[11px] text-slate-400">
+                完成率为全量口径，不随时间范围变化
+              </p>
             </>
           ) : null}
         </Card>

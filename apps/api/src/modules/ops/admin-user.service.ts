@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { TokenService } from '../user/auth/token.service';
-import { maskPhone } from './admin-mask.util';
+import { maskPhone, maskEmail } from './admin-mask.util';
 
 /**
  * T4-14 用户管理服务 `/admin/users/*`。
@@ -31,12 +31,15 @@ export class AdminUserService {
   /** 组装对外用户视图。pii=true 且持 user:pii 权限时下发明文，否则脱敏。 */
   private view(u: Record<string, unknown>, pii: boolean) {
     const phone = (u.phone as string | null) ?? null;
+    const email = (u.email as string | null) ?? null;
     return {
       id: (u.id as bigint)?.toString?.() ?? String(u.id),
       userNo: u.userNo,
       nickname: u.nickname,
       avatarUrl: u.avatarUrl,
       phone: pii ? phone : maskPhone(phone),
+      // email 受 user:pii 权限控制：无权限脱敏为 a***@b.com 形式（任务4.1）
+      email: pii ? email : maskEmail(email),
       phoneCountry: u.phoneCountry,
       gender: u.gender,
       role: u.role,
@@ -89,11 +92,58 @@ export class AdminUserService {
 
   /** 用户详情。pii 由 controller 依据 user:pii 权限传入。 */
   async detail(id: string | number, pii: boolean) {
+    const uid = this.toId(id);
     const row = await this.prisma.user.findFirst({
-      where: { id: this.toId(id), isDeleted: 0 },
+      where: { id: uid, isDeleted: 0 },
     });
     if (!row) throw new NotFoundException('用户不存在');
-    return this.view(row as unknown as Record<string, unknown>, pii);
+    const base = this.view(row as unknown as Record<string, unknown>, pii);
+    const { latestReport, dimensions } = await this.latestReportView(uid);
+    return { ...base, latestReport, dimensions };
+  }
+
+  /**
+   * 关联该用户「最新一条报告」(report 按 createdAt desc, isDeleted=0)（任务4.2）。
+   * - latestReport: { mbtiType, reportNo, reportType, createdAt }（无报告时 null）
+   * - dimensions:   对应 assessment_result 四维度 [{ dimension, score }]
+   *                 dimension ∈ EI/SN/TF/JP，score 取 scoreEi/scoreSn/scoreTf/scoreJp（Decimal→number）
+   * report.result 已强关联 AssessmentResult，故随报告取维度，保证与该报告口径一致。
+   */
+  private async latestReportView(uid: bigint): Promise<{
+    latestReport: {
+      mbtiType: string;
+      reportNo: string;
+      reportType: number;
+      createdAt: Date;
+    } | null;
+    dimensions: Array<{ dimension: string; score: number }>;
+  }> {
+    const report = await this.prisma.report.findFirst({
+      where: { userId: uid, isDeleted: 0 },
+      orderBy: { createdAt: 'desc' },
+      include: { result: true },
+    });
+    if (!report) return { latestReport: null, dimensions: [] };
+
+    const r = report.result;
+    const dimensions = r
+      ? [
+          { dimension: 'EI', score: Number(r.scoreEi) },
+          { dimension: 'SN', score: Number(r.scoreSn) },
+          { dimension: 'TF', score: Number(r.scoreTf) },
+          { dimension: 'JP', score: Number(r.scoreJp) },
+        ]
+      : [];
+
+    return {
+      latestReport: {
+        mbtiType: report.mbtiType,
+        reportNo: report.reportNo,
+        reportType: report.reportType,
+        createdAt: report.createdAt,
+      },
+      dimensions,
+    };
   }
 
   /**

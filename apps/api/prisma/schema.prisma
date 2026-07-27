@@ -204,6 +204,9 @@ model AssessmentRecord {
   @@unique([recordNo], map: "uk_record_no")
   @@index([userId, status, createdAt], map: "idx_user_status_created")
   @@index([userId, isDeleted, createdAt], map: "idx_user_deleted_created")
+  // 后台/首页全量聚合（不带 user_id）：count(isDeleted=0) 命中最左前缀 is_deleted，
+  // count(status=SUBMITTED(2) AND isDeleted=0) 命中全字段，避免全表扫描（任务3.3）
+  @@index([isDeleted, status], map: "idx_deleted_status")
   @@map("assessment_record")
 }
 
@@ -300,6 +303,9 @@ model Report {
   @@unique([reportNo], map: "uk_report_no")
   @@index([userId, reportType, createdAt], map: "idx_user_type_created")
   @@index([userId, isDeleted, createdAt], map: "idx_user_deleted_created")
+  // 后台报告生成数全量聚合 count(report WHERE isDeleted=0)（不带 user_id），
+  // 命中 is_deleted 前缀避免全表扫描；与测评提交数分列聚合口径一致（任务3.3）
+  @@index([isDeleted], map: "idx_deleted")
   @@map("report")
 }
 

@@ -58,9 +58,10 @@ export function ReportPage() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // 轮询到深度报告生成完成（done）后，关闭轮询开关
+  // 轮询到深度报告生成落定（done 或 failed）后，关闭轮询开关，避免无限转圈
   useEffect(() => {
-    if (generateTriggered && report?.generateStatus === 'done') {
+    const st = report?.generateStatus;
+    if (generateTriggered && (st === 'done' || st === 'failed')) {
       setGenerateTriggered(false);
     }
   }, [generateTriggered, report?.generateStatus]);
@@ -246,6 +247,21 @@ export function ReportPage() {
           <SpringButton variant="ghost" className="mt-3" onClick={() => refetch()}>
             立即刷新
           </SpringButton>
+        </section>
+      ) : report.generateStatus === 'failed' ? (
+        <section className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-6 py-8 text-center">
+          <h2 className="font-display text-xl font-bold text-red-700">
+            深度报告生成失败
+          </h2>
+          <p className="max-w-md font-serif text-sm text-neutral-600">
+            很抱歉，本次深度解读生成未成功。你可以点击下方按钮重新生成，通常稍后重试即可完成。
+          </p>
+          <SpringButton variant="accent" onClick={handleGenerate} disabled={generating}>
+            {generating ? '重新生成中…' : '重试生成'}
+          </SpringButton>
+          {generateError ? (
+            <span className="text-sm text-red-600">{generateError}</span>
+          ) : null}
         </section>
       ) : null}
       <section className="mt-14 grid grid-cols-1 items-center gap-8 md:grid-cols-12">

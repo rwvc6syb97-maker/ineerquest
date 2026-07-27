@@ -4,7 +4,12 @@ import { RecordStatus } from '../assessment/assessment.constants';
 
 /** 首页统计出参（对齐 PM 接口契约：驼峰字段） */
 export interface HomeStats {
-  /** 完成测评人数：assessment_record.status=SUBMITTED(2) 且未删除 的计数 */
+  /**
+   * 已完成测评数（首页文案"已完成测评"）。
+   * 口径（四缺陷整改基线 §一.2 强制）：= submitted
+   *   = count(assessment_record WHERE status=SUBMITTED(2) AND isDeleted=0)
+   * 与后台 assessment-rate.submitted 完全一致，禁止用 event_log 计数。
+   */
   completedCount: number;
   /** 用户满意度：有效评价中 isSatisfied=1 占比 *100，四舍五入为 0~100 整数，无评价=0 */
   satisfactionRate: number;
@@ -42,8 +47,13 @@ export class StatsService {
     return data;
   }
 
+  /** 手动清空首页统计缓存（口径校验/整改后强制刷新用）。 */
+  clearCache(): void {
+    this.cache = null;
+  }
+
   private async computeHomeStats(): Promise<HomeStats> {
-    // 完成测评人数：已提交且未删除
+    // 已完成测评数（口径基线 §一.2）：status=SUBMITTED(2) 且未删除，等同后台 submitted
     const completedCount = await this.prisma.assessmentRecord.count({
       where: { status: RecordStatus.SUBMITTED, isDeleted: 0 },
     });

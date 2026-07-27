@@ -57,6 +57,78 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
     });
   });
 
+  // 四缺陷整改 · 任务4.1/4.2 用户管理 email/latestReport/dimensions
+  describe('AdminUserService.detail email脱敏+最新报告+四维度', () => {
+    const baseUser = {
+      id: 100n,
+      userNo: 'U100',
+      nickname: '张三',
+      avatarUrl: null,
+      phone: '13800008888',
+      email: 'zhangsan@example.com',
+      phoneCountry: '+86',
+      gender: 1,
+      role: 1,
+      status: 1,
+      isPaid: 1,
+      lastLoginAt: null,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      isDeleted: 0,
+    };
+    const mkPrisma = (user: any, report: any) =>
+      ({
+        user: { findFirst: jest.fn(async () => user) },
+        report: { findFirst: jest.fn(async () => report) },
+      }) as any;
+    const token = { banUser: jest.fn(), unbanUser: jest.fn() } as any;
+
+    it('无pii：email脱敏 z***@example.com，phone脱敏', async () => {
+      const svc = new AdminUserService(mkPrisma(baseUser, null), token);
+      const res = (await svc.detail('100', false)) as any;
+      expect(res.email).toBe('z***@example.com');
+      expect(res.phone).toBe('138****8888');
+    });
+
+    it('持pii：email/phone明文', async () => {
+      const svc = new AdminUserService(mkPrisma(baseUser, null), token);
+      const res = (await svc.detail('100', true)) as any;
+      expect(res.email).toBe('zhangsan@example.com');
+      expect(res.phone).toBe('13800008888');
+    });
+
+    it('无报告：latestReport=null，dimensions=[]', async () => {
+      const svc = new AdminUserService(mkPrisma(baseUser, null), token);
+      const res = (await svc.detail('100', false)) as any;
+      expect(res.latestReport).toBeNull();
+      expect(res.dimensions).toEqual([]);
+    });
+
+    it('有报告：latestReport四字段+dimensions四维度', async () => {
+      const report = {
+        mbtiType: 'INTJ',
+        reportNo: 'R20260701001',
+        reportType: 1,
+        createdAt: new Date('2026-07-02T00:00:00.000Z'),
+        result: { scoreEi: 62.5, scoreSn: 71.0, scoreTf: 55.5, scoreJp: 80.0 },
+      };
+      const prisma = mkPrisma(baseUser, report);
+      const svc = new AdminUserService(prisma, token);
+      const res = (await svc.detail('100', false)) as any;
+      expect(res.latestReport).toMatchObject({ mbtiType: 'INTJ', reportNo: 'R20260701001', reportType: 1 });
+      expect(res.dimensions).toEqual([
+        { dimension: 'EI', score: 62.5},
+        { dimension: 'SN', score: 71.0 },
+        { dimension: 'TF', score: 55.5 },
+        { dimension: 'JP', score: 80.0 },
+      ]);
+      expect(prisma.report.findFirst).toHaveBeenCalledWith({
+        where: { userId: 100n, isDeleted: 0 },
+        orderBy: { createdAt: 'desc' },
+        include: { result: true },
+      });
+    });
+  });
+
   // ---------------- T4-15 辅导师下线拦截 ----------------
   describe('AdminCoachService.shelf 下线拦截进行中订单', () => {
     const makePrisma = (coach: any, activeCount: number) =>

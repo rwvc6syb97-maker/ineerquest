@@ -3,7 +3,7 @@ import { CoachAuditStatus, CoachingOrderStatus, CoachStatus, ScheduleStatus } fr
 
 /**
  * CoachingService 单测：纯确定性，Prisma/Redis/Analytics 全部内存 mock 替身，
- * 无网络/DB 依赖。覆盖时段锁冲突(60001)、停止接单(60002)、confirmAfterPaid 确认/释放、评价聚合。
+ * 无网络/DB 依赖。覆盖时段锁冲突(60001)、停止接单(60002)、免费直连下单、超时释放兜底、评价聚合。
  */
 describe('CoachingService', () => {
   // Redis mock：默认锁抢占成功（返回 'OK'）；可覆写模拟已被占。
@@ -111,7 +111,7 @@ describe('CoachingService', () => {
       ).rejects.toMatchObject({ bizCode: 4701 });
     });
 
-    it('下单成功：FREE 时段 CAS→LOCKED 并创建 PENDING 订单', async () => {
+    it('下单成功：FREE 时段 CAS→BOOKED 并创建 PAID 订单（免费直连）', async () => {
       const { svc, prisma } = build();
       prisma.coach.findFirst.mockResolvedValue(onlineCoach);
       prisma.coachSchedule.findFirst.mockResolvedValue({
@@ -128,15 +128,14 @@ describe('CoachingService', () => {
         coachId: 1n,
         scheduleId: 100n,
         amount: 20000n,
-        status: CoachingOrderStatus.PENDING,
-        payExpireAt: new Date(),
+        status: CoachingOrderStatus.PAID,
+        paidAt: new Date(),
       });
       const vo = await svc.bookCoaching('7', { coachId: '1', scheduleId: '100' });
-      expect(vo.status).toBe(CoachingOrderStatus.PENDING);
-      expect(vo.bizType).toBe(2);
+      expect(vo.status).toBe(CoachingOrderStatus.PAID);
       expect(vo.amount).toBe(20000);
       expect(prisma.coachSchedule.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: ScheduleStatus.LOCKED }) }),
+        expect.objectContaining({ data: expect.objectContaining({ status: ScheduleStatus.BOOKED }) }),
       );
     });
 
@@ -150,7 +149,7 @@ describe('CoachingService', () => {
       prisma.coachSchedule.update.mockResolvedValue({});
       prisma.coachingOrder.create.mockResolvedValue({
         id: 500n, orderNo: 'CO1', coachId: 1n, scheduleId: 100n,
-        amount: 20000n, status: CoachingOrderStatus.PENDING, payExpireAt: new Date(),
+        amount: 20000n, status: CoachingOrderStatus.PAID, paidAt: new Date(),
       });
       const vo = await svc.bookCoaching('7', { coachId: '1', scheduleId: '100' });
       expect(vo.idempotencyKey).toBe('7:100');
@@ -190,50 +189,6 @@ describe('CoachingService', () => {
       await expect(
         svc.bookCoaching('7', { coachId: '1', scheduleId: '100' }),
       ).rejects.toMatchObject({ bizCode: 4701 });
-    });
-  });
-
-  describe('T4-03 confirmAfterPaid / 超时释放', () => {
-    it('confirmAfterPaid：订单 PENDING→PAID 且时段 LOCKED→BOOKED', async () => {
-      const { svc, prisma } = build();
-      prisma.coachingOrder.findFirst.mockResolvedValue({
-        id: 500n,
-        scheduleId: 100n,
-        userId: 7n,
-        status: CoachingOrderStatus.PENDING,
-      });
-      prisma.coachingOrder.updateMany.mockResolvedValue({ count: 1 });
-      prisma.coachSchedule.updateMany.mockResolvedValue({ count: 1 });
-      const r = await svc.confirmAfterPaid('500', '900');
-      expect(r).toEqual({ ok: true });
-      expect(prisma.coachSchedule.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: ScheduleStatus.BOOKED }) }),
-      );
-    });
-
-    it('confirmAfterPaid 幂等：订单已 PAID 直接成功', async () => {
-      const { svc, prisma } = build();
-      prisma.coachingOrder.findFirst.mockResolvedValue({
-        id: 500n,
-        scheduleId: 100n,
-        userId: 7n,
-        status: CoachingOrderStatus.PAID,
-      });
-      const r = await svc.confirmAfterPaid('500');
-      expect(r).toEqual({ ok: true });
-      expect(prisma.coachingOrder.updateMany).not.toHaveBeenCalled();
-    });
-
-    it('releaseExpiredSlots：超时订单 CANCELLED 并释放时段', async () => {
-      const { svc, prisma } = build();
-      prisma.coachingOrder.findMany.mockResolvedValue([{ id: 500n, scheduleId: 100n }]);
-      prisma.coachingOrder.updateMany.mockResolvedValue({ count: 1 });
-      prisma.coachSchedule.updateMany.mockResolvedValue({ count: 1 });
-      const released = await svc.releaseExpiredSlots(new Date());
-      expect(released).toBe(1);
-      expect(prisma.coachSchedule.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: ScheduleStatus.FREE }) }),
-      );
     });
   });
 

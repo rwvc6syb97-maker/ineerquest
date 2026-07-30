@@ -3,11 +3,11 @@ import { BizCode, BizException } from '../../common/response';
 
 /**
  * §3.2 AiResumeService 单测（纯内存 mock，无真实 DB/网络）。
- * 覆盖：会员校验(4515)、敏感词(4516)、职业不存在(4004)、正常流、LLM 降级。
+ * 覆盖：会员校验(免费化放行)、敏感词(4516)、职业不存在(4004)、正常流、LLM 降级。
  */
 describe('AiResumeService (§3.2 简历生成)', () => {
   const USER = '1001';
-  const memberUser = { membershipLevel: 1, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 };
+  const memberUser = {};
   const career = { id: 5n, name: '产品经理', category: '互联网' };
 
   const goodJson = JSON.stringify({
@@ -52,12 +52,13 @@ describe('AiResumeService (§3.2 简历生成)', () => {
     expect(prisma.aiResumeDoc.create).toHaveBeenCalled();
   });
 
-  it('非会员：抛 AI_MEMBER_ONLY(4515)', async () => {
-    const prisma = makePrisma({ user: { membershipLevel: 0, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 } });
+  it('免费化：非会员用户直接放行，正常落库返回 docId', async () => {
+    const prisma = makePrisma({ user: {} });
     const svc = new AiResumeService(prisma, makeLlm());
-    await expect(svc.generate(USER, dto as any)).rejects.toMatchObject({
-      bizCode: BizCode.AI_MEMBER_ONLY,
-    } as Partial<BizException>);
+    const vo = await svc.generate(USER, dto as any);
+    expect(vo.degraded).toBe(false);
+    expect(vo.docId).toBe('88');
+    expect(prisma.aiResumeDoc.create).toHaveBeenCalled();
   });
 
   it('敏感词：抛 AI_SENSITIVE_CONTENT(4516)，且不调 LLM', async () => {

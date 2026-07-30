@@ -9,7 +9,6 @@ describe('SchedulerService (BE-11)', () => {
       user: { findMany: jest.fn(), updateMany: jest.fn() },
       $executeRawUnsafe: jest.fn().mockResolvedValue(0),
       coachSchedule: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
-      activationCode: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       career: { findMany: jest.fn().mockResolvedValue([]) },
       dailyBrief: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn().mockResolvedValue({ id: 1n }) },
     };
@@ -80,22 +79,6 @@ describe('SchedulerService (BE-11)', () => {
         expect.objectContaining({
           where: expect.objectContaining({ status: 2 }),
           data: expect.objectContaining({ status: 1 }),
-        }),
-      );
-    });
-  });
-
-  describe('markExpiredActivationCodes', () => {
-    it('标记已过期的未使用激活码', async () => {
-      const { svc, prisma } = build();
-      prisma.activationCode.updateMany.mockResolvedValue({ count: 5 });
-
-      await svc.markExpiredActivationCodes();
-
-      expect(prisma.activationCode.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ status: 0 }),
-          data: { status: 2 },
         }),
       );
     });

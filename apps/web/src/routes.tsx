@@ -37,11 +37,6 @@ import { HistoryPage } from './pages/app/HistoryPage';
 import { MyPlanPage } from './pages/app/MyPlanPage';
 import { FavoritesPage } from './pages/app/FavoritesPage';
 import { SettingsPage } from './pages/app/SettingsPage';
-// 付费拓展（T2-08 / T2-09 / T2-11）
-import { PricingPage } from './pages/app/PricingPage';
-import { CheckoutPage } from './pages/app/CheckoutPage';
-import { PaymentResultPage } from './pages/app/PaymentResultPage';
-import { OrdersPage } from './pages/app/OrdersPage';
 // AI 对话与职业规划扩展（T3-08 / T3-09）
 import { AiChatPage } from './pages/app/AiChatPage';
 import { SkillsGapPage } from './pages/app/SkillsGapPage';
@@ -61,13 +56,10 @@ import { UsersPage } from './pages/admin/UsersPage';
 import { CoachesPage } from './pages/admin/CoachesPage';
 import { ContentPage } from './pages/admin/ContentPage';
 import { CareerDraftsPage } from './pages/admin/CareerDraftsPage';
-import { ActivationCodesPage } from './pages/admin/ActivationCodesPage';
-import { PlansPage } from './pages/admin/PlansPage';
 
 // 路由守卫
 import { RequireAuth } from './components/guards/RequireAuth';
 import { RequireResult } from './components/guards/RequireResult';
-import { RequirePaid } from './components/guards/RequirePaid';
 import { RequireAdmin } from './components/guards/RequireAdmin';
 
 // InnerQuest 三层路由骨架
@@ -79,10 +71,6 @@ export function AppRoutes() {
         {/* 公开区 */}
         <Route element={<PublicLayout />}>
           <Route index element={<HomePage />} />
-          <Route path="pricing" element={<PricingPage />} />
-          {/* 收银台 / 支付结果（游客可下单，支付后回跳报告） */}
-          <Route path="checkout" element={<CheckoutPage />} />
-          <Route path="payment/result" element={<PaymentResultPage />} />
           {/* P02 人格类型总览 / P03 详情 */}
           <Route path="personality-types" element={<PersonalityTypesPage />} />
           <Route path="personality-types/:typeCode" element={<PersonalityTypeDetailPage />} />
@@ -132,22 +120,18 @@ export function AppRoutes() {
             element={<RequireResult><ReportSectionPage /></RequireResult>}
           />
           <Route path="report/:id/share" element={<SharePage />} />
-          {/* P09 完整报告（付费解锁全部段落） */}
+          {/* P09 完整报告（免费化：无门禁直连） */}
           <Route
             path="report/:id/full"
             element={
               <RequireResult>
-                <RequirePaid>
-                  <FullReportPage />
-                </RequirePaid>
+                <FullReportPage />
               </RequireResult>
             }
           />
           {/* P24 我的收藏 / P25 我的成长计划 */}
           <Route path="me/favorites" element={<FavoritesPage />} />
           <Route path="me/plan" element={<MyPlanPage />} />
-          {/* 订单（登录后） */}
-          <Route path="orders" element={<OrdersPage />} />
           {/* P3-3 职业热点日报（登录可见） */}
           <Route path="daily-brief" element={<DailyBriefPage />} />
           {/* 职业 */}
@@ -228,22 +212,6 @@ export function AppRoutes() {
             element={
               <RequireAdmin need="career:read">
                 <CareerDraftsPage />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="activation-codes"
-            element={
-              <RequireAdmin need="payment:manage">
-                <ActivationCodesPage />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="plans"
-            element={
-              <RequireAdmin need="membership:plan:manage">
-                <PlansPage />
               </RequireAdmin>
             }
           />

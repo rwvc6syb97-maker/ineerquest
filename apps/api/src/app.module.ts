@@ -29,8 +29,6 @@ import { AiInterviewModule } from './modules/ai-interview/ai-interview.module';
 import { DailyBriefModule } from './modules/daily-brief/daily-brief.module';
 import { CareerAiModule } from './modules/career-ai/career-ai.module';
 import { CoachingModule } from './modules/coaching/coaching.module';
-import { PaymentModule } from './modules/payment/payment.module';
-import { MembershipModule } from './modules/membership/membership.module';
 import { OpsModule } from './modules/ops/ops.module';
 import { LlmGatewayModule } from './modules/llm-gateway/llm-gateway.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -48,8 +46,6 @@ imports: [
     CareerModule,
     AiChatModule,
     CoachingModule,
-    PaymentModule,
-    MembershipModule,
     OpsModule,
     LlmGatewayModule,
     RealtimeModule,

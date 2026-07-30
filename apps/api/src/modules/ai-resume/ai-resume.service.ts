@@ -17,7 +17,6 @@ const SENSITIVE_WORDS = [
 /**
  * §3.2 AI 简历/求职信生成服务。
  * 护城河/铁律：
- *  - 会员专享：非会员/会员过期 → 4515。
  *  - 输入敏感词 → 4516，禁止入库、禁止调 LLM。
  *  - 统一走 llm-gateway，失败/超时/解析失败 → degraded=true 回退规则版，不白屏。
  *  - 结果落 ai_resume_doc（分表，护城河；含软删字段）。
@@ -34,14 +33,10 @@ export class AiResumeService {
 
   /**
    * 生成简历/求职信。
-   * @throws BizException AI_MEMBER_ONLY(4515) 非会员/会员过期
    * @throws BizException AI_SENSITIVE_CONTENT(4516) 输入含敏感词
    * @throws BizException AI_NOT_FOUND(4004) 职业不存在
    */
   async generate(userId: string, dto: ResumeGenerateDto): Promise<ResumeGenerateVo> {
-    // 会员/付费校验（非会员 4515）
-    await this.ensureMember(userId);
-
     // 敏感词校验（命中 4516；先于 LLM，避免脏输入进模型/入库）
     this.assertNoSensitive(dto);
 
@@ -98,23 +93,6 @@ export class AiResumeService {
     });
 
     return { docId: row.id.toString(), content: doc.content, sections: doc.sections, degraded };
-  }
-
-  /** 会员/付费校验：membershipLevel>=1 或 isPaid==1 且未过期，否则 4515。 */
-  private async ensureMember(userId: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: BigInt(userId), isDeleted: 0 },
-      select: { membershipLevel: true, membershipExpireAt: true, paidExpireAt: true, isPaid: true },
-    });
-    if (!user) {
-      throw new BizException(BizCode.AI_UNAUTHORIZED, '未登录或登录已失效');
-    }
-    const expire = user.membershipExpireAt ?? user.paidExpireAt ?? null;
-    const active =
-      (user.membershipLevel >= 1 || user.isPaid === 1) && (!expire || expire.getTime() > Date.now());
-    if (!active) {
-      throw new BizException(BizCode.AI_MEMBER_ONLY, 'AI 简历生成为会员专享，请先开通会员');
-    }
   }
 
   /** 敏感词校验：拼接全部文本字段，命中即 4516。 */

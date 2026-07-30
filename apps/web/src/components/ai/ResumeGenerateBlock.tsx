@@ -1,8 +1,8 @@
 /**
- * P2-2 求职文书生成块（会员专享）——内嵌于职业详情页
+ * P2-2 求职文书生成块——内嵌于职业详情页
  * -------------------------------------------------------------
  * 收集履历资料（教育/技能/经历），选择类型（简历/求职信），调用 useResumeGenerate。
- * 会员限制（4515）走 memberOnly 引导开通会员；敏感词（4516）走 sensitive 提示修改。
+ * 免费化后不再拦截会员（4515）；敏感词（4516）走 sensitive 提示修改。
  * degraded=true 仍完整展示 content/sections。前端仅做基础非空校验，业务校验交后端。
  */
 import { useState } from 'react';
@@ -26,7 +26,7 @@ export function ResumeGenerateBlock({ careerId }: ResumeGenerateBlockProps) {
     { role: '', description: '' },
   ]);
   const [localError, setLocalError] = useState<string | null>(null);
-  const { data, loading, error, memberOnly, sensitive, degraded, run, reset } =
+  const { data, loading, error, sensitive, degraded, run, reset } =
     useResumeGenerate();
 
   const updateExp = (idx: number, patch: Partial<ResumeExperience>) => {
@@ -69,7 +69,7 @@ export function ResumeGenerateBlock({ careerId }: ResumeGenerateBlockProps) {
         size="md"
         eyebrow="Resume"
         title="AI 求职文书生成"
-        subtitle="填写你的履历，AI 为该职业量身生成简历或求职信初稿（会员专享）。"
+        subtitle="填写你的履历，AI 为该职业量身生成简历或求职信初稿。"
       />
 
       <Card padding="lg" className="mt-4">
@@ -179,18 +179,7 @@ export function ResumeGenerateBlock({ careerId }: ResumeGenerateBlockProps) {
         </div>
       </Card>
 
-      {/* 会员限制（4515）引导开通会员 */}
-      {memberOnly ? (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-      <p className="text-sm text-amber-800">{error ?? '该功能为会员专享'}</p>
-          <a
-            href="/pricing"
-            className="mt-1 inline-block text-xs font-medium text-amber-700 underline"
-          >
-            开通会员解锁 AI 文书生成
-          </a>
-        </div>
-      ) : null}
+      {/* F2 免费化：移除会员专享（4515）引导开通会员入口，功能直接可用 */}
 
       {/* 敏感词（4516）提示修改 */}
       {sensitive ? (
@@ -199,8 +188,8 @@ export function ResumeGenerateBlock({ careerId }: ResumeGenerateBlockProps) {
         </div>
       ) : null}
 
-      {/* 普通错误（非会员/敏感） */}
-      {error && !memberOnly && !sensitive ? (
+      {/* 普通错误（非敏感词） */}
+      {error && !sensitive ? (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm text-red-600">{error}</p>
         </div>

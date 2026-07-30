@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
@@ -6,7 +6,6 @@ import { BizCode, CommonCode, BizException } from '../../common/response';
 import { AnalyticsService } from '../analytics/analytics.service';
 import {
   COACHING_ORDER_STATUS_LABEL,
-  COACHING_PAY_TTL_MS,
   CoachAuditStatus,
   CoachingOrderStatus,
   CoachStatus,
@@ -22,17 +21,14 @@ import { BookCoachingDto, ListCoachesDto, ReviewCoachingDto } from './coaching.d
  * - T4-01 辅导师列表/详情/排期：仅返回 audit_status=通过 且 status=上架 的辅导师。
  * - T4-02 辅导预约下单：Redis 分布式锁锁定时段（无 Redis 降级内存锁），
  *   DB uk_coach_slot 唯一约束双重兜底防重叠；时段已占 → 60001，停止接单 → 60002。
- *   复用 payment 下单能力（bizType=2），此处仅创建 coaching_order（PENDING）与锁定时段。
- * - T4-03 confirmAfterPaid：支付回调成功后确认时段占用（LOCKED→BOOKED），
- *   未支付超时释放时段（LOCKED→FREE）。供 payment 模块/事件调用。
+ *   会员付费彻底移除（方案A）后改为免费直连：下单即 PAID，时段直接 BOOKED，无支付回调。
  * - T4-04 咨询评价：仅已完成订单可评价，coaching_review 入库并聚合更新辅导师 rating 均值/计数。
  *
  * 无真实 Redis 实例时：分布式锁降级为「进程内内存锁 + DB uk_coach_slot 唯一约束」双重兜底，标 blocked。
  */
 @Injectable()
-export class CoachingService implements OnModuleInit {
+export class CoachingService {
   private readonly logger = new Logger(CoachingService.name);
-  private sweepTimer?: NodeJS.Timeout;
 
   /** 内存锁兜底：scheduleId → 锁到期时间戳（无 Redis 时使用）。 */
   private readonly memoryLocks = new Map<string, number>();
@@ -42,18 +38,6 @@ export class CoachingService implements OnModuleInit {
     private readonly redis: RedisService,
     private readonly analytics: AnalyticsService,
   ) {}
-
-  onModuleInit(): void {
-    // T4-03 定时兜底扫描：每 60s 释放超时未支付的锁定时段（LOCKED→FREE）。
-    if (process.env.NODE_ENV !== 'test') {
-      this.sweepTimer = setInterval(() => {
-        void this.releaseExpiredSlots().catch((err) =>
-          this.logger.warn(`release expired slots skipped: ${(err as Error).message}`),
-        );
-      }, 60 * 1000);
-      this.sweepTimer.unref?.();
-    }
-  }
 
   // ============ 号码生成 ============
 
@@ -219,12 +203,13 @@ export class CoachingService implements OnModuleInit {
   // ============ T4-02 辅导预约下单（时段锁 + uk_coach_slot 防重叠） ============
 
   /**
-   * POST /coaches/book：创建咨询订单（bizType=2）并锁定时段。
+   * POST /coaches/book：免费预约下单并直接确认时段占用。
+   * 会员付费彻底移除（方案A）后，辅导预约改为免费直连：下单即 PAID，时段直接 BOOKED，
+   * 不再等待支付回调、不再有 PENDING 等待支付语义。
    * 1) 校验辅导师已上架接单，否则 60002。
    * 2) Redis 分布式锁抢占时段，抢锁失败 → 60001。
-   * 3) 事务内 CAS 将 schedule FREE→LOCKED（写 lock_expire_at）；命中 0 行说明已被占 → 60001。
-   * 4) 创建 coaching_order（PENDING，pay_expire_at=15min），金额取 coach.price_per_hour × 时长。
-   * 5) 后续复用 payment 下单能力：前端以 bizType=2 + coachingOrder.id 调 POST /payments/orders。
+   * 3) 事务内 CAS 将 schedule FREE→BOOKED；命中 0 行说明已被占 → 60001。
+   * 4) 创建 coaching_order（PAID，paidAt=now），金额取 coach.price_per_hour × 时长（免费展示价，无实际收款）。
    */
   async bookCoaching(userId: string, dto: BookCoachingDto) {
     const coach = await this.findOnlineCoach(dto.coachId);
@@ -238,8 +223,6 @@ export class CoachingService implements OnModuleInit {
 
     try {
       const now = new Date();
-      const lockExpireAt = new Date(now.getTime() + SLOT_LOCK_TTL_MS);
-      const payExpireAt = new Date(now.getTime() + COACHING_PAY_TTL_MS);
 
       const order = await this.prisma.$transaction(async (tx) => {
         // 校验时段归属该辅导师且当前可约（FREE 或锁已过期的 LOCKED）
@@ -259,17 +242,17 @@ export class CoachingService implements OnModuleInit {
           throw new BizException(BizCode.COACH_SLOT_TAKEN, '该时段已被占用，请选择其他时段');
         }
 
-        // CAS FREE/过期LOCKED → LOCKED（防并发覆盖；uk_coach_slot 唯一约束兜底防重叠）
+        // CAS FREE/过期LOCKED → BOOKED（免费直连确认占用；uk_coach_slot 唯一约束兜底防重叠）
         const cas = await tx.coachSchedule.updateMany({
           where: { id: schedule.id, status: schedule.status },
-          data: { status: ScheduleStatus.LOCKED, lockExpireAt },
+          data: { status: ScheduleStatus.BOOKED, lockExpireAt: null },
         });
         if (cas.count === 0) {
           throw new BizException(BizCode.COACH_SLOT_TAKEN, '该时段已被占用，请选择其他时段');
         }
 
         const durationMin = 60;
-        const amount = BigInt(coach.pricePerHour); // 单价（分/小时）× 1 小时
+        const amount = BigInt(coach.pricePerHour); // 单价（分/小时）× 1 小时，免费展示价
         const created = await tx.coachingOrder.create({
           data: {
             orderNo: this.genOrderNo(),
@@ -279,8 +262,8 @@ export class CoachingService implements OnModuleInit {
             consultType: dto.consultType ?? 1,
             durationMin,
             amount,
-            status: CoachingOrderStatus.PENDING,
-            payExpireAt,
+            status: CoachingOrderStatus.PAID,
+            paidAt: now,
           },
         });
         // 回填 schedule.order_id
@@ -290,6 +273,9 @@ export class CoachingService implements OnModuleInit {
         });
         return created;
       });
+
+      // 免费直连确认后释放时段锁
+      await this.releaseSlotLock(scheduleId);
 
       this.analytics.fire({
         userId,
@@ -310,11 +296,8 @@ export class CoachingService implements OnModuleInit {
         amount: Number(order.amount),
         status: order.status,
         statusLabel: COACHING_ORDER_STATUS_LABEL[order.status] ?? 'unknown',
-        payExpireAt: order.payExpireAt,
         // 幂等键：同一用户对同一时段唯一（uk_user_schedule），供前端防重复提交
         idempotencyKey: `${userId}:${order.scheduleId.toString()}`,
-        // 复用 payment 下单：bizType=2 + bizId=order.id
-        bizType: 2,
       };
     } catch (err) {
       // 下单失败释放锁，允许其他用户重试
@@ -332,86 +315,6 @@ export class CoachingService implements OnModuleInit {
       }
       throw err;
     }
-  }
-
-  // ============ T4-03 支付成功确认占用时段 / 超时释放 ============
-
-  /**
-   * confirmAfterPaid：支付回调成功后确认时段占用。供 payment 模块或事件调用。
-   * - 依据 coachingOrderId 定位订单：PENDING → PAID；schedule LOCKED → BOOKED。
-   * - 幂等：订单已 PAID 直接返回成功。
-   */
-  async confirmAfterPaid(coachingOrderId: string, paymentOrderId?: string): Promise<{ ok: true }> {
-    const order = await this.prisma.coachingOrder.findFirst({
-      where: { id: BigInt(coachingOrderId) },
-    });
-    if (!order) {
-      throw new BizException(BizCode.ORDER_NOT_FOUND, '咨询订单不存在');
-    }
-    if (order.status === CoachingOrderStatus.PAID) {
-      return { ok: true }; // 幂等
-    }
-    if (order.status !== CoachingOrderStatus.PENDING) {
-      throw new BizException(CommonCode.BAD_REQUEST, '咨询订单状态不支持确认');
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      // 订单 PENDING → PAID
-      const upd = await tx.coachingOrder.updateMany({
-        where: { id: order.id, status: CoachingOrderStatus.PENDING },
-        data: {
-          status: CoachingOrderStatus.PAID,
-          paidAt: new Date(),
-          paymentOrderId: paymentOrderId ? BigInt(paymentOrderId) : undefined,
-        },
-      });
-      if (upd.count === 0) {
-        throw new BizException(CommonCode.BAD_REQUEST, '咨询订单状态已变更');
-      }
-      // 时段 LOCKED → BOOKED（确认占用）
-      await tx.coachSchedule.updateMany({
-        where: { id: order.scheduleId },
-        data: { status: ScheduleStatus.BOOKED, lockExpireAt: null },
-      });
-    });
-
-    await this.releaseSlotLock(order.scheduleId.toString());
-    this.analytics.fire({
-      userId: order.userId.toString(),
-      eventType: 'coaching_slot_confirmed',
-      properties: { orderId: order.id.toString(), scheduleId: order.scheduleId.toString() },
-    });
-    return { ok: true };
-  }
-
-  /**
-   * 定时兜底：释放超时未支付订单占用的时段（LOCKED→FREE），并关闭订单（PENDING→CANCELLED）。
-   * 返回释放数量（供单测断言）。
-   */
-  async releaseExpiredSlots(now: Date = new Date()): Promise<number> {
-    const expired = await this.prisma.coachingOrder.findMany({
-      where: { status: CoachingOrderStatus.PENDING, payExpireAt: { lte: now } },
-      select: { id: true, scheduleId: true },
-    });
-    let released = 0;
-    for (const o of expired) {
-      await this.prisma.$transaction(async (tx) => {
-        const upd = await tx.coachingOrder.updateMany({
-          where: { id: o.id, status: CoachingOrderStatus.PENDING },
-          data: { status: CoachingOrderStatus.CANCELLED, cancelReason: '支付超时自动释放' },
-        });
-        if (upd.count > 0) {
-          await tx.coachSchedule.updateMany({
-            where: { id: o.scheduleId, status: ScheduleStatus.LOCKED },
-            data: { status: ScheduleStatus.FREE, orderId: null, lockExpireAt: null },
-          });
-        }
-        released += upd.count;
-      });
-      await this.releaseSlotLock(o.scheduleId.toString());
-    }
-    if (released > 0) this.logger.log(`released ${released} expired coaching slots`);
-    return released;
   }
 
   // ============ T4-04 咨询评价（聚合更新辅导师评分） ============
@@ -515,7 +418,6 @@ export class CoachingService implements OnModuleInit {
   amount: Number(o.amount),
       status: o.status,
       statusLabel: COACHING_ORDER_STATUS_LABEL[o.status] ?? 'unknown',
-      payExpireAt: o.payExpireAt,
       paidAt: o.paidAt,
       createdAt: o.createdAt,
     }));

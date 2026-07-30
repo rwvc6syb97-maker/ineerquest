@@ -107,31 +107,6 @@ export class SchedulerService {
     }
   }
 
-  /**
-   * 激活码过期标记：每小时执行。
-   * 将 expireAt < now 且未使用的激活码标记为 status=2 (expired)。
-   */
-  @Cron('0 * * * *', { name: 'mark-expired-activation-codes' })
-  async markExpiredActivationCodes(): Promise<void> {
-    try {
-      const now = new Date();
-      const result = await this.prisma.activationCode.updateMany({
-        where: {
-          status: 0, // unused
-          expireAt: { not: null, lte: now },
-        },
-        data: { status: 2 },
-      });
-      if ((result as any).count > 0) {
-        this.logger.log(
-          `[CRON] markExpiredActivationCodes: 已标记 ${(result as any).count} 个过期激活码`,
-        );
-      }
-    } catch (e) {
-      this.logger.warn(`[CRON] markExpiredActivationCodes 失败: ${(e as Error).message}`);
-    }
-  }
-
   /** 日报每日条目数 / 历史回补天数（含当天）。 */
   private static readonly BRIEF_ITEMS_PER_DAY = 3;
   private static readonly BRIEF_BACKFILL_DAYS = 7;

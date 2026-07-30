@@ -7,7 +7,6 @@
  *  GET  /reports/:id/sections/:key    章节详情（§6.1 #3）
  *  POST /reports/:id/generate         触发 LLM 深度生成（§6.1 #4）
  *  POST /reports/:id/share            生成分享/海报
- *  POST /reports/:id/unlock           支付后解锁
  *  GET  /reports/:id/export          导出 PDF
  */
 import { request } from '../client';
@@ -36,12 +35,12 @@ export interface ReportSectionDetail {
 
 /**
  * 报告概览章节项（GET /reports/:id 内嵌）
- * 注意：概览接口不下发 isFree，锁态由 paid + lockedSectionKeys 判定
+ * 免费化后所有章节均可读，无锁态字段。
  */
 export interface ReportOverviewSection {
   sectionKey: string;
   title: string;
-  /** 未解锁付费章节 content 为 null */
+  /** 章节正文（免费化后始终有值） */
   content: string | null;
   sortOrder: number;
   paid: boolean;
@@ -65,12 +64,8 @@ export interface Report {
   dimensions: { dimension: string; left: string; right: string; score: number }[];
   /** 生成状态：含 pending */
   generateStatus: 'pending' | 'generating' | 'done' | 'failed';
-  /** 概览章节列表（不含 isFree） */
+  /** 概览章节列表（免费化后全部可读） */
   sections: ReportOverviewSection[];
-  /** 未解锁的付费章节 key 列表 */
-  lockedSectionKeys: string[];
-  /** 是否已解锁完整报告 */
-  isUnlocked: boolean;
   /** 北京时间字符串 */
   createdAt: string;
 }
@@ -121,14 +116,6 @@ export function listReports(page = 1, pageSize = 10): Promise<Paginated<Report>>
 export function shareReport(id: string): Promise<ReportShare> {
   return request<ReportShare>({
     url: `/reports/${id}/share`,
-    method: 'POST',
-  });
-}
-
-/** 支付成功后解锁完整报告付费段（T2-05） */
-export function unlockReport(id: string): Promise<{ unlocked: boolean }> {
-  return request<{ unlocked: boolean }>({
-    url: `/reports/${id}/unlock`,
     method: 'POST',
   });
 }

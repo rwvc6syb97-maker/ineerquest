@@ -3,7 +3,7 @@ import { BizCode } from '../../common/response';
 
 /**
  * §4.2 InterviewBankService 单测（纯内存 mock，无真实 DB/网络）。
- * 覆盖：列表仅已发布题过滤 + 分页封顶、非会员评分 4515、题不存在 4004、
+ * 覆盖：列表仅已发布题过滤 + 分页封顶、非会员评分(免费化放行)、题不存在 4004、
  *      answer 空 4005、LLM 正常解析、LLM 降级兜底。
  */
 describe('InterviewBankService (§4.2 面试题库/评分)', () => {
@@ -19,18 +19,8 @@ describe('InterviewBankService (§4.2 面试题库/评分)', () => {
       })),
     }) as any;
 
-  const memberUser = {
-    membershipLevel: 1,
-    membershipExpireAt: null,
-    paidExpireAt: null,
-    isPaid: 0,
-  };
-  const nonMemberUser = {
-    membershipLevel: 0,
-    membershipExpireAt: null,
-    paidExpireAt: null,
-    isPaid: 0,
-  };
+  const memberUser = {};
+  const nonMemberUser = {};
 
   const makePrisma = (opts?: { user?: any; question?: any; rows?: any[]; total?: number }) => {
     const findMany = jest.fn(async () => opts?.rows ?? []);
@@ -70,13 +60,15 @@ describe('InterviewBankService (§4.2 面试题库/评分)', () => {
     });
   });
 
-  it('score：非会员 → 4515，不查询题目', async () => {
-    const prisma = makePrisma({ user: nonMemberUser });
-    const svc = new InterviewBankService(prisma, makeLlm());
-    await expect(svc.score(USER, '10', { answer: 'x' } as any)).rejects.toMatchObject({
-      bizCode: BizCode.AI_MEMBER_ONLY,
+  it('免费化：非会员用户直接评分，查询题目并正常返回评分', async () => {
+    const prisma = makePrisma({
+      user: nonMemberUser,
+      question: { question: 'Q', difficulty: 'easy', sampleAnswer: '范例' },
     });
-    expect(prisma.interviewQuestion.findFirst).not.toHaveBeenCalled();
+    const svc = new InterviewBankService(prisma, makeLlm());
+    const res = await svc.score(USER, '10', { answer: 'x' } as any);
+    expect(res.score).toBe(88);
+    expect(prisma.interviewQuestion.findFirst).toHaveBeenCalled();
   });
 
   it('score：answer 空 → 4005', async () => {

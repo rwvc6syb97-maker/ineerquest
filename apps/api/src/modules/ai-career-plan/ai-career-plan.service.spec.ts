@@ -3,11 +3,11 @@ import { BizCode, BizException } from '../../common/response';
 
 /**
  * §2.1 AiCareerPlanService 单测（纯内存 mock，无真实 DB/网络）。
- * 覆盖：会员校验(4515)、职业不存在(4004)、正常流、LLM 解析失败→降级、LLM degraded→降级。
+ * 覆盖：会员校验(免费化放行)、职业不存在(4004)、正常流、LLM 解析失败→降级、LLM degraded→降级。
  */
 describe('AiCareerPlanService (§2.1 动态成长计划)', () => {
   const USER = '1001';
-  const memberUser = { membershipLevel: 1, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 };
+  const memberUser = {};
   const career = { id: 5n, name: '产品经理', category: '互联网', description: '' };
 
   const makePrisma = (opts?: { user?: any; career?: any }) =>
@@ -44,12 +44,13 @@ describe('AiCareerPlanService (§2.1 动态成长计划)', () => {
     expect(prisma.careerGrowthPlan.create).toHaveBeenCalled();
   });
 
-  it('非会员：抛 AI_MEMBER_ONLY(4515)', async () => {
-    const prisma = makePrisma({ user: { membershipLevel: 0, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 } });
+  it('免费化：非会员用户直接放行，正常落库返回 planId', async () => {
+    const prisma = makePrisma({ user: {} });
     const svc = new AiCareerPlanService(prisma, makeLlm());
-    await expect(svc.generate(USER, dto as any)).rejects.toMatchObject({
-      bizCode: BizCode.AI_MEMBER_ONLY,
-    } as Partial<BizException>);
+    const vo = await svc.generate(USER, dto as any);
+    expect(vo.degraded).toBe(false);
+    expect(vo.planId).toBe('99');
+    expect(prisma.careerGrowthPlan.create).toHaveBeenCalled();
   });
 
   it('职业不存在：抛 AI_NOT_FOUND(4004)', async () => {

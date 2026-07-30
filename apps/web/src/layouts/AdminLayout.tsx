@@ -23,8 +23,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/analytics', label: '数据看板', perm: 'analytics:read' },
   { to: '/admin/questions', label: '题库管理', perm: 'question:read' },
   { to: '/admin/users', label: '用户管理', perm: 'user:read' },
-  { to: '/admin/plans', label: '套餐管理', perm: 'membership:plan:manage' },
-  { to: '/admin/activation-codes', label: '激活码', perm: 'payment:manage' },
   { to: '/admin/coaches', label: '辅导师管理', perm: 'coach:audit' },
   { to: '/admin/content', label: '内容管理', perm: 'career:read' },
   { to: '/admin/career-drafts', label: 'AI 职业草稿', perm: 'career:read' },

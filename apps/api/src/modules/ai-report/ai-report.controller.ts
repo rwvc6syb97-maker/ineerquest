@@ -28,7 +28,7 @@ export class AiReportController {
   /**
    * 报告人话翻译：把专业报告解读成普通人一看就懂的大白话。
    * 成功 code=200 data=PlainTalkVo；LLM 失败/超时走 degraded=true 兜底（仍 200，不白屏）。
-   * 错误码：4203 报告不存在/无权访问；4302 章节未解锁；4511 sectionKey 非法。
+   * 错误码：4203 报告不存在/无权访问；4511 sectionKey 非法。
    */
   @Post('plain-talk')
   @ApiOperation({ summary: '报告人话翻译', description: '只读报告文本经 LLM 翻译成大白话，失败自动降级兜底' })

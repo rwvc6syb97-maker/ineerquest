@@ -83,11 +83,7 @@ export function ReportChapterBlock({ reportId, focusCareerId }: ReportChapterBlo
 
       {deepOnly && (
         <GuideNotice>
-          深度扩展章节为深度报告专享，
-          <a href="/pricing" className="font-semibold underline">
-            解锁深度报告
-          </a>
-          后即可为报告生成延展解读。
+          深度扩展章节仅支持深度报告，请先生成深度报告后再为报告生成延展解读。
         </GuideNotice>
       )}
 

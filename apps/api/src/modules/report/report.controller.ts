@@ -60,8 +60,8 @@ export class ReportController {
   @ApiOperation({
     summary: 'T1-15 查询报告概览',
     description:
-      '返回 v2.1 权威概览结构（id/recordId/reportNo/mbtiType/family/summary/dimensions/generateStatus/sections/lockedSectionKeys/isUnlocked/createdAt）。' +
-      '未解锁仅返回免费段落；带 sectionKey 访问付费段且未解锁 → 43xx REPORT_LOCKED。',
+      '返回 v2.1 权威概览结构（id/recordId/reportNo/mbtiType/family/summary/dimensions/generateStatus/sections/createdAt）。' +
+      '免费化后全部段落 content 恒返回。',
   })
   @ApiOkResponse({ description: '概览出参（外层 {code,message,data}，data 为下述结构）', type: ReportOverviewDto })
   async getReport(
@@ -111,17 +111,6 @@ export class ReportController {
       getTraceId(req),
       '反馈已提交',
     );
-  }
-
-  /** T2-05 报告解锁 POST /api/v1/reports/:id/unlock */
-  @Post(':id/unlock')
-  async unlock(
-    @CurrentUser() user: CurrentUserPayload | undefined,
-    @Param('id') reportId: string,
-    @Req() req: Request,
-  ) {
-    const uid = this.requireUser(user);
-    return ok(await this.report.unlock(uid, reportId), getTraceId(req), '报告已解锁');
   }
 
   /**

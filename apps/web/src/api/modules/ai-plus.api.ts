@@ -307,8 +307,6 @@ export function submitCalibration(
 
 /** P1/P2 专用业务错误码（与后端 response.ts 一致，仅供前端错误分流，勿用于业务判定）。 */
 export const AiPlusBizCode = {
-  /** 成长计划/简历：非会员/会员过期 → 引导开通会员。 */
-  MEMBER_ONLY: 4515,
   /** 未登录或登录失效。 */
   UNAUTHORIZED: 4001,
   /** 越权：资源非本人。 */
@@ -346,7 +344,7 @@ export const AiPlusBizCode = {
   ADMIN_SCOPE_INVALID: 4030,
 } as const;
 
-// ---- P1-1 动态成长计划（会员专享）POST /ai/career/growth-plan ----
+// ---- P1-1 动态成长计划 POST /ai/career/growth-plan ----
 
 /** 成长计划入参（targetMonths 1~24，currentSkills 可选）。 */
 export interface GrowthPlanParams {
@@ -398,7 +396,7 @@ function normalizeWeek(w: Partial<GrowthWeek> | undefined): GrowthWeek {
 }
 
 /**
- * P1-1 动态成长计划（会员专享）。
+ * P1-1 动态成长计划。
  * 成功/降级均code=200；错误码：4515 非会员 / 4004 职业不存在 / 4005 参数越界 / 5002|5003 上游异常。
  * 出参可选判空：weeks/tasks 默认 []。
  */
@@ -672,7 +670,7 @@ export function collabAnalyze(params: CollabAnalyzeParams): Promise<CollabAnalyz
   }));
 }
 
-// ---- P2-2 简历/求职信生成 POST /ai/resume/generate（会员专享）----
+// ---- P2-2 简历/求职信生成 POST /ai/resume/generate ----
 
 /** 生成类型：resume 简历 / coverLetter 求职信（默认 resume）。 */
 export type ResumeGenerateType = 'resume' | 'coverLetter';
@@ -726,7 +724,7 @@ export interface ResumeGenerateResult {
 }
 
 /**
- * P2-2 简历/求职信生成（会员专享）。
+ * P2-2 简历/求职信生成。
  * 成功/降级均 code=200；错误码：4515 非会员/过期 / 4516 敏感词 / 4004 职业不存在。
  * 出参可选判空：sections 默认 []。
  */
@@ -760,7 +758,7 @@ export function resumeGenerate(params: ResumeGenerateParams): Promise<ResumeGene
 }
 
 // ============================================================
-// P3 §4.1 AI 模拟面试（会员专享，需登录）
+// P3 §4.1 AI 模拟面试（需登录）
 // 路由：POST /ai/interview/start、POST /ai/interview/:interviewId/answer、
 //       GET /ai/interview/:interviewId/report
 // 错误码：4515 非会员 / 4004 会话不存在 / 4003 越权 / 4005 answer 空 / 4520 已结束不可再答。
@@ -822,7 +820,7 @@ export interface InterviewReportResult {
 }
 
 /**
- * §4.1 开始 AI 模拟面试（会员专享）。
+ * §4.1 开始 AI 模拟面试。
  * 错误码：4515 非会员 / 4004 职业不存在 / 4005 入参。出参判空归一化。
  */
 export function interviewStart(params: InterviewStartParams): Promise<InterviewStartResult> {
@@ -885,7 +883,7 @@ export function interviewReport(interviewId: string): Promise<InterviewReportRes
 }
 
 // ============================================================
-// P3 §4.2 AI 面试题库（list 登录可见 / score 会员专享）
+// P3 §4.2 AI 面试题库（list 登录可见 / score 需登录）
 // 路由：GET /ai/interview/questions、POST /ai/interview/questions/:qId/score
 // 错误码：4515 非会员 / 4004 题不存在 / 4005 空参。
 // ============================================================
@@ -961,7 +959,7 @@ export function interviewQuestions(params: QuestionListParams): Promise<Question
 }
 
 /**
- * §4.2 单题评分（会员专享）。
+ * §4.2 单题评分。
  * 错误码：4515 非会员 / 4004 题不存在 / 4005 answer 空。出参判空归一化。
  */
 export function interviewQuestionScore(

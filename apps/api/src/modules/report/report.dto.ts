@@ -145,12 +145,6 @@ export class ReportOverviewDto {
   @ApiProperty({ description: '可见章节列表', type: [ReportSectionDto] })
   sections!: ReportSectionDto[];
 
-  @ApiProperty({ description: '未解锁被隐藏的付费章节 key 列表', type: [String] })
-  lockedSectionKeys!: string[];
-
-  @ApiProperty({ description: '是否已解锁付费段落' })
-  isUnlocked!: boolean;
-
   @ApiProperty({ description: '创建时间（北京时间字符串 YYYY-MM-DD HH:mm:ss）' })
   createdAt!: string;
 }

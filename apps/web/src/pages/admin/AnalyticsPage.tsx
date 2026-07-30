@@ -1,9 +1,10 @@
 /**
- * 运营后台 - 数据看板（T4-17 / P35）
+ * 运营后台 - 数据看板（免费化改造后：功能模块使用趋势与分析）
  * -------------------------------------------------------------
- * 概览指标卡 + 用户增长折线 + 营收趋势折线 + 测评转化漏斗 + 付费率环形 + 完成率仪表盘。
+ * 概览指标卡 + 用户增长折线 + 模块使用趋势折线 + 测评转化漏斗(三步) + 模块使用占比 + 完成率仪表盘。
+ * - 免费化后取消营收监控，改为各功能模块使用趋势与占比分析。
  * - 数据源降级：每个接口返回 source（clickhouse|mysql|mock），页面顶部统一标注。
- * - 时间范围切换：7 / 30 / 90 天，联动增长/营收/漏斗/完成率查询。
+ * - 时间范围切换：7 / 30 / 90 天，联动增长/趋势/漏斗/模块/完成率查询。
  * - 全部走 React Query；加载/错误/空数据均有兜底，禁止白屏。
  */
 import { useState } from 'react';
@@ -14,7 +15,6 @@ import { Card } from '../../components/ui/Card';
 import {
   LineChart,
   FunnelChart,
-  PieChart,
   GaugeChart,
 } from '../../components/charts/AdminCharts';
 
@@ -22,9 +22,8 @@ const DAYS_OPTIONS = [7, 30, 90] as const;
 
 const FUNNEL_LABELS: Record<FunnelStep, string> = {
   assessment_start: '开始测评',
-  submit: '提交答卷',
+  assessment_submit: '提交答卷',
   report_generate: '生成报告',
-  report_unlock: '解锁报告',
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -32,11 +31,6 @@ const SOURCE_LABELS: Record<string, string> = {
   mysql: 'MySQL 降级',
   mock: 'Mock 兜底',
 };
-
-/** 分转元 */
-function yuan(cents: number): string {
-  return `¥${(cents / 100).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-}
 
 function SourceTag({ source }: { source?: string }) {
   if (!source) return null;
@@ -68,9 +62,13 @@ export function AnalyticsPage() {
     queryKey: ['admin', 'analytics', 'growth', days],
     queryFn: () => adminAnalyticsApi.getGrowth(days),
   });
-  const revenue = useQuery({
-    queryKey: ['admin', 'analytics', 'revenue', days],
-    queryFn: () => adminAnalyticsApi.getRevenue(days),
+  const moduleUsage = useQuery({
+    queryKey: ['admin', 'analytics', 'module-usage', days],
+    queryFn: () => adminAnalyticsApi.getModuleUsage(days),
+  });
+  const moduleTrend = useQuery({
+    queryKey: ['admin', 'analytics', 'module-trend', days],
+    queryFn: () => adminAnalyticsApi.getModuleTrend(days),
   });
   const funnel = useQuery({
     queryKey: ['admin', 'analytics', 'funnel', days],
@@ -105,8 +103,8 @@ export function AnalyticsPage() {
       </div>
 
       {/* 概览指标卡 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {overview.isLoading ? (
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+     {overview.isLoading ? (
           <p className="col-span-full py-6 text-center text-sm text-slate-400">加载中…</p>
         ) : overview.isError ? (
           <div className="col-span-full">
@@ -115,9 +113,10 @@ export function AnalyticsPage() {
         ) : ov ? (
           [
             { label: '累计用户', value: ov.totalUsers.toLocaleString() },
-            { label: '付费用户', value: ov.paidUsers.toLocaleString() },
-            { label: '付费订单', value: ov.paidOrders.toLocaleString() },
-            { label: '累计 GMV', value: yuan(ov.gmvCents) },
+            { label: '近 7 日新增', value: ov.newUsers7d.toLocaleString() },
+            { label: '测评数', value: ov.assessmentCount.toLocaleString() },
+            { label: '报告生成数', value: ov.reportCount.toLocaleString() },
+            { label: 'AI 调用数', value: ov.aiCallCount.toLocaleString() },
           ].map((m) => (
             <Card key={m.label} padding="md">
               <p className="text-xs text-slate-500">
@@ -130,7 +129,7 @@ export function AnalyticsPage() {
         ) : null}
       </div>
 
-      {/* 折线：增长 + 营收 */}
+      {/* 折线：用户增长 + 模块使用趋势 */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card padding="md">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
@@ -151,24 +150,28 @@ export function AnalyticsPage() {
 
         <Card padding="md">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
-            营收趋势
-            <SourceTag source={revenue.data?.source} />
+            模块使用趋势
+            <SourceTag source={moduleTrend.data?.source} />
           </h2>
-          {revenue.isLoading ? (
+          {moduleTrend.isLoading ? (
             <p className="py-8 text-center text-sm text-slate-400">加载中…</p>
-          ) : revenue.isError ? (
-            <ErrorHint error={revenue.error} />
+          ) : moduleTrend.isError ? (
+            <ErrorHint error={moduleTrend.error} />
           ) : (
             <LineChart
-              labels={(revenue.data?.series ?? []).map((p) => p.date)}
-              values={(revenue.data?.series ?? []).map((p) => p.amountCents)}
-              formatValue={yuan}
+              labels={(moduleTrend.data?.series ?? []).map((p) => String(p.date))}
+              values={(moduleTrend.data?.series ?? []).map((p) =>
+                Object.entries(p).reduce(
+                  (sum, [k, v]) => (k === 'date' ? sum : sum + (typeof v === 'number' ? v : 0)),
+                  0,
+                ),
+              )}
             />
           )}
         </Card>
       </div>
 
-      {/* 漏斗 + 付费率 + 完成率 */}
+      {/* 漏斗 + 模块使用占比 + 完成率 */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card padding="md" className="lg:col-span-1">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
@@ -189,10 +192,24 @@ export function AnalyticsPage() {
           )}
         </Card>
 
-        <Card padding="md" className="flex flex-col items-center justify-center">
-          <h2 className="mb-3 self-start text-sm font-semibold text-slate-700">付费转化率</h2>
-          {ov ? <PieChart ratio={ov.payRate} label="付费用户占比" /> : (
-            <p className="py-8 text-sm text-slate-400">暂无数据</p>
+        <Card padding="md" className="lg:col-span-1">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">
+            功能模块使用占比
+            <SourceTag source={moduleUsage.data?.source} />
+          </h2>
+          {moduleUsage.isLoading ? (
+            <p className="py-8 text-center text-sm text-slate-400">加载中…</p>
+          ) : moduleUsage.isError ? (
+            <ErrorHint error={moduleUsage.error} />
+          ) : (moduleUsage.data?.items?.length ?? 0) > 0 ? (
+            <FunnelChart
+              steps={(moduleUsage.data?.items ?? []).map((it) => ({
+                label: it.moduleName,
+                count: it.count,
+              }))}
+            />
+          ) : (
+            <p className="py-8 text-center text-sm text-slate-400">暂无数据</p>
           )}
         </Card>
 

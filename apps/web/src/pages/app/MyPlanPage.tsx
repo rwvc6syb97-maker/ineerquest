@@ -31,18 +31,17 @@ const STATUS_LABEL: Record<GrowthPlan['status'], string> = {
 };
 
 /**
- * AI 成长计划区块（P1-1，会员专享）
+ * AI 成长计划区块（P1-1）
  * -------------------------------------------------------------
  * 复用 useGrowthPlan()（POST /ai/career/growth-plan）。目标职业下拉源自收藏列表。
- * - 4515 非会员 → memberOnly 引导开通会员（非报错弹窗）
+ * - 免费化：全功能免费开放，已移除会员专享门禁与开通引导
  * - degraded=true（规则版）仍正常展示 weeks + amber 轻提示
  * - 其它错误码展示后端 message + errorCode，不回退 mock
  */
 function AiGrowthPlanSection() {
-  const navigate = useNavigate();
   const { data: favData, isLoading: favLoading } = useFavoriteList({ pageSize: 50 });
   const favorites = favData?.list ?? [];
-  const { data, loading, error, errorCode, memberOnly, degraded, run } = useGrowthPlan();
+  const { data, loading, error, errorCode, degraded, run } = useGrowthPlan();
 
   const [careerId, setCareerId] = useState('');
   const [targetMonths, setTargetMonths] = useState(3);
@@ -58,7 +57,7 @@ function AiGrowthPlanSection() {
         <div>
           <h3 className="font-display text-lg font-semibold text-brand-primary-950">AI 成长计划</h3>
           <p className="mt-0.5 text-xs text-neutral-400">
-            选择目标职业，AI 为你生成分周成长路线（会员专享）
+            选择目标职业，AI 为你生成分周成长路线
           </p>
         </div>
         <Tag tone="accent" size="sm">AI 生成</Tag>
@@ -105,16 +104,8 @@ function AiGrowthPlanSection() {
         </p>
       ) : null}
 
-      {/* 非会员引导（4515，引导型非报错弹窗） */}
-      {memberOnly ? (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm text-amber-800">{error ?? 'AI 成长计划为会员专享，开通会员即可解锁。'}</p>
-          <SpringButton variant="accent" className="mt-2" onClick={() => navigate('/app/membership')}>
-            开通会员
-          </SpringButton>
-        </div>
-      ) : error ? (
-        // 常规错误：展示后端 message + errorCode，不回退 mock
+      {/* 常规错误：展示后端 message + errorCode，不回退 mock */}
+      {error ? (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
           {errorCode ? <span className="ml-1 font-mono text-xs opacity-70">({errorCode})</span> : null}
@@ -216,7 +207,7 @@ export function MyPlanPage() {
         subtitle="把目标拆成一个个可执行的任务，逐项打卡，让改变发生。"
       />
 
-      {/* P1-1 AI 成长计划（会员专享，内嵌区块） */}
+      {/* P1-1 AI 成长计划（内嵌区块，全功能免费开放） */}
       <AiGrowthPlanSection />
 
       {isLoading ? (

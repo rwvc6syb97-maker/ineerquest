@@ -1,19 +1,17 @@
 /**
  * P09 用户中心概览
  * - 展示用户信息、最近人格报告（数据源：后端 GET /reports 列表，倒序取 list[0]）
- * - 展示会员/套餐状态（后端 GET /memberships/me）
  * - 导航至报告历史 P10 / 职业匹配 / 设置 P11
  *
  * 契约对齐：
  *  - 最新报告来自 useReportList()（listReports），不再依赖前端易失的 store.resultId；
  *    字段 id / reportNo / mbtiType / createdAt 均以 report.api.ts 的 Report 类型（Swagger v2.1）为准。
- *  - 会员状态来自 useMembershipStatus()，字段 level / expireAt / isActive 以 MembershipStatus 类型为准。
+ *  - 免费化：全功能免费开放，已移除会员/套餐状态卡与付费判定。
  *  - 全程无 mock 兜底：接口失败呈现异常提示，data 读取均做可选判空，防 undefined 崩溃。
  */
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { useReportList } from '../../hooks/useReport';
-import { useMembershipStatus } from '../../hooks/useMembership';
 import { SpringButton } from '../../components/system/SpringButton';
 import { COLORS } from '../../theme/tokens';
 
@@ -23,13 +21,6 @@ const ENTRIES = [
   { path: '/app/settings', title: '账户设置', desc: '资料、隐私与退出登录' },
 ];
 
-/** 会员等级映射（展示用；level 语义以后端契约为准：0 免费 / 1 Pro / 2 辅导） */
-const LEVEL_LABEL: Record<number, string> = {
-  0: '免费用户',
-  1: 'Pro 会员',
-  2: '辅导会员',
-};
-
 export function ProfilePage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -38,11 +29,6 @@ export function ProfilePage() {
   const { data: reportPage, isLoading: reportLoading, isError: reportError } = useReportList();
   const latestReport = reportPage?.list?.[0];
   const latestReportId = latestReport?.id;
-
-  // 会员状态
-  const { data: membership, isLoading: memberLoading, isError: memberError } = useMembershipStatus();
-  const memberLevel = membership?.level ?? 0;
-  const isPaid = (membership?.isActive ?? false) && memberLevel > 0;
 
   return (
     <section className="mx-auto max-w-2xl pb-8 md:pb-16">
@@ -59,47 +45,6 @@ export function ProfilePage() {
           <div className="truncate text-xs text-white/70 md:text-sm">{user?.email || '登录以同步你的测评数据'}</div>
         </div>
       </header>
-
-      {/* 会员 / 套餐状态（BUG7） */}
-      <div className="mt-4 rounded-2xl border border-slate-200 p-4 md:mt-6 md:p-5">
-        {memberLoading ? (
-          <div className="h-5 w-40 animate-pulse rounded bg-slate-100" />
-        ) : memberError ? (
-          <div className="text-sm text-rose-500">会员信息加载失败，请稍后重试</div>
-        ) : isPaid ? (
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-800">
-                {LEVEL_LABEL[memberLevel] ?? `会员等级 ${memberLevel}`}
-              </div>
-              <div className="text-xs text-slate-400">
-                {membership?.expireAt ? `有效期至 ${membership.expireAt}` : '长期有效'}
-              </div>
-            </div>
-            <SpringButton
-              variant="accent"
-              onClick={() => navigate('/pricing')}
-              className="w-full md:w-auto"
-            >
-              续费 / 升级
-            </SpringButton>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-800">{LEVEL_LABEL[0]}</div>
-              <div className="text-xs text-slate-400">开通会员解锁完整报告与更多能力</div>
-            </div>
-            <SpringButton
-              variant="accent"
-              onClick={() => navigate('/pricing')}
-              className="w-full md:w-auto"
-            >
-              开通会员
-            </SpringButton>
-          </div>
-        )}
-      </div>
 
       {/* 最近人格报告（BUG1&BUG2 数据源：后端最新报告） */}
       <div className="mt-4 rounded-2xl border border-slate-200 p-4 md:mt-6 md:p-5">

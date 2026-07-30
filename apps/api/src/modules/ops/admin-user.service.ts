@@ -40,7 +40,7 @@ export class AdminUserService {
   /**
    * 组装对外用户视图。pii=true 且持 user:pii 权限时下发明文，否则脱敏。
    * 出参字段名对齐前端 AdminUser 契约（admin-users.api.ts）：
-   *   registeredAt(=createdAt) / lastActiveAt(=lastLoginAt) / paid(=isPaid 布尔) / masked(无 pii 权限时为 true)。
+   *   registeredAt(=createdAt) / lastActiveAt(=lastLoginAt) / masked(无 pii 权限时为 true)。
    */
   private view(u: Record<string, unknown>, pii: boolean) {
     const phone = (u.phone as string | null) ?? null;
@@ -59,8 +59,6 @@ export class AdminUserService {
       gender: u.gender,
       role: u.role,
       status: u.status,
-      // paid：布尔化 isPaid（旧字段 0/1 或 boolean 均归一）
-      paid: Boolean(u.isPaid),
       lastActiveAt: u.lastLoginAt,
       registeredAt: u.createdAt,
     };
@@ -375,7 +373,7 @@ export class AdminUserService {
 
     const pii = !!params.pii;
     const header = [
-     '用户ID', '用户编号', '昵称', '手机', '邮箱', '状态', '角色', '是否付费',
+     '用户ID', '用户编号', '昵称', '手机', '邮箱', '状态', '角色',
       'MBTI类型', 'EI', 'SN', 'TF', 'JP', '注册时间',
     ];
     const lines = [header.map((h) => this.csvCell(h)).join(',')];
@@ -392,7 +390,6 @@ export class AdminUserService {
         pii ? (email ?? '') : (maskEmail(email) ?? ''),
         r.status === 0 ? '封禁' : '正常',
         String(r.role ?? ''),
-        r.isPaid ? '是' : '否',
         rep?.mbtiType ?? '',
         res ? String(Number(res.scoreEi)) : '',
         res ? String(Number(res.scoreSn)) : '',

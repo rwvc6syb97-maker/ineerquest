@@ -5,14 +5,14 @@ import type { Request } from 'express';
 export const AUDIT_KEY = 'auditMeta';
 
 export interface AuditMeta {
-  /** 资源/动作标识，写入 event_log.properties.resource，如 'membership:plan' */
+  /** 资源/动作标识，写入 event_log.properties.resource，如 'coach:order' */
   resource: string;
   /** 动作描述（可选），如 'update' */
   action?: string;
 }
 
 /**
- * @Audit('membership:plan', 'update') —— 标记该写接口需记录审计前后值快照。
+ * @Audit('coach:order', 'update') —— 标记该写接口需记录审计前后值快照。
  * 未标注的写接口仍会被审计拦截器兜底记录（方法/路径/操作人/IP/请求体），
  * 但 resource 会回退为路由路径。
  */

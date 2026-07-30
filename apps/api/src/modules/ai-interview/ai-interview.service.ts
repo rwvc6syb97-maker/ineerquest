@@ -15,9 +15,8 @@ import {
 export const INTERVIEW_MAX_ROUNDS = 5;
 
 /**
- * §4.1 AI 模拟面试服务（会员专享）。
+ * §4.1 AI 模拟面试服务。
  * 护城河/铁律：
- *  - 会员专享：非会员/会员过期 → 4515。
  *  - 结果只落 ai_interview + ai_interview_qa（P3 分表），绝不写其他业务表。
  *  - 数据隔离：所有查询/落库均带 userId；越权访问他人会话 → 4003。
  *  - 4520：会话 status=1（已结束）时再 answer → 抛 4520。
@@ -33,12 +32,10 @@ export class AiInterviewService {
   ) {}
 
   /**
-   * 开始一次模拟面试：校验会员/职业，落 ai_interview + 首题 ai_interview_qa。
-   * @throws BizException AI_MEMBER_ONLY(4515)/AI_NOT_FOUND(4004)
+   * 开始一次模拟面试：校验职业，落 ai_interview + 首题 ai_interview_qa。
+   * @throws BizException AI_NOT_FOUND(4004)
    */
   async start(userId: string, dto: InterviewStartDto): Promise<InterviewStartVo> {
-    await this.ensureMember(userId);
-
     const career = await this.prisma.career.findFirst({
       where: { id: BigInt(dto.careerId), status: 1, isDeleted: 0 },
       select: { id: true, name: true, category: true },
@@ -77,8 +74,6 @@ export class AiInterviewService {
    * @throws BizException AI_NOT_FOUND(4004) 会话不存在/AI_FORBIDDEN(4003) 越权/AI_INTERVIEW_FINISHED(4520) 已结束/AI_BAD_PARAM(4005) answer 为空
    */
   async answer(userId: string, interviewId: string, dto: InterviewAnswerDto): Promise<InterviewAnswerVo> {
-    await this.ensureMember(userId);
-
     if (!dto.answer || !dto.answer.trim()) {
       throw new BizException(BizCode.AI_BAD_PARAM, 'answer 不能为空');
     }
@@ -196,23 +191,6 @@ export class AiInterviewService {
       throw new BizException(BizCode.AI_FORBIDDEN, '无权访问该面试会话');
     }
     return interview;
-  }
-
-  /** 会员/付费校验：membershipLevel>=1 或 isPaid==1 且未过期，否则 4515。 */
-  private async ensureMember(userId: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: BigInt(userId), isDeleted: 0 },
-      select: { membershipLevel: true, membershipExpireAt: true, paidExpireAt: true, isPaid: true },
-    });
-    if (!user) {
-      throw new BizException(BizCode.AI_UNAUTHORIZED, '未登录或登录已失效');
-    }
-    const expire = user.membershipExpireAt ?? user.paidExpireAt ?? null;
-    const active =
-      (user.membershipLevel >= 1 || user.isPaid === 1) && (!expire || expire.getTime() > Date.now());
-    if (!active) {
-      throw new BizException(BizCode.AI_MEMBER_ONLY, 'AI 模拟面试为会员专享，请先开通会员');
-    }
   }
 
   /** 生成一道面试题（LLM→fallback）。 */

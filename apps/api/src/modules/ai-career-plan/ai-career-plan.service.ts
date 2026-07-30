@@ -22,13 +22,9 @@ export class AiCareerPlanService {
 
   /**
    * 生成动态成长计划。
-   * @throws BizException AI_MEMBER_ONLY(4515) 非会员/会员过期
    * @throws BizException AI_NOT_FOUND(4004) 职业不存在
    */
   async generate(userId: string, dto: GrowthPlanDto): Promise<GrowthPlanVo> {
-    // 会员/付费校验（非会员 4515）
-    await this.ensureMember(userId);
-
     // 职业存在校验（不存在 4004）
     const career = await this.prisma.career.findFirst({
       where: { id: BigInt(dto.careerId), status: 1, isDeleted: 0 },
@@ -81,23 +77,6 @@ export class AiCareerPlanService {
     });
 
     return { planId: plan.id.toString(), weeks, degraded };
-  }
-
-  /** 会员/付费校验：membershipLevel>=1 且未过期，否则 4515。 */
-  private async ensureMember(userId: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: BigInt(userId), isDeleted: 0 },
-      select: { membershipLevel: true, membershipExpireAt: true, paidExpireAt: true, isPaid: true },
-    });
-    if (!user) {
-      throw new BizException(BizCode.AI_UNAUTHORIZED, '未登录或登录已失效');
-    }
-    const expire = user.membershipExpireAt ?? user.paidExpireAt ?? null;
-    const active =
-      (user.membershipLevel >= 1 || user.isPaid === 1) && (!expire || expire.getTime() > Date.now());
-    if (!active) {
-      throw new BizException(BizCode.AI_MEMBER_ONLY, 'AI 成长计划为会员专享，请先开通会员');
-    }
   }
 
   /** 解析 LLM 返回的 JSON 为 weeks；失败返回 null 触发降级。 */

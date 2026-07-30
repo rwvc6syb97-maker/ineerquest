@@ -6,7 +6,7 @@
  *  → 四维度雷达图(RadarChart) + DimensionBar → 全量性格解读卡片
  *  → TOP 职业匹配列表（有 matchScore 数据则展示，否则引导跳 /app/career）。
  * 数据 hook 复用 useReport(id)；加载/错误/空态用 EmptyState 兜底，风格对齐 ReportPage.tsx。
- * 路由挂 report/:id/full，外层由 RequirePaid 守卫（见 routes.tsx）。
+ * 路由挂 report/:id/full，免费化后无付费守卫，登录 + 有结果即可访问（见 routes.tsx）。
  */
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';

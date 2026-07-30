@@ -63,10 +63,8 @@ export class InterviewBankService {
     };
   }
 
-  /** 单题评分（会员专享）：题不存在 4004；answer 空 4005；LLM 失败降级。 */
-  async score(userId: string, qId: string, dto: QuestionScoreDto): Promise<QuestionScoreVo> {
-    await this.ensureMember(userId);
-
+  /** 单题评分：题不存在 4004；answer 空 4005；LLM 失败降级。 */
+  async score(_userId: string, qId: string, dto: QuestionScoreDto): Promise<QuestionScoreVo> {
     if (!dto.answer || !dto.answer.trim()) {
       throw new BizException(BizCode.AI_BAD_PARAM, 'answer 不能为空');
     }
@@ -106,23 +104,6 @@ export class InterviewBankService {
       feedback: '作答基本切题，建议结合具体案例展开，突出与岗位的匹配度。',
       sampleAnswer: sample,
     };
-  }
-
-  /** 会员/付费校验：membershipLevel>=1 或 isPaid==1 且未过期，否则 4515。 */
-  private async ensureMember(userId: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: BigInt(userId), isDeleted: 0 },
-      select: { membershipLevel: true, membershipExpireAt: true, paidExpireAt: true, isPaid: true },
-    });
-    if (!user) {
-      throw new BizException(BizCode.AI_UNAUTHORIZED, '未登录或登录已失效');
-    }
-    const expire = user.membershipExpireAt ?? user.paidExpireAt ?? null;
-    const active =
-      (user.membershipLevel >= 1 || user.isPaid === 1) && (!expire || expire.getTime() > Date.now());
-    if (!active) {
-      throw new BizException(BizCode.AI_MEMBER_ONLY, '题库评分为会员专享，请先开通会员');
-    }
   }
 
   private toTags(data: unknown): string[] {

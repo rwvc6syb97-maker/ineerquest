@@ -1,7 +1,7 @@
 /**
  * 职业详情页「AI 增值工具」Tab 容器
  * -------------------------------------------------------------
- * 承载 P2-2 求职文书生成、P3-1/2 AI 面试练习两个会员专享工具。
+ * 承载 P2-2 求职文书生成、P3-1/2 AI 面试练习两个 AI 工具。
  * 仅负责 Tab 切换与 careerId 透传，各工具的权限/配额/降级由内部 Block 各自处理。
  */
 import { useState } from 'react';
@@ -29,7 +29,7 @@ export function CareerAiToolsTabs({ careerId }: CareerAiToolsTabsProps) {
       <SectionHeading
         eyebrow="AI TOOLKIT"
         title="AI 求职增值工具"
-        subtitle="面向该职业的会员专享工具：生成求职文书、模拟面试练习。"
+        subtitle="面向该职业的 AI 工具：生成求职文书、模拟面试练习。"
       />
 
       {/* Tab 切换 */}

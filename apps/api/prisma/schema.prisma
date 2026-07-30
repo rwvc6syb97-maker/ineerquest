@@ -29,14 +29,6 @@ model User {
   role          Int       @default(1) @db.TinyInt
   adminRole     String?   @map("admin_role") @db.VarChar(32)
   status        Int       @default(1) @db.TinyInt
-  /// [兼容字段] 是否付费：0=否 1=是。后端 auth/兑换/看板仍读写此字段，保留以兼容；新逻辑以 membershipLevel 为准
-  isPaid        Int       @default(0) @map("is_paid") @db.TinyInt
-  /// [兼容字段] 付费到期时间(UTC)；与 membershipExpireAt 同步维护
-  paidExpireAt  DateTime? @map("paid_expire_at")
-  /// 会员等级：0=免费 1=Pro(付费) 2=辅导会员；与 PM 需求 §4 membershipLevel 对齐
-  membershipLevel   Int       @default(0) @map("membership_level") @db.TinyInt
-  /// 会员到期时间(UTC)；免费(level=0)时为 null
-  membershipExpireAt DateTime? @map("membership_expire_at")
   lastLoginAt   DateTime? @map("last_login_at")
   deactivatedAt DateTime? @map("deactivated_at")
   isDeleted     Int       @default(0) @map("is_deleted") @db.TinyInt
@@ -49,7 +41,6 @@ model User {
   deactivations   UserDeactivation[]
   assessmentRecords AssessmentRecord[]
   growthPlans     GrowthPlan[]
-  redeemRecords   MembershipRedeemRecord[]
 
   @@unique([userNo], map: "uk_user_no")
   @@unique([phone, phoneCountry], map: "uk_phone")
@@ -57,7 +48,6 @@ model User {
   @@index([role, status], map: "idx_role_status")
   @@index([deactivatedAt], map: "idx_deactivated_at")
   @@index([createdAt], map: "idx_created_at")
-  @@index([membershipLevel, membershipExpireAt], map: "idx_membership")
   @@map("user")
 }
 
@@ -284,7 +274,6 @@ model Report {
   reportType  Int       @default(1) @map("report_type") @db.TinyInt
   mbtiType    String    @map("mbti_type") @db.Char(4)
   status      Int       @default(1) @db.TinyInt
-  isUnlocked  Int       @default(0) @map("is_unlocked") @db.TinyInt
   orderId     BigInt?   @map("order_id") @db.UnsignedBigInt
   summary     Json?
   generatedAt DateTime? @map("generated_at")
@@ -318,8 +307,6 @@ model ReportSection {
   /// 章节正文。当前后端以 Json 结构化存储（report.service 用 createMany 写入 Json）；
   /// PM 需求 §6 期望为 Markdown 文本，最终格式【需产品确认】——确认后若改 String 需数据迁移
   content    Json
-  /// 是否免费可见段落：1=免费预览 0=付费解锁；与 report.isUnlocked 配合做分段权限控制
-  isFree     Int      @default(0) @map("is_free") @db.TinyInt
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -705,9 +692,7 @@ model CoachingOrder {
   consultType    Int       @default(1) @map("consult_type") @db.TinyInt
   durationMin    Int       @default(60) @map("duration_min") @db.UnsignedSmallInt
   amount         BigInt    @db.UnsignedBigInt
-  paymentOrderId BigInt?   @map("payment_order_id") @db.UnsignedBigInt
   status         Int       @default(1) @db.TinyInt
-  payExpireAt    DateTime? @map("pay_expire_at")
   paidAt         DateTime? @map("paid_at")
   finishedAt     DateTime? @map("finished_at")
   cancelReason   String?   @map("cancel_reason") @db.VarChar(255)
@@ -725,7 +710,6 @@ model CoachingOrder {
   @@unique([userId, scheduleId], map: "uk_user_schedule")
   @@index([userId, status], map: "idx_user_status")
   @@index([coachId, status], map: "idx_coach_status")
-  @@index([status, payExpireAt], map: "idx_pay_expire")
   @@map("coaching_order")
 }
 
@@ -792,107 +776,6 @@ model CoachingReview {
   @@map("coaching_review")
 }
 
-// ============ 10. 支付订单 ============
-
-/// 支付订单表（多态 biz_type + biz_id）
-model PaymentOrder {
-  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  payNo          String    @map("pay_no") @db.Char(32)
-  userId         BigInt    @map("user_id") @db.UnsignedBigInt
-  bizType        Int       @map("biz_type") @db.TinyInt
-  bizId          BigInt    @map("biz_id") @db.UnsignedBigInt
-  subject        String    @db.VarChar(128)
-  amount         BigInt    @db.UnsignedBigInt
-  paidAmount     BigInt    @default(0) @map("paid_amount") @db.UnsignedBigInt
-  currency       String    @default("CNY") @db.Char(3)
-  channel        Int?      @db.TinyInt
-  status         Int       @default(1) @db.TinyInt
-  expireAt       DateTime? @map("expire_at")
-  paidAt         DateTime? @map("paid_at")
-  refundedAmount BigInt    @default(0) @map("refunded_amount") @db.UnsignedBigInt
-  isDeleted      Int       @default(0) @map("is_deleted") @db.TinyInt
-  deletedAt      DateTime? @map("deleted_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-
-  transactions PaymentTransaction[]
-  refunds      PaymentRefund[]
-
-  @@unique([payNo], map: "uk_pay_no")
-  @@index([userId, status], map: "idx_user_status")
-  @@index([bizType, bizId], map: "idx_biz")
-  @@index([status, expireAt], map: "idx_expire")
-  @@map("payment_order")
-}
-
-/// 会员/套餐商品表
-model MembershipPlan {
-  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  code          String    @db.VarChar(32)
-  name          String    @db.VarChar(64)
-  subtitle      String?   @db.VarChar(128)
-  price         BigInt    @db.UnsignedBigInt
-  originalPrice BigInt?   @map("original_price") @db.UnsignedBigInt
-  durationDays  Int?      @map("duration_days")
-  planType      Int       @default(2) @map("plan_type") @db.TinyInt
-  benefits      Json?
-  sortOrder     Int       @default(0) @map("sort_order")
-  status        Int       @default(1) @db.TinyInt
-  isRecommended Int       @default(0) @map("is_recommended") @db.TinyInt
-  isDeleted     Int       @default(0) @map("is_deleted") @db.TinyInt
-  deletedAt     DateTime? @map("deleted_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-
-  @@unique([code], map: "uk_code")
-  @@index([status, sortOrder], map: "idx_status_sort")
-  @@map("membership_plan")
-}
-
-/// 支付流水表
-model PaymentTransaction {
-  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  payOrderId      BigInt    @map("pay_order_id") @db.UnsignedBigInt
-  channel         Int       @db.TinyInt
-  channelTradeNo  String    @map("channel_trade_no") @db.VarChar(64)
-  type            Int       @default(1) @db.TinyInt
-  amount          BigInt    @db.UnsignedBigInt
-  status          Int       @default(1) @db.TinyInt
-  rawNotify       Json?     @map("raw_notify")
-  finishedAt      DateTime? @map("finished_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  payOrder PaymentOrder @relation(fields: [payOrderId], references: [id])
-
-  @@unique([channel, channelTradeNo], map: "uk_channel_trade_no")
-  @@index([payOrderId], map: "idx_pay_order")
-  @@map("payment_transaction")
-}
-
-/// 退款单表
-model PaymentRefund {
-  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  refundNo        String    @map("refund_no") @db.Char(32)
-  payOrderId      BigInt    @map("pay_order_id") @db.UnsignedBigInt
-  userId          BigInt    @map("user_id") @db.UnsignedBigInt
-  amount          BigInt    @db.UnsignedBigInt
-  reason          String?   @db.VarChar(255)
-  channelRefundNo String?   @map("channel_refund_no") @db.VarChar(64)
-  status          Int       @default(1) @db.TinyInt
-  operatorId      BigInt?   @map("operator_id") @db.UnsignedBigInt
-  finishedAt      DateTime? @map("finished_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  payOrder PaymentOrder @relation(fields: [payOrderId], references: [id])
-
-  @@unique([refundNo], map: "uk_refund_no")
-  @@index([payOrderId], map: "idx_pay_order")
-  @@index([userId, status], map: "idx_user_status")
-  @@map("payment_refund")
-}
-
 // ============ 11. 运营数据 ============
 
 /// 埋点事件日志表（建议 ClickHouse；此处为 MySQL 结构参考）
@@ -937,63 +820,6 @@ model Topic {
   @@index([category, status], map: "idx_category_status")
   @@index([createdAt], map: "idx_created_at")
   @@map("topic")
-}
-
-/// 激活码表（付费套餐兑换）
-model ActivationCode {
-  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  code       String    @db.Char(16)
-  planCode   String    @map("plan_code") @db.VarChar(32)
-  status     Int       @default(0) @db.TinyInt
-  usedBy     BigInt?   @map("used_by") @db.UnsignedBigInt
-  usedAt     DateTime? @map("used_at")
-  sentTo     String?   @map("sent_to") @db.VarChar(255)
-  sentChannel Int?     @map("sent_channel") @db.TinyInt
-  expireAt   DateTime? @map("expire_at")
-  note       String?   @db.VarChar(255)
-  batchNo    String?   @map("batch_no") @db.VarChar(32)
-  isDeleted  Int       @default(0) @map("is_deleted") @db.TinyInt
-  deletedAt  DateTime? @map("deleted_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-
-  @@unique([code], map: "uk_code")
-  @@index([planCode, status], map: "idx_plan_status")
-  @@index([usedBy], map: "idx_used_by")
-  @@index([batchNo], map: "idx_batch_no")
-  @@map("activation_code")
-}
-
-/// 会员兑换记录表 — 记录用户每次激活码兑换的独立流水，供 PM 需求 §9 兑换记录查询
-/// 与 activation_code.usedBy/usedAt 互补：activation_code 记录码的核销态，本表记录��户维度的兑换历史
-model MembershipRedeemRecord {
-  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  /// 兑换流水号（幂等/对账用）
-  redeemNo       String   @map("redeem_no") @db.Char(24)
-  /// 兑换用户
-  userId         BigInt   @map("user_id") @db.UnsignedBigInt
-  /// 关联激活码 id
-  codeId         BigInt   @map("code_id") @db.UnsignedBigInt
-  /// 冗余激活码字符串，便于查询展示（避免关联）
-  code           String   @db.Char(16)
-  /// 兑换套餐编码
-  planCode       String   @map("plan_code") @db.VarChar(32)
-  /// 兑换套餐名称（快照）
-  planName       String   @map("plan_name") @db.VarChar(64)
-  /// 兑换获得会员等级：1=Pro 2=辅导
-  membershipLevel Int     @map("membership_level") @db.TinyInt
-  /// 本次兑换增加的有效天数
-  durationDays   Int      @map("duration_days") @db.SmallInt
-  /// 兑换后会员到期时间(UTC)
-  expireAt       DateTime? @map("expire_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([redeemNo], map: "uk_redeem_no")
-  @@unique([codeId], map: "uk_code_id")
-  @@index([userId, createdAt], map: "idx_user_created")
-  @@map("membership_redeem_record")
 }
 
 /// 文件上传记录表

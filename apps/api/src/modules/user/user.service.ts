@@ -41,10 +41,6 @@ export class UserService {
       gender: u.gender,
       role: u.role,
       status: u.status,
-      isPaid: u.isPaid,
-      paidExpireAt: u.paidExpireAt ? u.paidExpireAt.toISOString() : null,
-      membershipLevel: u.membershipLevel,
-      membershipExpireAt: u.membershipExpireAt ? u.membershipExpireAt.toISOString() : null,
       deactivatedAt: u.deactivatedAt,
       createdAt: u.createdAt ? u.createdAt.toISOString() : null,
     };

@@ -3,11 +3,11 @@ import { BizCode, BizException } from '../../common/response';
 
 /**
  * §4.1 AiInterviewService 单测（纯内存 mock）。
- * 覆盖：会员校验(4515)、越权(4003)、已结束再答(4520)、正常评分出下一题、末轮结束汇总。
+ * 覆盖：会员校验(免费化放行)、越权(4003)、已结束再答(4520)、正常评分出下一题、末轮结束汇总。
  */
 describe('AiInterviewService (§4.1 AI 模拟面试)', () => {
   const USER = '1001';
-  const memberUser = { membershipLevel: 1, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 };
+  const memberUser = {};
 
   const makeLlm = () =>
     ({
@@ -36,14 +36,15 @@ describe('AiInterviewService (§4.1 AI 模拟面试)', () => {
       },
     }) as any;
 
-  it('非会员：start 抛 AI_MEMBER_ONLY(4515)', async () => {
+  it('免费化：非会员用户 start 直接放行，返回 interviewId 与首题', async () => {
     const prisma = makePrisma({
-      user: { membershipLevel: 0, membershipExpireAt: null, paidExpireAt: null, isPaid: 0 },
+      user: {},
     });
     const svc = new AiInterviewService(prisma, makeLlm());
-    await expect(svc.start(USER, { careerId: '5' } as any)).rejects.toMatchObject({
-      bizCode: BizCode.AI_MEMBER_ONLY,
-    } as Partial<BizException>);
+    const vo = await svc.start(USER, { careerId: '5' } as any);
+    expect(vo.interviewId).toBe('10');
+    expect(typeof vo.firstQuestion).toBe('string');
+    expect(prisma.aiInterview.create).toHaveBeenCalled();
   });
 
   it('answer 越权他人会话 → 4003', async () => {

@@ -3,7 +3,7 @@
  * -------------------------------------------------------------
  * 精致化重构：族群色头图（GlassCard 悬浮主卡）+ TypeAvatar 意象 + GroupBadge
  *  → serif 开篇寄语(Quote) → 四维度 DimensionBar 一次性填充 + 雷达图(RadarChart)
- *  → 性格解读（优势/盲点非对称分栏 + 锁态付费段）→ 匹配度 StatPill
+ *  → 性格解读（优势/盲点非对称分栏）→ 匹配度 StatPill
  *  → 底部「查看职业匹配」「生成海报」CTA（SpringButton 橙）。
  * 设计约束：GlassCard 仅用于报告主卡这一高价值场景；数据揭示克制、含 reduced-motion 降级。
  * 数据 hook（useReport）直连后端 v2.1 出参，无 mock 兜底；失败态由 isError 呈现。
@@ -23,7 +23,6 @@ import {
   StatPill,
   SectionHeading,
   Reveal,
-  RevealItem,
   EmptyState,
   SpringButton,
   BackButton,
@@ -114,18 +113,13 @@ export function ReportPage() {
   }
 
   const color = FAMILY_COLORS[report.family];
-  // 锁态以后端下发的 lockedSectionKeys 为准（概览接口不返回 isFree）
-  const lockedKeys = new Set(report.lockedSectionKeys ?? []);
-  const unlocked = report.sections.filter((s) => !lockedKeys.has(s.sectionKey));
-  const strength = unlocked.find((s) => /优势|长处|strength/i.test(s.sectionKey + s.title));
-  const blindspot = unlocked.find((s) => /盲点|成长|blind|growth/i.test(s.sectionKey + s.title));
-  const others = unlocked.filter((s) => s !== strength && s !== blindspot);
-  const lockedSections = report.sections.filter((s) => lockedKeys.has(s.sectionKey));
-
-  const hasLocked = lockedSections.length > 0;
+  // 免费化：所有章节直接渲染，无锁态门禁
+  const strength = report.sections.find((s) => /优势|长处|strength/i.test(s.sectionKey + s.title));
+  const blindspot = report.sections.find((s) => /盲点|成长|blind|growth/i.test(s.sectionKey + s.title));
+  const others = report.sections.filter((s) => s !== strength && s !== blindspot);
 
   const handleExport = async () => {
-    if (hasLocked || exporting) return;
+    if (exporting) return;
     setExporting(true);
     setExportError(null);
     try {
@@ -154,10 +148,9 @@ export function ReportPage() {
         <SpringButton
           variant="ghost"
           onClick={handleExport}
-          disabled={hasLocked || exporting}
-          title={hasLocked ? '解锁完整报告后可导出' : undefined}
+          disabled={exporting}
         >
-          {exporting ? '导出中…' : hasLocked ? '解锁后可导出' : '导出 PDF'}
+          {exporting ? '导出中…' : '导出 PDF'}
         </SpringButton>
       </div>
      {/* ============ 头图 · 玻璃拟态主卡（非对称分栏） ============ */}
@@ -343,33 +336,7 @@ export function ReportPage() {
         />
       </section>
 
-      {/* ============ 付费锁态段 ============ */}
-      {lockedSections.length ? (
-        <section className="mt-8">
-          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2" deps={[report.id]}>
-            {lockedSections.map((s, i) => (
-              <RevealItem key={s.sectionKey} index={i}>
-                <div className="relative overflow-hidden rounded-2xl border border-dashed border-neutral-300 p-6">
-                  <div className="pointer-events-none select-none blur-sm" aria-hidden>
-                    <h3 className="font-display text-base font-bold text-neutral-800">{s.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                      深度解读你的职业倾向、协作风格与关系模式，帮助你把人格优势转化为现实选择……
-                    </p>
-                  </div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70">
-                    <span className="font-sans text-sm font-semibold text-neutral-700">
-                      {s.title} · 已锁定
-                    </span>
-                    <SpringButton variant="accent" onClick={() => navigate('/pricing?reportId=' + report.id)}>
-                      解锁完整报告
-                    </SpringButton>
-                  </div>
-                </div>
-              </RevealItem>
-            ))}
-          </Reveal>
-        </section>
-      ) : null}
+
 
       {/* ============ 报告评分反馈入口 ============ */}
       <section className="mt-14">
@@ -396,8 +363,8 @@ export function ReportPage() {
           <SpringButton variant="ghost" onClick={() => navigate(`/app/report/${report.id}/share`)}>
             生成分享海报
           </SpringButton>
-          <SpringButton variant="ghost" onClick={handleExport} disabled={hasLocked || exporting}>
-            {exporting ? '导出中…' : hasLocked ? '解锁后可导出' : '导出 PDF'}
+          <SpringButton variant="ghost" onClick={handleExport} disabled={exporting}>
+            {exporting ? '导出中…' : '导出 PDF'}
           </SpringButton>
         </div>
       </section>

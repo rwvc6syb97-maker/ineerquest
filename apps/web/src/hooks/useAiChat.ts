@@ -212,7 +212,7 @@ export function useChatStream(conversationId: string): UseChatStreamResult {
       if (!content.trim() || isStreaming) return;
       if (round >= AI_MAX_ROUND) {
         setRoundLimited(true);
-        setError('本次对话已达 50 轮上限，请开启新会话或升级会员继续。');
+        setError('本次对话已达 50 轮上限，请开启新会话继续。');
         return;
       }
       await runStream(content.trim());

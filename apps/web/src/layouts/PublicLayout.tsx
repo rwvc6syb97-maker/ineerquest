@@ -15,7 +15,7 @@ import { useAuthStore } from '../stores/auth.store';
 const NAV_LINKS = [
   { to: '/', label: '首页', end: true },
   { to: '/personality-types', label: '人格类型', end: false },
-  { to: '/pricing', label: '价格', end: false },
+  // F6 免费化：隐藏「价格」入口（全功能免费，避免死入口）
   { to: '/about', label: '关于', end: false },
 ];
 
@@ -26,7 +26,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { label: '开始测评', to: '/assessment' },
       { label: '人格类型库', to: '/personality-types' },
-      { label: '价格方案', to: '/pricing' },
+      // F6 免费化：隐藏页脚「价格方案」入口
     ],
   },
   {

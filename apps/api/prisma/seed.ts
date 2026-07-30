@@ -1,5 +1,5 @@
 /**
- * InnerQuest 种子脚本（v3 · 题库 + 职业库 + 会员套餐）
+ * InnerQuest 种子脚本（v3 · 题库 + 职业库）
  * -------------------------------------------------------------
  * 向 assessment_question/option 写入 v2 版 40 道 MBTI 题目；
  * 向 career 写入示例职业数据；
@@ -499,72 +499,6 @@ const CAREER_LINK_SEED: CareerLinkSeed[] = [
   },
 ];
 
-// ============ 会员套餐种子数据 ============
-
-interface SeedPlan {
-  code: string;
-  name: string;
-  subtitle: string;
-  price: number;       // 分
-  originalPrice: number | null;
-  durationDays: number | null;
-  planType: number;    // 1=单次 2=周期
-  benefits: string[];
-  sortOrder: number;
-  isRecommended: number;
-}
-
-const PLANS: SeedPlan[] = [
-  {
-    code: 'free',
-    name: '免费入门',
-    subtitle: '开启你的 MBTI 探索之旅',
-    price: 0,
-    originalPrice: null,
-    durationDays: null,
-    planType: 2,
-    benefits: ['基础 MBTI 测评（40 题标准版）', '简要结果概览', 'TOP 5 职业匹配推荐', '1 次 AI 对话（限 5 轮）'],
-    sortOrder: 1,
-    isRecommended: 0,
-  },
-  {
-    code: 'pro-monthly',
-    name: 'Pro 月度',
-    subtitle: '解锁深度报告与职业规划 · 月付灵活',
-    price: 4900, // ¥49.00
-    originalPrice: 6900,
-    durationDays: 30,
-    planType: 2,
-    benefits: ['深度 MBTI 报告（4 大维度详解）', 'TOP 10 职业匹配 + 技能差距分析', '无限 AI 对话（每会话 50 轮）', '职业路线图与学习资源推荐', '报告 PDF 导出与分享', '历史报告永久保存'],
-    sortOrder: 2,
-    isRecommended: 0,
-  },
-  {
-    code: 'pro-yearly',
-    name: 'Pro 年度',
-    subtitle: '完整成长方案 · 性价比之选',
-    price: 29900, // ¥299.00
-    originalPrice: 58800,
-    durationDays: 365,
-    planType: 2,
-    benefits: ['Pro 月度全部权益', '优先体验新功能与 AI 模型', '专属 MBTI 类型社群', '年度成长复盘报告', '辅导咨询 9 折权益'],
-    sortOrder: 3,
-    isRecommended: 1,
-  },
-  {
-    code: 'coaching-single',
-    name: '1 对 1 辅导（单次）',
-    subtitle: '与认证辅导师 60 分钟深度对话',
-    price: 29900, // ¥299.00
-    originalPrice: null,
-    durationDays: null,
-    planType: 1,
-    benefits: ['60 分钟线上视频/文字咨询', '辅导前个人画像分析', '咨询后成长建议摘要', '7 天内查看回放记录'],
-    sortOrder: 4,
-    isRecommended: 0,
-  },
-];
-
 /** 完整 40 题（按 EI→SN→TF→JP，各维度内部顺序排列） */
 const QUESTIONS: SeedQuestion[] = [...EI, ...SN, ...TF, ...JP];
 
@@ -672,72 +606,7 @@ async function main(): Promise<void> {
   }
   console.log(`[seed] 职业库完成：${careerCount} 条（预期 ${CAREERS.length}）`);
 
-  // ===== 3. 会员套餐 =====
-  console.log('[seed] 开始写入会员套餐 …');
-  let planCount = 0;
-  for (const p of PLANS) {
-    const exists = await prisma.membershipPlan.findFirst({ where: { code: p.code } });
-    if (exists) {
-      await prisma.membershipPlan.update({
-        where: { id: exists.id },
-        data: {
-          name: p.name,
-          subtitle: p.subtitle,
-          price: BigInt(p.price),
-          originalPrice: p.originalPrice != null ? BigInt(p.originalPrice) : null,
-          durationDays: p.durationDays,
-          planType: p.planType,
-          benefits: p.benefits,
-          sortOrder: p.sortOrder,
-          isRecommended: p.isRecommended,
-          status: 1,
-        },
-      });
-    } else {
-      await prisma.membershipPlan.create({
-        data: {
-          code: p.code,
-          name: p.name,
-          subtitle: p.subtitle,
-          price: BigInt(p.price),
-          originalPrice: p.originalPrice != null ? BigInt(p.originalPrice) : null,
-          durationDays: p.durationDays,
-          planType: p.planType,
-          benefits: p.benefits,
-          sortOrder: p.sortOrder,
-          isRecommended: p.isRecommended,
-          status: 1,
-        },
-      });
-    }
-    planCount++;
-  }
-  console.log(`[seed] 套餐完成：${planCount} 个（预期 ${PLANS.length}）`);
-
-  // ===== 4. 开发测试激活码 =====
-  console.log('[seed] 写入开发测试激活码 …');
-  const demoCodes = [
-    { code: 'DEMO-FREE-AAAAAA', plan: 'free', note: '开发测试: 免费套餐' },
-    { code: 'DEMO-PRO-BBBBBB', plan: 'pro-monthly', note: '开发测试: Pro月度' },
-    { code: 'DEMO-PRO-CCCCCC', plan: 'pro-yearly', note: '开发测试: Pro年度' },
-  ];
-  for (const dc of demoCodes) {
-    const exists = await prisma.activationCode.findFirst({ where: { code: dc.code } });
-    if (!exists) {
-      await prisma.activationCode.create({
-        data: {
-          code: dc.code,
-          planCode: dc.plan,
-          status: 0,
-          note: dc.note,
-          batchNo: 'DEMO-SEED',
-        },
-      });
-    }
-  }
-  console.log(`[seed] 激活码完成：${demoCodes.length} 个`);
-
-  // ===== 5. 默认管理员账号（独立于用户体系）=====
+  // ===== 3. 默认管理员账号（独立于用户体系）=====
   console.log('[seed] 写入默认管理员账号 …');
   const adminUsername = 'admin';
   const adminPasswordHash = '$2b$10$XFi4JRIEhRnz79OsFMrpreGNKq1wmeWjQL530fX0JobG5EYuxDzju';

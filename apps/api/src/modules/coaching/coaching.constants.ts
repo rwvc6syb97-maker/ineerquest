@@ -27,7 +27,7 @@ export const CoachStatus = {
 
 /**
  * 排期时段状态（coach_schedule.status）。
- * FREE → LOCKED（下单锁定，含 lock_expire_at）→ BOOKED（支付成功确认占用）。
+ * 免费直连：FREE → BOOKED（下单即确认占用）。LOCKED 为历史遗留状态，由定时任务超时释放回 FREE。
  */
 export const ScheduleStatus = {
   /** 可预约 */
@@ -67,11 +67,8 @@ export const SLOT_LOCK_KEY_PREFIX = 'coaching:slot:lock:';
 /** 时段分布式锁持有时长（毫秒）：与支付超时对齐（15 分钟）。 */
 export const SLOT_LOCK_TTL_MS = 15 * 60 * 1000;
 
-/** 咨询订单支付超时时长：15 分钟（毫秒），超时释放时段。 */
+/** 咨询订单支付超时时长：15 分钟（毫秒），历史遗留 LOCKED 时段超时释放兜底。 */
 export const COACHING_PAY_TTL_MS = 15 * 60 * 1000;
-
-/** 支付业务类型：咨询订单（payment_order.biz_type = 2），复用 payment 下单能力。 */
-export const COACHING_BIZ_TYPE = 2;
 
 /** 评分取值范围（coaching_review.rating）。 */
 export const RATING_MIN = 1;

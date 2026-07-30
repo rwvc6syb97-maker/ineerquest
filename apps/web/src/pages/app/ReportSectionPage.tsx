@@ -1,7 +1,7 @@
 /**
  * P10 报告章节详情页（/app/report/:id/section/:sectionId）
  * -------------------------------------------------------------
- * 从报告中取出单个章节深度阅读；付费锁态段引导解锁。
+ * 从报告中取出单个章节深度阅读。免费化：全部章节直接渲染，无付费门禁。
  * 复用 useReport（含 mock 兜底），按 sectionId 匹配 section.sectionKey。
  */
 import { useParams, useNavigate } from 'react-router-dom';
@@ -83,40 +83,22 @@ export function ReportSectionPage() {
         title={section.title}
       />
 
-      {section.paid && section.content == null ? (
-        // 付费锁态段
-        <Card padding="lg" className="mt-10 flex flex-col items-center gap-4 text-center">
-          <span
-            className="rounded-full px-4 py-1.5 text-sm font-semibold"
-            style={{ backgroundColor: `${color}14`, color }}
-          >
-            该章节为付费内容
-          </span>
-          <p className="max-w-md font-serif leading-relaxed text-neutral-600">
-            解锁完整报告后，即可阅读「{section.title}」的深度解读——把人格优势转化为现实选择。
+      <Reveal className="mt-10" deps={[section.sectionKey]}>
+        <Quote size="md" className="text-left">
+          {report.summary}
+        </Quote>
+        <Card padding="lg" className="mt-8">
+          <div className="flex items-center gap-2">
+            <span className="h-6 w-1.5 rounded-full" style={{ background: color }} />
+            <h2 className="font-display text-xl font-bold text-brand-primary-950">
+              {section.title}
+            </h2>
+          </div>
+          <p className="mt-5 whitespace-pre-line text-base leading-loose text-neutral-700">
+            {detail?.content ?? section.content}
           </p>
-          <SpringLink to={`/pricing?reportId=${report.id}`} variant="accent">
-            解锁完整报告
-          </SpringLink>
         </Card>
-      ) : (
-        <Reveal className="mt-10" deps={[section.sectionKey]}>
-          <Quote size="md" className="text-left">
-            {report.summary}
-          </Quote>
-          <Card padding="lg" className="mt-8">
-            <div className="flex items-center gap-2">
-              <span className="h-6 w-1.5 rounded-full" style={{ background: color }} />
-              <h2 className="font-display text-xl font-bold text-brand-primary-950">
-                {section.title}
-              </h2>
-            </div>
-            <p className="mt-5 whitespace-pre-line text-base leading-loose text-neutral-700">
-              {detail?.content ?? section.content}
-            </p>
-          </Card>
-        </Reveal>
-      )}
+      </Reveal>
 
       {/* 章节导航 */}
       <nav className="mt-10 flex items-center justify-between gap-3 border-t border-neutral-200 pt-6 text-sm">

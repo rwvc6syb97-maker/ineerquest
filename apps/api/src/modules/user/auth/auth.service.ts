@@ -21,7 +21,6 @@ export interface AuthUserView {
   phone: string | null;
   role: number;
   status: number;
-  isPaid: number;
 }
 
 export interface LoginResult {
@@ -57,7 +56,6 @@ export class AuthService {
     phone: string | null;
     role: number;
     status: number;
-    isPaid: number;
   }): AuthUserView {
     return {
       id: u.id.toString(),
@@ -67,7 +65,6 @@ export class AuthService {
       phone: u.phone,
       role: u.role,
       status: u.status,
-      isPaid: u.isPaid,
     };
   }
 

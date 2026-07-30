@@ -328,7 +328,7 @@ export function useCalibration(): UseCalibrationResult {
 }
 
 // ============================================================
-// P1-1 动态成长计划（会员专享）
+// P1-1 动态成长计划（免费化后全员可用）
 // ============================================================
 
 export interface UseGrowthPlanResult {
@@ -336,10 +336,8 @@ export interface UseGrowthPlanResult {
   loading: boolean;
   /** 错误文案（优先后端 message）。 */
   error: string | null;
-  /** 错误业务码：4515 / 4004 / 4005 / 5002 / 5003 等。 */
+  /** 错误业务码：4004 / 4005 / 5002 / 5003 等。 */
   errorCode: number | undefined;
-  /** 非会员（4515）：引导开通会员，非报错弹窗。 */
-  memberOnly: boolean;
   /** degraded=true（规则版）仍正常展示 weeks，仅轻提示。 */
   degraded: boolean;
   run: (params: GrowthPlanParams) => Promise<void>;
@@ -352,14 +350,12 @@ export function useGrowthPlan(): UseGrowthPlanResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
-  const [memberOnly, setMemberOnly] = useState(false);
 
   const run = useCallback(async (params: GrowthPlanParams) => {
     if (!params.careerId) return;
     setLoading(true);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     try {
       const res = await aiPlusApi.growthPlan(params);
       // degraded=true 时仍正常展示 weeks，不视为错误
@@ -368,13 +364,7 @@ export function useGrowthPlan(): UseGrowthPlanResult {
       const code = toApiCode(err);
       setErrorCode(code);
       setData(null);
-      // 4515 非会员 → 引导开通会员（不吞错，仍保留后端 message）
-      if (code === AiPlusBizCode.MEMBER_ONLY) {
-        setMemberOnly(true);
-        setError(toApiMessage(err, 'AI 成长计划为会员专享，请先开通会员'));
-      } else {
-        setError(toApiMessage(err, '生成成长计划失败，请稍后重试'));
-      }
+      setError(toApiMessage(err, '生成成长计划失败，请稍后重试'));
     } finally {
       setLoading(false);
     }
@@ -384,7 +374,6 @@ export function useGrowthPlan(): UseGrowthPlanResult {
     setData(null);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setLoading(false);
   }, []);
 
@@ -393,7 +382,6 @@ export function useGrowthPlan(): UseGrowthPlanResult {
     loading,
     error,
     errorCode,
-    memberOnly,
     degraded: data?.degraded ?? false,
     run,
     reset,
@@ -656,17 +644,16 @@ export function useCollabAnalyze(): UseCollabAnalyzeResult {
 }
 
 // ============================================================
-// P2-2 求职文书生成（会员专享）
+// P2-2 求职文书生成（免费化后全员可用）
 // ============================================================
 
 export interface UseResumeGenerateResult {
   data: ResumeGenerateResult | null;
   loading: boolean;
   error: string | null;
-  /** 错误业务码：4515 非会员 / 4516 敏感词 / 4004 职业不存在。 */
+  /** 错误业务码：4516 敏感词 / 4004 职业不存在。 */
   errorCode: number | undefined;
-  /** 非会员限制（4515）：引导开通会员，非报错弹窗。 */
-  memberOnly: boolean;
+
   /** 命中敏感词（4516）：提示修改内容后重试。 */
   sensitive: boolean;
   /** 是否降级兜底。 */
@@ -675,13 +662,12 @@ export interface UseResumeGenerateResult {
   reset: () => void;
 }
 
-/** P2-2 求职文书生成 hook（会员专享）。 */
+/** P2-2 求职文书生成 hook。 */
 export function useResumeGenerate(): UseResumeGenerateResult {
   const [data, setData] = useState<ResumeGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
-  const [memberOnly, setMemberOnly] = useState(false);
   const [sensitive, setSensitive] = useState(false);
 
   const run = useCallback(async (params: ResumeGenerateParams) => {
@@ -689,7 +675,6 @@ export function useResumeGenerate(): UseResumeGenerateResult {
     setLoading(true);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setSensitive(false);
     try {
       const res = await aiPlusApi.resumeGenerate(params);
@@ -698,11 +683,7 @@ export function useResumeGenerate(): UseResumeGenerateResult {
       const code = toApiCode(err);
       setErrorCode(code);
       setData(null);
-      if (code === AiPlusBizCode.MEMBER_ONLY) {
-        // 4515 非会员 → 引导开通会员
-        setMemberOnly(true);
-        setError(toApiMessage(err, '该功能为会员专享，开通会员后可用'));
-      } else if (code === AiPlusBizCode.RESUME_SENSITIVE) {
+      if (code === AiPlusBizCode.RESUME_SENSITIVE) {
         // 4516 敏感词 → 提示修改内容
         setSensitive(true);
         setError(toApiMessage(err, '内容包含敏感信息，请修改后重试'));
@@ -718,7 +699,6 @@ export function useResumeGenerate(): UseResumeGenerateResult {
     setData(null);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setSensitive(false);
     setLoading(false);
   }, []);
@@ -728,7 +708,6 @@ export function useResumeGenerate(): UseResumeGenerateResult {
     loading,
     error,
     errorCode,
-    memberOnly,
     sensitive,
     degraded: data?.degraded ?? false,
     run,
@@ -808,7 +787,7 @@ export function useReportChapter(): UseReportChapterResult {
 }
 
 // ============================================================
-// P3 §4.1 AI 模拟面试（会员专享，需登录）
+// P3 §4.1 AI 模拟面试（免费化后全员可用，需登录）
 // ============================================================
 
 export interface UseAiInterviewResult {
@@ -821,8 +800,6 @@ export interface UseAiInterviewResult {
   loading: boolean;
   error: string | null;
   errorCode: number | undefined;
-  /** 非会员（4515）：引导开通会员。 */
-  memberOnly: boolean;
   /** 4520 已结束不可再答。 */
   finishedLocked: boolean;
   /** 面试是否已结束（answerData.finished）。 */
@@ -843,16 +820,12 @@ export function useAiInterview(): UseAiInterviewResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
-  const [memberOnly, setMemberOnly] = useState(false);
   const [finishedLocked, setFinishedLocked] = useState(false);
 
   const handleErr = useCallback((err: unknown, fallback: string) => {
     const code = toApiCode(err);
     setErrorCode(code);
-    if (code === AiPlusBizCode.MEMBER_ONLY) {
-      setMemberOnly(true);
-      setError(toApiMessage(err, 'AI 模拟面试为会员专享，请先开通会员'));
-    } else if (code === AiPlusBizCode.INTERVIEW_FINISHED) {
+    if (code === AiPlusBizCode.INTERVIEW_FINISHED) {
       setFinishedLocked(true);
       setError(toApiMessage(err, '本场面试已结束，请查看报告'));
     } else {
@@ -865,7 +838,6 @@ export function useAiInterview(): UseAiInterviewResult {
     setLoading(true);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setFinishedLocked(false);
     setAnswerData(null);
     setReportData(null);
@@ -922,7 +894,6 @@ export function useAiInterview(): UseAiInterviewResult {
     setReportData(null);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setFinishedLocked(false);
     setLoading(false);
   }, []);
@@ -934,7 +905,6 @@ export function useAiInterview(): UseAiInterviewResult {
     loading,
     error,
     errorCode,
-    memberOnly,
     finishedLocked,
     finished: answerData?.finished ?? false,
     degraded: answerData?.degraded ?? false,
@@ -946,7 +916,7 @@ export function useAiInterview(): UseAiInterviewResult {
 }
 
 // ============================================================
-// P3 §4.2 AI 面试题库（list 登录可见 / score 会员专享）
+// P3 §4.2 AI 面试题库（list 登录可见 / score 免费化后全员可用）
 // ============================================================
 
 export interface UseInterviewBankResult {
@@ -955,8 +925,6 @@ export interface UseInterviewBankResult {
   loading: boolean;
   error: string | null;
   errorCode: number | undefined;
-  /** 评分 4515 非会员：引导开通会员。 */
-  memberOnly: boolean;
   fetchList: (params: QuestionListParams) => Promise<QuestionListResult | null>;
   score: (qId: string, params: QuestionScoreParams) => Promise<QuestionScoreResult | null>;
   reset: () => void;
@@ -969,7 +937,6 @@ export function useInterviewBank(): UseInterviewBankResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
-  const [memberOnly, setMemberOnly] = useState(false);
 
   const fetchList = useCallback(async (params: QuestionListParams) => {
     if (!params.careerId) return null;
@@ -995,7 +962,6 @@ export function useInterviewBank(): UseInterviewBankResult {
     setLoading(true);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     try {
       const res = await aiPlusApi.interviewQuestionScore(qId, params);
       setScoreData(res);
@@ -1003,12 +969,7 @@ export function useInterviewBank(): UseInterviewBankResult {
     } catch (err) {
       const code = toApiCode(err);
       setErrorCode(code);
-      if (code === AiPlusBizCode.MEMBER_ONLY) {
-        setMemberOnly(true);
-        setError(toApiMessage(err, '单题评分为会员专享，请先开通会员'));
-      } else {
-        setError(toApiMessage(err, '评分失败，请稍后重试'));
-      }
+      setError(toApiMessage(err, '评分失败，请稍后重试'));
       return null;
     } finally {
       setLoading(false);
@@ -1020,11 +981,10 @@ export function useInterviewBank(): UseInterviewBankResult {
     setScoreData(null);
     setError(null);
     setErrorCode(undefined);
-    setMemberOnly(false);
     setLoading(false);
   }, []);
 
-  return { listData, scoreData, loading, error, errorCode, memberOnly, fetchList, score, reset };
+  return { listData, scoreData, loading, error, errorCode, fetchList, score, reset };
 }
 
 // ============================================================

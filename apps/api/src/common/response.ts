@@ -74,8 +74,6 @@ export const BizCode = {
   // ============ 报告域 43xx ============
   /** 报告未生成：结果尚未产出报告 */
   REPORT_NOT_GENERATED: 4301,
-  /** 章节未解锁：访问付费章节但未升级 Pro */
-  REPORT_LOCKED: 4302,
   /** 报告生成中：重复触发生成 */
   REPORT_GENERATING: 4303,
   /** 报告生成失败：LLM 调用失败，可重试 */
@@ -130,8 +128,6 @@ export const BizCode = {
   PLAIN_TALK_SECTION_INVALID: 4511,
   /** 追问式校准：四维均无临界，无需校准 */
   NO_NEED_CALIBRATE: 4514,
-  /** AI 增值能力仅会员/付费可用：非会员访问会员接口（PRD AI 拓展 §2.1/§2.4） */
-  AI_MEMBER_ONLY: 4515,
   /** AI 生成内容触发敏感词，需重试（PRD AI 拓展 §3.1/§3.2） */
   AI_SENSITIVE_CONTENT: 4516,
   /** AI 情景推演章节仅 DEEP 深度报告支持：非 DEEP 报告调用返回（PRD AI 拓展 §3.3） */
@@ -149,25 +145,11 @@ export const BizCode = {
   /** [AI 拓展别名] 参数校验失败：必填缺失/越界/超长（PRD 用 4005） */
   AI_BAD_PARAM: 4005,
 
-  // ============ 激活码兑换域 46xx ============
-  /** 激活码无效：不存在/格式错误 */
-  ACTIVATION_CODE_INVALID: 4601,
-  /** 激活码已被使用：已核销 */
-  ACTIVATION_CODE_USED: 4602,
-  /** 激活码已过期：超有效期 */
-  ACTIVATION_CODE_EXPIRED: 4603,
-  /** 激活码已作废：被后台禁用 */
-  ACTIVATION_CODE_DISABLED: 4604,
-  /** 当前会员等级更高，无需降级兑换 */
-  MEMBERSHIP_LEVEL_HIGHER: 4605,
-
   // ============ 辅导预约域 47xx ============
   /** 时段已被占用：并发抢占，锁失败（uk_coach_slot 防重叠） */
   COACH_SLOT_TAKEN: 4701,
   /** 规划师停止接单：coach.status≠1 */
   COACH_NOT_ACCEPTING: 4702,
-  /** 会员权限不足：非辅导会员预约 */
-  COACH_MEMBERSHIP_REQUIRED: 4703,
   /** 订单不存在：id 无效/非本人 */
   COACH_ORDER_NOT_FOUND: 4704,
   /** 订单状态不允许该操作：已完成订单取消等 */
@@ -221,22 +203,14 @@ export const BizCode = {
   EMAIL_CODE_INVALID: 4101,
   /** 邮箱验证码发送过于频繁（复用 4102） */
   EMAIL_RATE_LIMITED: 4102,
-  /** 报告每日下载/生成上限（报告域独立码，与 REPORT_LOCKED 4302 区分语义） */
+  /** 报告每日下载/生成上限（报告域独立码） */
   REPORT_DAILY_LIMIT: 4306,
   /** 订单不存在或无权访问（复用辅导订单 4704） */
   ORDER_NOT_FOUND: 4704,
   /** 订单已关闭/状态不允许（复用 4705） */
   ORDER_CLOSED: 4705,
-  /** 重复支付（幂等/重复提交 4090） */
-  PAYMENT_DUP: 4090,
-  /** 支付金额与订单不符（参数校验域 4000） */
-  PAYMENT_AMOUNT_MISMATCH: 4000,
-  /** 会员套餐已下架（资源不存在 4040） */
-  MEMBERSHIP_PLAN_OFFLINE: 4040,
   /** 退款状态非法（订单状态不允许 4705） */
   REFUND_INVALID: 4705,
-  /** 支付回调签名校验失败（无权限 4030） */
-  PAYMENT_SIGN_INVALID: 4030,
   /** WS 握手鉴权失败（未登录 4010） */
   WS_UNAUTHORIZED: 4010,
   /** WS 无权访问房间（无权限 4030） */

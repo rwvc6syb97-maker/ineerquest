@@ -51,7 +51,6 @@ function MockInterview({ careerId }: { careerId: string }) {
     reportData,
     loading,
     error,
-    memberOnly,
     finishedLocked,
     finished,
     degraded,
@@ -134,17 +133,9 @@ function MockInterview({ careerId }: { careerId: string }) {
             {loading ? '准备中…' : '开始模拟面试'}
           </SpringButton>
         </div>
-        {memberOnly && (
-          <GuideNotice>
-            AI 模拟面试为会员专享能力，
-            <a href="/pricing" className="font-semibold underline">
-              开通会员
-            </a>
-            后即可解锁逐轮反馈与能力报告。
-          </GuideNotice>
-        )}
+        {/* F3 免费化：移除模拟面试会员专享（4515）引导入口，功能直接可用 */}
         {localError && <ErrorNotice message={localError} />}
-        {error && !memberOnly && <ErrorNotice message={error} />}
+        {error && <ErrorNotice message={error} />}
       </div>
     );
   }
@@ -242,7 +233,7 @@ function MockInterview({ careerId }: { careerId: string }) {
 
 /** P3-2 题库练习子块：fetchList 列表 → 单题 score 评分。 */
 function BankPractice({ careerId }: { careerId: string }) {
-  const { listData, scoreData, loading, error, memberOnly, fetchList, score, reset } =
+  const { listData, scoreData, loading, error, fetchList, score, reset } =
     useInterviewBank();
 
   const [difficulty, setDifficulty] = useState<InterviewDifficulty | ''>('');
@@ -274,7 +265,7 @@ function BankPractice({ careerId }: { careerId: string }) {
   return (
     <div>
       <p className="text-sm text-neutral-500">
-        按职业加载高频面试题，选题作答后获得评分与参考答案（评分为会员专享）。
+        按职业加载高频面试题，选题作答后获得评分与参考答案。
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
@@ -307,7 +298,7 @@ function BankPractice({ careerId }: { careerId: string }) {
         </SpringButton>
       </div>
 
-      {error && !memberOnly && <ErrorNotice message={error} />}
+      {error && <ErrorNotice message={error} />}
       {localError && <ErrorNotice message={localError} />}
 
       {listData && listData.list.length === 0 && (
@@ -367,15 +358,7 @@ function BankPractice({ careerId }: { careerId: string }) {
                       )}
                     </div>
                   )}
-                  {memberOnly && (
-                    <GuideNotice>
-                      题目评分与参考答案为会员专享，
-                      <a href="/pricing" className="font-semibold underline">
-                        开通会员
-                      </a>
-                      后即可解锁。
-                    </GuideNotice>
-                  )}
+                  {/* F3 免费化：移除题库评分会员专享（4515）引导入口，评分与参考答案直接展示 */}
                 </div>
               ) : (
                 <div className="mt-3">

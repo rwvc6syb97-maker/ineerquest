@@ -107,7 +107,6 @@ export class ReportService {
             reportType: ReportType.BASIC,
             mbtiType: result.mbtiType,
             status: ReportStatus.READY,
-            isUnlocked: 0,
             summary: { mbtiType: result.mbtiType, scores } as any,
             generatedAt: new Date(),
           },
@@ -215,7 +214,6 @@ export class ReportService {
           reportType: ReportType.BASIC,
           mbtiType: result.mbtiType,
           status: ReportStatus.READY,
-          isUnlocked: 0,
           summary: { mbtiType: result.mbtiType, scores } as any,
           generatedAt: new Date(),
         },
@@ -434,7 +432,7 @@ export class ReportService {
    * GET /reports/:id：报告所有者查看。
    * 未解锁时仅返回预览段落（付费段落被过滤，附 locked 标记）。
    */
-  async getReportForOwner(userId: string, reportId: string, sectionKey?: string) {
+  async getReportForOwner(userId: string, reportId: string, _sectionKey?: string) {
     const report = await this.prisma.report.findFirst({
       where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
       include: {
@@ -445,48 +443,27 @@ export class ReportService {
     if (!report) {
       throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
     }
-    const unlocked = report.isUnlocked === 1;
-
-    // 访问指定付费段落但未解锁 → 40002
-    if (sectionKey && PAID_SECTION_KEYS.includes(sectionKey) && !unlocked) {
-      this.analytics.fire({
-        userId,
-        eventType: EventType.REPORT_UNLOCK_VIEW_BLOCKED,
-        properties: { reportId, sectionKey },
-      });
-      throw new BizException(BizCode.REPORT_LOCKED, '该段落需解锁后查看');
-    }
-
-    // 未解锁：仅返回预览段落
-    const sections = report.sections
-      .filter((s) => unlocked || !PAID_SECTION_KEYS.includes(s.sectionKey))
-      .map((s) => ({
-        sectionKey: s.sectionKey,
-        title: s.title,
-        // 契约 v2.1：content 为 string | null。DB 中 content 存 Json 对象，
-        // 此处统一渲染为可读文本，避免前端把对象当 React 子节点渲染（React error #31）。
-        content: this.renderSectionContent(s.sectionKey, s.content),
-        sortOrder: s.sortOrder,
-        paid: PAID_SECTION_KEYS.includes(s.sectionKey),
-      }));
-
-    // 被隐藏的付费段落列表（前端可提示解锁）
-    const lockedSectionKeys = unlocked
-      ? []
-      : report.sections
-          .filter((s) => PAID_SECTION_KEYS.includes(s.sectionKey))
-          .map((s) => s.sectionKey);
+    // 免费化：付费段门禁彻底移除，全部段落 content 恒返回
+    const sections = report.sections.map((s) => ({
+      sectionKey: s.sectionKey,
+      title: s.title,
+      // 契约 v2.1：content 为 string | null。DB 中 content 存 Json 对象，
+      // 此处统一渲染为可读文本，避免前端把对象当 React 子节点渲染（React error #31）。
+      content: this.renderSectionContent(s.sectionKey, s.content),
+      sortOrder: s.sortOrder,
+      paid: PAID_SECTION_KEYS.includes(s.sectionKey),
+    }));
 
     this.analytics.fire({ userId, eventType: EventType.REPORT_VIEW, properties: { reportId } });
 
     // ---- 契约 v2.1 顶层结构组装（后端渲染，前端不得反解） ----
-    return this.buildReportOverview(report, sections, lockedSectionKeys, unlocked);
+    return this.buildReportOverview(report, sections);
   }
 
   /**
    * GET /reports：报告所有者列表（PM 裁定 P0）。
    * userId 隔离 + 软删除过滤 + 分页；list 项复用 GET /reports/:id 概览 Report 结构。
-   * 未解锁报告仅返回预览段落（付费段落被过滤，附 lockedSectionKeys）。
+   * 免费化后报告恒解锁，全部段落 content 恒返回。
    */
   async listReportsForOwner(userId: string, page = 1, pageSize = 10) {
     const safePage = Math.max(1, Math.floor(Number(page) || 1));
@@ -508,22 +485,15 @@ export class ReportService {
     ]);
 
     const list = rows.map((report) => {
-      const unlocked = report.isUnlocked === 1;
-      const sections = report.sections
-        .filter((s) => unlocked || !PAID_SECTION_KEYS.includes(s.sectionKey))
-        .map((s) => ({
-          sectionKey: s.sectionKey,
-          title: s.title,
-          content: this.renderSectionContent(s.sectionKey, s.content),
-          sortOrder: s.sortOrder,
-          paid: PAID_SECTION_KEYS.includes(s.sectionKey),
-        }));
-      const lockedSectionKeys = unlocked
-        ? []
-        : report.sections
-            .filter((s) => PAID_SECTION_KEYS.includes(s.sectionKey))
-            .map((s) => s.sectionKey);
-      return this.buildReportOverview(report, sections, lockedSectionKeys, unlocked);
+      // 免费化：付费段门禁移除，全部段落 content 恒返回
+      const sections = report.sections.map((s) => ({
+       sectionKey: s.sectionKey,
+        title: s.title,
+        content: this.renderSectionContent(s.sectionKey, s.content),
+        sortOrder: s.sortOrder,
+        paid: PAID_SECTION_KEYS.includes(s.sectionKey),
+      }));
+      return this.buildReportOverview(report, sections);
     });
 
     return { list, total, page: safePage, pageSize: safeSize };
@@ -539,15 +509,12 @@ export class ReportService {
       reportNo: string;
       mbtiType: string;
       status: number;
-      isUnlocked: number;
       createdAt: Date;
       summary: unknown;
       result: { id: bigint; recordId: bigint; scoreEi: unknown; scoreSn: unknown; scoreTf: unknown; scoreJp: unknown };
       sections: Array<{ sectionKey: string; content: unknown }>;
     },
     sections: Array<{ sectionKey: string; title: string; content: string | null; sortOrder: number; paid: boolean }>,
-    lockedSectionKeys: string[],
-    unlocked: boolean,
   ) {
     const family = deriveFamily(report.mbtiType);
     const dimensions = this.buildDimensionScores(report.result);
@@ -574,8 +541,6 @@ export class ReportService {
       dimensions,
       generateStatus,
       sections,
-      lockedSectionKeys,
-      isUnlocked: unlocked,
       createdAt: report.createdAt.toISOString(),
     };
   }
@@ -670,22 +635,19 @@ export class ReportService {
     if (!report) {
       throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
     }
-    const unlocked = report.isUnlocked === 1;
-
+    // 免费化：付费段门禁移除，所有章节 content 恒返回
     return report.sections.map((s) => ({
       sectionKey: s.sectionKey,
       title: s.title,
-      isFree: s.isFree === 1,
       paid: PAID_SECTION_KEYS.includes(s.sectionKey),
       sortOrder: s.sortOrder,
-      // 未解锁时付费章节内容置空，前端展示锁图标
-      content: unlocked || !PAID_SECTION_KEYS.includes(s.sectionKey) ? s.content : null,
+      content: s.content,
     }));
   }
 
   /**
    * GET /reports/:id/sections/:sectionKey：章节详情（§6.1 #3）。
-   * 付费章节需已解锁，否则抛 4302。
+   * 免费化：所有章节 content 恒返回，无门禁。
    */
   async getSectionDetail(userId: string, reportId: string, sectionKey: string) {
     const report = await this.prisma.report.findFirst({
@@ -702,22 +664,13 @@ export class ReportService {
       throw new BizException(BizCode.REPORT_SECTION_NOT_FOUND, '章节不存在');
     }
 
-    // 付费章节未解锁 → 4302
-    if (PAID_SECTION_KEYS.includes(sectionKey) && report.isUnlocked !== 1) {
-      this.analytics.fire({
-        userId,
-        eventType: EventType.REPORT_UNLOCK_VIEW_BLOCKED,
-        properties: { reportId, sectionKey },
-      });
-      throw new BizException(BizCode.REPORT_LOCKED, '该段落需解锁后查看');
-    }
+    // 免费化：付费段门禁移除，章节 content 恒返回，不再抛 4302
 
     this.analytics.fire({ userId, eventType: EventType.REPORT_SECTION_VIEW, properties: { reportId, sectionKey } });
 
     return {
       sectionKey: section.sectionKey,
       title: section.title,
-      isFree: section.isFree === 1,
       paid: PAID_SECTION_KEYS.includes(sectionKey),
       content: section.content,
       sortOrder: section.sortOrder,
@@ -871,47 +824,6 @@ export class ReportService {
     }
   }
 
-  // ============ T2-05 报告解锁 ============
-
-  /**
-   * POST /reports/:id/unlock：在支付成功后置报告 isUnlocked=1。
-   * - 已解锁：幂等返回。
-   * - 未解锁且无已支付订单：抛 40002（需先完成支付；正常路径由支付回调自动解锁）。
-   * 主解锁路径在 PaymentService.handleCallback 事务内完成，此接口用于前端主动确认/补偿。
-   */
-  async unlock(userId: string, reportId: string) {
-    const report = await this.prisma.report.findFirst({
-      where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
-    });
-    if (!report) {
-      throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
-    }
-    if (report.isUnlocked === 1) {
-      return { reportId, isUnlocked: true, alreadyUnlocked: true };
-    }
-
-    const paidOrder = await this.prisma.paymentOrder.findFirst({
-      where: { bizType: 1, bizId: report.id, userId: BigInt(userId), status: 2, isDeleted: 0 },
-      select: { id: true },
-    });
-    if (!paidOrder) {
-      throw new BizException(BizCode.REPORT_LOCKED, '报告未解锁，请先完成支付');
-    }
-
-    await this.prisma.report.update({
-      where: { id: report.id },
-      data: { isUnlocked: 1, orderId: paidOrder.id },
-    });
-
-    this.analytics.fire({
-      userId,
-      eventType: EventType.REPORT_UNLOCK,
-      properties: { reportId, orderId: paidOrder.id.toString() },
-    });
-
-    return { reportId, isUnlocked: true, alreadyUnlocked: false };
-  }
-
   // ============ T2-06 报告 PDF 导出（pdfkit + 中文字体） ============
 
   /**
@@ -926,9 +838,7 @@ export class ReportService {
     if (!report) {
       throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
     }
-    if (report.isUnlocked !== 1) {
-      throw new BizException(BizCode.REPORT_LOCKED, '报告未解锁，无法导出');
-    }
+    // 免费化：付费门禁移除，所有用户均可导出
 
     const pdf = await this.buildPdf(report.reportNo, report.mbtiType, report.sections);
 

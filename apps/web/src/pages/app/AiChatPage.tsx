@@ -243,9 +243,9 @@ function ChatPane({ conversationId }: { conversationId: string }) {
       {error && (
         <div className="border-t border-neutral-100 px-4 py-2.5 text-xs">
           {quotaLimited ? (
-            <p style={{ color: COLORS.accent }}>{error || '今日 AI 使用配额已用尽，明日再来或升级会员获取更多额度。'}</p>
+            <p style={{ color: COLORS.accent }}>{error || '今日 AI 使用配额已用尽，明日再来获取更多额度。'}</p>
           ) : roundLimited ? (
-            <p style={{ color: COLORS.accent }}>{error || '本次对话已达轮次上限，请新建会话或升级会员继续深入。'}</p>
+            <p style={{ color: COLORS.accent }}>{error || '本次对话已达轮次上限，请新建会话继续深入。'}</p>
           ) : (
             <p className="text-red-500">{error}</p>
           )}

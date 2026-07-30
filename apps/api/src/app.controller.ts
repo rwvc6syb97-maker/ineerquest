@@ -14,7 +14,6 @@ const MOUNTED_MODULES = [
   'career',
   'ai-chat',
   'coaching',
-  'payment',
   'ops',
   'llm-gateway',
   'realtime',

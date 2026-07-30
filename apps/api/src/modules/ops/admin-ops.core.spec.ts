@@ -70,7 +70,6 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
       gender: 1,
       role: 1,
       status: 1,
-      isPaid: 1,
       lastLoginAt: null,
       createdAt: new Date('2026-07-01T00:00:00.000Z'),
       isDeleted: 0,
@@ -134,7 +133,7 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
     const baseUser = {
       id: 200n, userNo: 'U200', nickname: '李四', avatarUrl: null,
       phone: '13900001111', email: 'lisi@example.com', phoneCountry: '+86',
-      gender: 1, role: 1, status: 1, isPaid: 1, lastLoginAt: null,
+      gender: 1, role: 1, status: 1, lastLoginAt: null,
       createdAt: new Date('2026-07-01T00:00:00.000Z'), isDeleted: 0,
     };
     const prisma = {
@@ -143,13 +142,14 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
     } as any;
     const token = { banUser: jest.fn(), unbanUser: jest.fn() } as any;
 
-    it('输出 registeredAt/lastActiveAt/paid/masked，且无旧字段名', async () => {
+    it('输出 registeredAt/lastActiveAt/masked，且无付费与旧字段名', async () => {
       const svc = new AdminUserService(prisma, token);
       const res = (await svc.detail('200', false)) as any;
       expect(res.registeredAt).toEqual(baseUser.createdAt);
       expect(res).toHaveProperty('lastActiveAt');
-      expect(res.paid).toBe(true);
       expect(res.masked).toBe(true); // 无 pii → 脱敏
+      // 免费化：不再返回付费字段
+      expect(res.paid).toBeUndefined();
       // 旧字段名不再出现
       expect(res.createdAt).toBeUndefined();
       expect(res.lastLoginAt).toBeUndefined();
@@ -168,7 +168,7 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
     const baseUser = {
       id: 300n, userNo: 'U300', nickname: '王五', avatarUrl: null,
       phone: '13700002222', email: 'wangwu@example.com', phoneCountry: '+86',
-      gender: 1,role: 1, status: 1, isPaid: 1, lastLoginAt: null,
+      gender: 1,role: 1, status: 1, lastLoginAt: null,
       createdAt: new Date('2026-07-01T00:00:00.000Z'), isDeleted: 0,
     };
     const token = { banUser: jest.fn(), unbanUser: jest.fn() } as any;

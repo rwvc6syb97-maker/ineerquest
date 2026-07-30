@@ -41,7 +41,7 @@ export class AiReportService {
     const tone = dto.tone ?? 'warm';
 
     // 只读报告：getReportForOwner 内含 userId 隔离 + 软删过滤 + 归属校验（不存在抛 4203）。
-    // 指定付费未解锁章节会抛 REPORT_LOCKED(4302)，语义正确，直接透传。
+    // 免费化后报告无锁段，全部章节 content 恒返回。
     const overview = (await this.reportService.getReportForOwner(
       userId,
       dto.reportId,

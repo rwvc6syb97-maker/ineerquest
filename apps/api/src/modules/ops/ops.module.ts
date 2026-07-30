@@ -12,16 +12,12 @@ import { AdminCoachController } from './admin-coach.controller';
 import { AdminCoachService } from './admin-coach.service';
 import { AdminContentController } from './admin-content.controller';
 import { AdminContentService } from './admin-content.service';
-import { AdminActivationCodeController } from './admin-activation-code.controller';
-import { MembershipModule } from '../membership/membership.module';
 
 /**
  * 运营后台服务：后台各页、RBAC、审计（T4-10~T4-16）。
  * 依赖 TokenService / SmsCodeService（AuthModule @Global 导出）与 PrismaService（InfraModule 全局）。
- * ActivationCodeService 由 MembershipModule 导出后在此复用。
  */
 @Module({
-  imports: [MembershipModule],
   controllers: [
     OpsController,
     AdminAuthController,
@@ -30,7 +26,6 @@ import { MembershipModule } from '../membership/membership.module';
     AdminUserController,
     AdminCoachController,
     AdminContentController,
-    AdminActivationCodeController,
   ],
   providers: [
     AdminAuthService,

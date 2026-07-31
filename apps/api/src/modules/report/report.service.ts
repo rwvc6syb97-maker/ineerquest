@@ -3,6 +3,7 @@ import * as PDFDocument from 'pdfkit';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomBytes } from 'node:crypto';
+import * as archiver from 'archiver';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
 import { BizCode, BizException } from '../../common/response';
@@ -10,13 +11,17 @@ import { AnalyticsService, EventType } from '../analytics/analytics.service';
 import { buildSections, DimensionScores, getProfile } from './report-content.builder';
 import {
   DIMENSION_POLES,
+  DIMENSION_POLE_KEYS,
+  FAMILY_GROUP_META,
   PAID_SECTION_KEYS,
   REPORT_DAILY_QUOTA,
   REPORT_QUOTA_REDIS_PREFIX,
+  REPORT_VIEW_VERSION,
   ReportStatus,
   ReportType,
   SHARE_CODE_ALPHABET,
   deriveFamily,
+  mapReportType,
   resolveGenerateStatus,
 } from './report.constants';
 import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
@@ -32,6 +37,18 @@ import { REPORT_DEEP_PROMPT } from '../llm-gateway/llm-gateway.constants';
 @Injectable()
 export class ReportService {
   private readonly logger = new Logger(ReportService.name);
+
+  /**
+   * M2 批量导出任务的内存缓存。
+   * 注意：进程重启会丢失，生产环境建议替换为 Redis/持久化存储。
+   * TTL 由 BATCH_TASK_TTL_MS 控制，读取时惰性过期。
+   */
+  private readonly batchTasks = new Map<
+    string,
+    { userId: string; zipBase64: string; fileName: string; count: number; createdAt: number }
+  >();
+
+  private static readonly BATCH_TASK_TTL_MS = 30 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -677,6 +694,112 @@ export class ReportService {
     };
   }
 
+  // ============ M2 报告导出一致性（reportView 单一数据源） ============
+
+  /**
+   * 报告完整视图组装点（PRD §4.1 冻结结构）——view 接口与 export 均复用此方法，
+   * 保证「屏幕所见」与「导出 PDF」严格同源，杜绝双数据源导致的字段漂移。
+   *
+   * 越权抛 4003（AI_FORBIDDEN），不存在抛 4004（AI_NOT_FOUND）——对齐 PRD M2 措辞。
+   * userId 隔离 + 软删除过滤。meta.version 固定 REPORT_VIEW_VERSION，作为导出一致性校验依据（不一致抛 4612）。
+   */
+  async buildReportView(userId: string, reportId: string) {
+    const report = await this.prisma.report.findFirst({
+      where: { id: BigInt(reportId), isDeleted: 0 },
+      include: {
+        sections: { orderBy: { sortOrder: 'asc' } },
+        result: true,
+        careerMatches: {
+          orderBy: { rankNo: 'asc' },
+          include: { career: true },
+        },
+      },
+    });
+    // 不存在 → 4004；存在但不属于当前用户 → 越权 4003（PRD M2 越权 4003 / 不存在 4004）
+    if (!report) {
+      throw new BizException(BizCode.AI_NOT_FOUND, '报告不存在');
+    }
+    if (report.userId.toString() !== String(userId)) {
+      throw new BizException(BizCode.AI_FORBIDDEN, '无权访问该报告');
+    }
+
+    const family = deriveFamily(report.mbtiType);
+    const group = FAMILY_GROUP_META[family];
+
+    // dimensions：PRD §4.1 冻结 —— leftKey/rightKey/leftValue/rightValue/tendency/label
+    const scoreMap: Record<'EI' | 'SN' | 'TF' | 'JP', number> = {
+      EI: Number(report.result.scoreEi),
+      SN: Number(report.result.scoreSn),
+      TF: Number(report.result.scoreTf),
+      JP: Number(report.result.scoreJp),
+    };
+    const dimensions = DIMENSION_POLES.map((p) => {
+      const right = Math.round(Math.max(0, Math.min(100, scoreMap[p.dimension] || 0)));
+      const left = 100 - right;
+      const keys = DIMENSION_POLE_KEYS[p.dimension];
+      // tendency：>50 偏 right 极，<50 偏 left 极，=50 平衡
+      const tendency = right > 50 ? keys.rightKey : right < 50 ? keys.leftKey : 'balanced';
+      return {
+        dimension: p.dimension,
+        leftKey: keys.leftKey,
+        rightKey: keys.rightKey,
+        leftValue: left,
+        rightValue: right,
+        tendency,
+        label: `${p.left} / ${p.right}`,
+      };
+    });
+
+    // sections：复用同一渲染函数，与 GET /:id 概览同源（content 统一 string|null）
+    const sections = report.sections.map((s) => ({
+      sectionKey: s.sectionKey,
+      title: s.title,
+      order: s.sortOrder,
+      content: this.renderSectionContent(s.sectionKey, s.content),
+    }));
+
+    // careerMatches：取自 career_match（含 career 关联），前端不得反解 matchReason 结构
+    const careerMatches = report.careerMatches.map((m) => ({
+      careerId: m.careerId.toString(),
+      name: m.career?.name ?? '',
+      category: m.career?.category ?? '',
+      matchScore: Number(m.matchScore),
+      rankNo: m.rankNo,
+      reason: this.renderMatchReason(m.matchReason),
+    }));
+
+    return {
+      reportId: report.id.toString(),
+      reportType: mapReportType(report.reportType),
+      personalityType: report.mbtiType,
+      groupName: group.groupName,
+      groupColor: group.groupColor,
+      createdAt: report.createdAt.toISOString(),
+      dimensions,
+      sections,
+      careerMatches,
+      meta: {
+        version: REPORT_VIEW_VERSION,
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  /** career_match.match_reason(Json) 渲染为可读文本，避免前端把对象当子节点渲染。 */
+  private renderMatchReason(raw: unknown): string {
+    if (raw == null) return '';
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'object') {
+      const c = raw as Record<string, unknown>;
+      if (typeof c.reason === 'string') return c.reason;
+      if (typeof c.text === 'string') return c.text;
+      if (Array.isArray(c.reasons)) {
+        return (c.reasons as unknown[]).filter((x): x is string => typeof x === 'string').join('；');
+      }
+    }
+    return '';
+  }
+
   // ============ T1-17 报告分享/海报 ============
 
   /**
@@ -831,28 +954,44 @@ export class ReportService {
    * - 未解锁 → 40002。使用 pdfkit + 系统 SimHei 中文字体。
    */
   async exportPdf(userId: string, reportId: string) {
-    const report = await this.prisma.report.findFirst({
-      where: { id: BigInt(reportId), userId: BigInt(userId), isDeleted: 0 },
-      include: { sections: { orderBy: { sortOrder: 'asc' } } },
-    });
-    if (!report) {
-      throw new BizException(BizCode.ASSESSMENT_RECORD_NOT_FOUND, '报告不存在或无权访问');
-    }
-    // 免费化：付费门禁移除，所有用户均可导出
+    // M2：export 走 reportView 单一数据源，与 GET /:id/view「所见即所得」严格同源
+    const view = await this.buildReportView(userId, reportId);
+    // meta.version 一致性校验（当前后端版本 vs view 版本）——不一致抛 4612
+    this.assertViewVersion(view.meta.version);
 
-    const pdf = await this.buildPdf(report.reportNo, report.mbtiType, report.sections);
+    const pdf = await this.buildPdfFromView(view);
 
     this.analytics.fire({
       userId,
       eventType: EventType.REPORT_EXPORT,
-      properties: { reportId },
+     properties: { reportId },
     });
 
+    const fileName = this.buildExportFileName(view.reportId, view.personalityType);
     return {
-      fileName: `report-${report.reportNo}.pdf`,
+      fileName,
       contentType: 'application/pdf',
       base64: pdf.toString('base64'),
     };
+  }
+
+  /**
+   * 导出前 meta.version 一致性校验：入参 view 版本须与当前后端 REPORT_VIEW_VERSION 一致，
+   * 否则渲染结构可能漂移，抛 4612（REPORT_EXPORT_RENDER_MISMATCH）拒绝导出，避免所见与导出不一致。
+   */
+  private assertViewVersion(version: string): void {
+    if (version !== REPORT_VIEW_VERSION) {
+      throw new BizException(
+        BizCode.REPORT_EXPORT_RENDER_MISMATCH,
+        `报告视图版本不一致(view=${version}, expect=${REPORT_VIEW_VERSION})，请刷新后重试`,
+      );
+    }
+  }
+
+  /** 导出文件名统一规则：report_{reportId}_{personalityType}.pdf（批量 zip 内条目同名）。 */
+  private buildExportFileName(reportId: string, personalityType:string): string {
+    const safeType = (personalityType || 'UNKNOWN').replace(/[^A-Za-z0-9]/g, '');
+    return `report_${reportId}_${safeType}.pdf`;
   }
 
   /** 使用 pdfkit 生成含中文的 PDF */
@@ -920,6 +1059,184 @@ export class ReportService {
 
       doc.end();
     });
+  }
+
+
+  /**
+   * 从 reportView 单一数据源渲染 PDF（M2）——章节/维度/职业匹配全部取自 view，
+   * 与 GET /:id/view「所见即所得」严格同源，杜绝双数据源漂移。
+   */
+  private async buildPdfFromView(view: {
+    reportId: string;
+    personalityType: string;
+    groupName: string;
+    dimensions: Array<{ label: string; leftValue: number; rightValue: number; tendency: string }>;
+    sections: Array<{ title: string; content: string | null; order: number }>;
+    careerMatches: Array<{ name: string; category: string; matchScore:number; rankNo: number; reason: string }>;
+  }): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const doc = new (PDFDocument as any)({ size: 'A4', margin: 50, bufferPages: true }) as typeof PDFDocument;
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const fontPath = this.resolveCjkFont();
+      if (fontPath && fs.existsSync(fontPath)) {
+        doc.registerFont('CJK', fontPath);
+      } else {
+        this.logger.warn('CJK font not found, Chinese text may render as boxes');
+      }
+      const font = fontPath && fs.existsSync(fontPath) ? 'CJK' : 'Helvetica';
+
+      // 标题
+      doc.font(font).fontSize(20).text('InnerQuest 向内求索', { align: 'center' });
+      doc.fontSize(12).text(`人格类型：${view.personalityType}（${view.groupName}）`, { align: 'center' });
+      doc.moveDown();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#cccccc');
+      doc.moveDown(0.5);
+
+      // 维度得分
+      doc.font(font).fontSize(14).text('维度倾向', { underline: true });
+      doc.moveDown(0.3);
+      for (const d of view.dimensions) {
+        if (doc.y > 760) doc.addPage();
+        doc.font(font).fontSize(10).text(
+          `${d.label}：左 ${d.leftValue}% / 右 ${d.rightValue}%（倾向 ${d.tendency}）`,
+          { lineGap: 4 },
+        );
+      }
+      doc.moveDown(0.5);
+
+      // 章节内容
+      for (const section of view.sections) {
+        if (doc.y > 700) doc.addPage();
+        doc.font(font).fontSize(14).text(section.title, { underline: true });
+        doc.moveDown(0.3);
+        const paragraphs = (section.content ?? '').split('\n').filter((p) => p.trim());
+        for (const para of paragraphs) {
+          if (doc.y > 760) doc.addPage();
+          doc.font(font).fontSize(10).text(para, { lineGap: 4 });
+          doc.moveDown(0.2);
+        }
+        doc.moveDown(0.5);
+      }
+
+      // 职业匹配
+      if (view.careerMatches.length > 0) {
+        if (doc.y > 680) doc.addPage();
+        doc.font(font).fontSize(14).text('职业匹配', { underline: true });
+        doc.moveDown(0.3);
+        for (const m of view.careerMatches) {
+          if (doc.y > 760) doc.addPage();
+          const reason = m.reason ? `：${m.reason}` : '';
+          doc.font(font).fontSize(10).text(
+            `${m.rankNo}. ${m.name}（${m.category}）匹配度 ${m.matchScore}${reason}`,
+            { lineGap: 4 },
+          );
+        }
+      }
+
+      // 页脚
+      const totalPages = (doc as any).bufferedPageRange?.().count ?? 1;
+      for (let i = 0; i < totalPages; i++) {
+        doc.switchToPage(i);
+        doc.font(font).fontSize(8).text(
+          `第 ${i + 1} / ${totalPages} 页`,
+          50, doc.page.height - 40,
+          { align: 'center', width: 495 },
+        );
+      }
+
+      doc.end();
+    });
+  }
+
+  // ============ M2 批量导出（zip 打包，异步任务） ============
+
+  /**
+   * POST /reports/export/batch：批量导出报告 PDF 打 zip。
+   * 校验次序：空→4610；超 50→4611；含他人报告→4003 整批拒绝（越权前置校验，不生成任何文件）。
+   * 生成同源 view→PDF→archiver zip，文件名 report_{reportId}_{personalityType}.pdf。
+   * 同步生成 zip 并落内存任务（taskId），供 GET /export/batch/:taskId 拉取。
+   */
+  async exportBatch(userId: string, reportIds: string[]) {
+    if (!Array.isArray(reportIds) || reportIds.length === 0) {
+      throw new BizException(BizCode.REPORT_BATCH_EMPTY, '批量导出报告列表为空');
+    }
+    if (reportIds.length > 50) {
+      throw new BizException(BizCode.REPORT_BATCH_LIMIT, '批量导出最多 50 份');
+    }
+    // 去重后逐一鉴权：任一不属于当前用户 → 整批拒绝 4003（不生成任何文件）
+    const ids = Array.from(new Set(reportIds.map((x) => String(x))));
+    const owned = await this.prisma.report.findMany({
+      where: { id: { in: ids.map((x) => BigInt(x)) }, userId: BigInt(userId), isDeleted: 0 },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      throw new BizException(BizCode.AI_FORBIDDEN, '包含无权访问的报告，批量导出已拒绝');
+    }
+
+    // 逐份走同源 view 生成 PDF，archiver 打包
+    const zipChunks: Buffer[] = [];
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const zipDone = new Promise<Buffer>((resolve, reject) => {
+      archive.on('data', (c: Buffer) => zipChunks.push(c));
+      archive.on('warning', (w: unknown) => this.logger.warn(`[exportBatch] archiver warning: ${String(w)}`));
+      archive.on('error', reject);
+      archive.on('end', () => resolve(Buffer.concat(zipChunks)));
+    });
+
+    for (const id of ids) {
+      const view = await this.buildReportView(userId, id);
+      this.assertViewVersion(view.meta.version);
+      const pdf = await this.buildPdfFromView(view);
+      archive.append(pdf, { name: this.buildExportFileName(view.reportId, view.personalityType) });
+    }
+    await archive.finalize();
+    const zipBuffer = await zipDone;
+
+    const taskId = randomBytes(12).toString('hex');
+    this.batchTasks.set(taskId, {
+      userId,
+      zipBase64: zipBuffer.toString('base64'),
+      fileName: `reports_${Date.now()}.zip`,
+      count: ids.length,
+      createdAt: Date.now(),
+    });
+
+    this.analytics.fire({
+      userId,
+      eventType: EventType.REPORT_EXPORT,
+      properties: { batch: true, count: ids.length },
+    });
+
+    return { taskId, count: ids.length, status: 'done' };
+  }
+
+  /**
+   * GET /reports/export/batch/:taskId：拉取批量导出结果（zip base64）。
+   * userId 隔离：仅任务发起者可拉取；不存在或过期抛 4004。
+   */
+  async getBatchTask(userId: string, taskId: string) {
+    const task = this.batchTasks.get(taskId);
+    // 惰性过期：超过 TTL 视为不存在并清理
+    if (task && Date.now() - task.createdAt > ReportService.BATCH_TASK_TTL_MS) {
+      this.batchTasks.delete(taskId);
+    }
+    const fresh = this.batchTasks.get(taskId);
+    if (!fresh) {
+      throw new BizException(BizCode.AI_NOT_FOUND, '批量导出任务不存在或已过期');
+    }
+    if (fresh.userId !== String(userId)) {
+      throw new BizException(BizCode.AI_FORBIDDEN, '无权访问该批量导出任务');
+    }
+    return {
+      fileName: fresh.fileName,
+      contentType: 'application/zip',
+      base64: fresh.zipBase64,
+      count: fresh.count,
+    };
   }
 
   /** 解析系统可用的 CJK 字体路径 */

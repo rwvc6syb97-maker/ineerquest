@@ -41,6 +41,7 @@ import { SettingsPage } from './pages/app/SettingsPage';
 import { AiChatPage } from './pages/app/AiChatPage';
 import { SkillsGapPage } from './pages/app/SkillsGapPage';
 import { LearningResourcesPage } from './pages/app/LearningResourcesPage';
+import { ResumeOptimizePage } from './pages/app/ResumeOptimizePage';
 // 辅导咨询（P19-P22 / P26，T4-07 / T4-08 / T4-09）
 import { CoachListPage } from './pages/app/CoachListPage';
 import { CoachDetailPage } from './pages/app/CoachDetailPage';
@@ -104,6 +105,8 @@ export function AppRoutes() {
         <Route path="app" element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
+          {/* M4 AI 简历上传优化（登录态） */}
+          <Route path="resume" element={<ResumeOptimizePage />} />
           {/* P2-1 团队协作分析（登录态带侧栏；游客仍走 PublicLayout 下的 /collab） */}
           <Route path="collab" element={<CollabAnalyzePage />} />
           {/* 报告 */}

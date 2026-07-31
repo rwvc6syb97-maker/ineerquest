@@ -17,6 +17,7 @@ import { SpringButton, SpringLink } from '../../components/system/SpringButton';
 import { Reveal, RevealItem, SectionHeading, StatPill, Quote, TiltCard } from '../../components';
 import { FAMILY_COLORS, FAMILY_LABEL, type Family } from '../../theme/tokens';
 import { HeroConstellation } from './HeroConstellation';
+import { FileText, MessagesSquare } from '../../components/icons';
 
 const FAMILIES: { key: Family; blurb: string; typeCount: string }[] = [
   { key: 'analyst', blurb: '理性、独立、追求精通，用系统思维洞察世界底层规律。', typeCount: 'INTJ · INTP · ENTJ · ENTP' },
@@ -166,6 +167,59 @@ export function HomePage() {
                 </TiltCard>
               </RevealItem>
             ))}
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ============ AI 求职工具：Bento 双卡（非等宽，暖橙 accent） ============ */}
+      <section className="px-6 py-20 md:py-24">
+        <div className="mx-auto max-w-6xl">
+          <SectionHeading
+            align="asymmetric"
+            eyebrow="AI CAREER TOOLKIT"
+            title="把洞察带进真实求职战场"
+            subtitle="用 AI 打磨你的简历，用教练式对话演练关键面试。"
+          />
+          <Reveal className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-5" as="div">
+            {/* AI 简历优化（占 3 列） */}
+            <RevealItem index={0} className="md:col-span-3">
+              <SpringLink
+                to="/app/resume"
+                variant="ghost"
+                className="group flex h-full flex-col rounded-2xl border border-brand-accent-100 bg-brand-accent-50/40 p-8 text-left transition-transform duration-normal ease-spring hover:-translate-y-1 focus-visible:-translate-y-1"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-accent-500 text-white">
+                  <FileText className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <h3 className="mt-5 font-display text-2xl font-bold text-brand-primary-950">AI 简历优化</h3>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-neutral-600">
+                  上传 PDF 简历并选择目标岗位，AI 逐条对照给出改写建议与亮点提炼。
+                </p>
+                <span className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-brand-accent-600 group-hover:gap-2 transition-all">
+                  立即优化简历 →
+                </span>
+              </SpringLink>
+            </RevealItem>
+
+            {/* 面试辅导（占 2 列） */}
+            <RevealItem index={1} className="md:col-span-2">
+              <SpringLink
+                to="/app/coaching"
+                variant="ghost"
+                className="group flex h-full flex-col rounded-2xl border border-brand-primary-100 bg-white p-8 text-left transition-transform duration-normal ease-spring hover:-translate-y-1 focus-visible:-translate-y-1"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary-900 text-white">
+                  <MessagesSquare className="h-6 w-6" aria-hidden="true" />
+                </span>
+                        <h3 className="mt-5 font-display text-2xl font-bold text-brand-primary-950">面试辅导</h3>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-600">
+                  教练式对话演练高频问题，练出更从容的临场表达。
+                </p>
+                <span className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-brand-primary-700 group-hover:gap-2 transition-all">
+                  开始面试演练 →
+                </span>
+              </SpringLink>
+            </RevealItem>
           </Reveal>
         </div>
       </section>

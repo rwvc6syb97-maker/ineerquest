@@ -378,6 +378,10 @@ model Career {
   salaryMax      Int?      @map("salary_max")
   prospect       String?   @db.Text
   suitTypes      String?   @map("suit_types") @db.VarChar(128)
+  sourceType     Int       @default(1) @map("source_type") @db.TinyInt // 来源：1=人工 2=AI检索 3=导入
+  reviewStatus   Int       @default(1) @map("review_status") @db.TinyInt // 审核态：1=草稿(默认兜底) 2=已上线 3=已下线；任何新增一律进草稿待审，上线须显式审核通过
+  sourceUrl      String?   @map("source_url") @db.VarChar(512) // AI检索来源链接，可溯源
+  lastCrawlAt    DateTime? @map("last_crawl_at") // 最近抓取时间
   status         Int       @default(1) @db.TinyInt
   isDeleted      Int       @default(0) @map("is_deleted") @db.TinyInt
   deletedAt      DateTime? @map("deleted_at")
@@ -391,8 +395,28 @@ model Career {
 
   @@unique([careerCode], map: "uk_career_code")
   @@index([category, status], map: "idx_category_status")
+  @@index([reviewStatus, sourceType], map: "idx_review_source") // 后台按审核态+来源筛选
   @@fulltext([name, description], map: "ft_name_desc")
   @@map("career")
+}
+
+/// AI 检索任务（M1：定时/手动触发大模型检索岗位或学习资源，落库草稿待审核）
+model ContentSourceTask {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  taskName        String    @map("task_name") @db.VarChar(128)
+  targetType      Int       @map("target_type") @db.TinyInt // 1岗位 2学习资源
+  keywords        Json // 检索关键词数组
+  schedule        String?   @db.VarChar(64) // cron 表达式，空=手动触发
+  status          Int       @default(1) @db.TinyInt // 1待执行 2执行中 3成功 4失败
+  lastRunAt       DateTime? @map("last_run_at")
+  lastResultCount Int       @default(0) @map("last_result_count")
+  errorMsg        String?   @map("error_msg") @db.VarChar(512)
+  createdBy       BigInt    @map("created_by") @db.UnsignedBigInt // 逻辑关联 admin.id，无物理外键
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, targetType], map: "idx_status_target") // 调度扫描待执行任务
+  @@map("content_source_task")
 }
 
 /// 职业技能要求表
@@ -453,23 +477,29 @@ model SkillGapAnalysis {
   @@map("skill_gap_analysis")
 }
 
-/// 学习资源表
+/// 学习资源表（M1 内容可持续化扩展：新增 resource_code/summary/source_type/review_status 支持AI检索与审核态）
 model LearningResource {
   id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  resourceCode String?   @map("resource_code") @db.VarChar(32) // 业务唯一编码，去重按此键；存量为空可空
   title        String    @db.VarChar(128)
-  resourceType Int       @map("resource_type") @db.TinyInt
+  resourceType Int       @map("resource_type") @db.TinyInt // 1课程 2文章 3书籍 4工具
   url          String?   @db.VarChar(512)
   skillTags    String?   @map("skill_tags") @db.VarChar(255)
-  careerId     BigInt?   @map("career_id") @db.UnsignedBigInt
+  careerId     BigInt?   @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id，无物理外键
   provider     String?   @db.VarChar(64)
+  summary      String?   @db.Text // 资源摘要
+  sourceType   Int       @default(1) @map("source_type") @db.TinyInt // 1=人工 2=AI检索 3=导入
+  reviewStatus Int       @default(1) @map("review_status") @db.TinyInt // 1=草稿(默认兜底) 2=已上线 3=已下线；任何新增一律进草稿待审，上线须显式审核通过
   status       Int       @default(1) @db.TinyInt
   isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt
   deletedAt    DateTime? @map("deleted_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  @@unique([resourceCode], map: "uk_resource_code")
   @@index([careerId, status], map: "idx_career_status")
   @@index([resourceType, status], map: "idx_type_status")
+  @@index([careerId, reviewStatus], map: "idx_career_review") // 按岗位+审核态查资源
   @@map("learning_resource")
 }
 
@@ -951,9 +981,15 @@ model AiResumeDoc {
   userId       BigInt    @map("user_id") @db.UnsignedBigInt // 数据隔离
   careerId     BigInt    @map("career_id") @db.UnsignedBigInt // 逻辑关联 career.id，无物理外键
   type         String    @default("resume") @db.VarChar(16) // "resume" | "coverLetter"
-  content      String    @db.Text // 映射 data.content 全文初稿
-  sectionsData Json      @map("sections_data") // 映射 data.sections:[{title,body}]
+  content      String?   @db.Text // 历史生成(mode=1)必填；mode=2上传优化时可空（存量兼容占位）
+  sectionsData Json?     @map("sections_data") // 历史生成(mode=1)必填；mode=2时可空（存量兼容占位）
   degraded     Int       @default(0) @db.TinyInt // 映射 data.degraded
+  mode           Int       @default(2) @db.TinyInt // 1=历史生成 2=上传优化（本迭代）
+  targetCareerId BigInt?   @map("target_career_id") @db.UnsignedBigInt // 目标岗位，逻辑关联 career.id，无物理外键
+  sourceFileName String?   @map("source_file_name") @db.VarChar(255) // 上传原文件名，不存二进制
+  extractedText  String?   @map("extracted_text") @db.Text // PDF提取文本；含TTL清理策略，expireAt到期由后端Cron清理
+  suggestions    Json?     // 优化建议结构化结果
+  expireAt       DateTime? @map("expire_at") // 文本/建议TTL到期时间（默认30天由后端Cron处理）
   isDeleted    Int       @default(0) @map("is_deleted") @db.TinyInt // 软删：用户可删除自己文档
   deletedAt    DateTime? @map("deleted_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -961,6 +997,7 @@ model AiResumeDoc {
 
   @@index([userId, careerId], map: "idx_user_career") // 按用户+目标职业查历史文档
   @@index([userId, type], map: "idx_user_type") // 按用户+文档类型筛选
+  @@index([expireAt], map: "idx_expire") // Cron 扫描到期文本/建议清理
   @@map("ai_resume_doc")
 }
 

@@ -203,3 +203,113 @@ export function generateDeepContent(
     data: { sections },
   });
 }
+
+// ============ M2 报告导出一致性（reportView 单一数据源，PRD §4.1 冻结结构） ============
+
+/** reportView 维度项（PRD §4.1 冻结） */
+export interface ReportViewDimension {
+  dimension: string;
+  leftKey: string;
+  rightKey: string;
+  /** 左极占比 0~100 */
+  leftValue: number;
+  /** 右极占比 0~100 */
+  rightValue: number;
+  /** 倾向极 key，或 'balanced' */
+  tendency: string;
+  /** 展示标签，如 "外向 / 内向" */
+  label: string;
+}
+
+/** reportView 章节项（content 后端已渲染为字符串，前端不得再拼接） */
+export interface ReportViewSection {
+  sectionKey: string;
+  title: string;
+  order: number;
+  content: string | null;
+}
+
+/** reportView 职业匹配项（reason 后端已渲染为文本，前端不得反解结构） */
+export interface ReportViewCareerMatch {
+  careerId: string;
+  name: string;
+  category: string;
+  matchScore: number;
+  rankNo: number;
+  reason: string;
+}
+
+/**
+ * 报告视图（GET /reports/:id/view）——报告详情页唯一渲染数据源。
+ * 与 PDF 导出严格同源（所见即所得），前端不得混用 GET /reports/:id 概览另做拼装。
+ */
+export interface ReportView {
+  reportId: string;
+  /** 报告类型字符串（后端映射，前端不得反解） */
+  reportType: string;
+  personalityType: string;
+  /** 展示分组名（后端由 mbtiType 推导） */
+  groupName: string;
+  /** 分组主题色 */
+  groupColor: string;
+  /** ISO8601 UTC */
+  createdAt: string;
+  dimensions: ReportViewDimension[];
+  sections: ReportViewSection[];
+  careerMatches: ReportViewCareerMatch[];
+  meta: {
+    version: string;
+    generatedAt: string;
+  };
+}
+
+/** 批量导出下单结果（POST /reports/export/batch） */
+export interface BatchExportResult {
+  /** 批量任务 id，用于 GET /reports/export/batch/:taskId 拉取 zip */
+  taskId: string;
+  /** 本批导出份数 */
+  count: number;
+  /** 固定 'done'（后端同步生成） */
+  status: string;
+}
+
+/**
+ * 批量导出业务错误码（前端仅用于提示分流；文案优先用后端 message）。
+ * 4610 reportIds 为空 / 4611 超 50 份 / 4003 含他人报告整批拒绝 / 4004 任务不存在或过期
+ */
+export const REPORT_EXPORT_CODE = {
+  EMPTY_IDS: 4610,
+  TOO_MANY: 4611,
+  FORBIDDEN: 4003,
+  TASK_NOT_FOUND: 4004,
+} as const;
+
+/**
+ * 获取报告视图（reportView 单一数据源）。越权 4003 / 不存在 4004。
+ * 报告详情页应以此为唯一渲染源。
+ */
+export function getReportView(id: string): Promise<ReportView> {
+  return request<ReportView>({ url: `/reports/${id}/view`, method: 'GET' });
+}
+
+/**
+ * 批量导出下单（POST /reports/export/batch）。
+ * reportIds 1~50 份；空 4610 / 超 50 4611 / 含他人报告 4003 整批拒绝。
+ * 返回 taskId 后需用 downloadBatchExport 拉取 zip 二进制。
+ */
+export function exportReportBatch(reportIds: string[]): Promise<BatchExportResult> {
+  return request<BatchExportResult>({
+    url: '/reports/export/batch',
+    method: 'POST',
+    data: { reportIds },
+  });
+}
+
+/** 拉取批量导出结果 zip（GET /reports/export/batch/:taskId）。不存在/过期 4004，越权 4003。 */
+export function downloadBatchExport(taskId: string): Promise<Blob> {
+  return request<Blob>({
+    url: `/reports/export/batch/${taskId}`,
+    method: 'GET',
+    responseType: 'blob',
+  });
+}

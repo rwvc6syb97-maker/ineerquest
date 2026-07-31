@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BizCode, BizException } from '../../common/response';
 import { AdminUserService } from './admin-user.service';
 import { AdminCoachService } from './admin-coach.service';
 import { AdminContentService } from './admin-content.service';
@@ -319,7 +320,7 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
       expect(res).toMatchObject({ removed: true, indexed: false, reason: '过期' });
     });
 
-    it('createCareer：编码重复抛 BadRequestException', async () => {
+    it('createCareer：编码重复抛 BizException(4604 CONTENT_DUPLICATE_CODE)', async () => {
       const prisma = {
         career: {
           findFirst: jest.fn(async () => ({ id: 1n })),
@@ -329,8 +330,25 @@ describe('运营后台核心逻辑 (T4-14/15/16)', () => {
       const svc = new AdminContentService(prisma);
       await expect(
         svc.createCareer({ careerCode: 'DUP', name: 'x', category: 'c' } as any),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toBeInstanceOf(BizException);
+      await expect(
+        svc.createCareer({ careerCode: 'DUP', name: 'x', category: 'c' } as any),
+      ).rejects.toMatchObject({ bizCode: BizCode.CONTENT_DUPLICATE_CODE });
       expect(prisma.career.create).not.toHaveBeenCalled();
+    });
+
+    it('createCareer：人工新增落库 reviewStatus=1 草稿态、sourceType=1', async () => {
+      const prisma = {
+        career: {
+          findFirst: jest.fn(async () => null),
+          create: jest.fn(async () => ({ id: 5n, name: 'x' })),
+        },
+      } as any;
+      const svc = new AdminContentService(prisma);
+      await svc.createCareer({ careerCode: 'NEW', name: 'x', category: 'c' } as any);
+      expect(prisma.career.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ reviewStatus: 1, sourceType: 1 }),
+      });
     });
 
     it('createResource：成功创建返回 indexed=false 降级标记', async () => {

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { BizCode, BizException } from '../../common/response';
 import {
   CreateCareerDto,
   CreateResourceDto,
@@ -109,7 +110,7 @@ export class AdminContentService {
 
   async createCareer(dto: CreateCareerDto) {
     const exists = await this.prisma.career.findFirst({ where: { careerCode: dto.careerCode } });
-    if (exists) throw new BadRequestException('职业编码已存在');
+    if (exists) throw new BizException(BizCode.CONTENT_DUPLICATE_CODE, '职业编码已存在');
     const row = await this.prisma.career.create({
       data: {
         careerCode: dto.careerCode,
@@ -122,6 +123,9 @@ export class AdminContentService {
         prospect: dto.prospect ?? null,
         suitTypes: dto.suitTypes ?? null,
         status: dto.status ?? 1,
+        // M1 契约铁律：人工新增岗位必须进入草稿待审态，禁止直入前台
+        reviewStatus: 1,
+        sourceType: 1,
       },
     });
     const indexed = await this.reindex('career', row.id, 'upsert');

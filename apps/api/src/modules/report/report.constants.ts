@@ -129,6 +129,41 @@ export const PAID_SECTION_KEYS: string[] = [
 /** 每日报告生成配额（份/人/天）。 */
 export const REPORT_DAILY_QUOTA = 3;
 
+// ============ M2 报告导出一致性（reportView 单一数据源） ============
+
+/**
+ * reportView 结构版本号（PRD §4.1 meta.version）。
+ * view 组装点与 export 校验点共用同一版本；导出时若入参 view 版本与当前不一致抛 4612。
+ */
+export const REPORT_VIEW_VERSION = '2.1';
+
+/** report.report_type 数字 → reportView.reportType 字符串（前端不得反解）。 */
+export function mapReportType(reportType: number): string {
+  return reportType === ReportType.DEEP ? 'deep' : 'basic';
+}
+
+/** MBTI 家族 → 展示分组名/主题色（reportView.groupName/groupColor，前端不得反解）。 */
+export const FAMILY_GROUP_META: Record<
+  MbtiFamily,
+  { groupName: string; groupColor: string }
+> = {
+  analyst: { groupName: '分析家', groupColor: '#8B5CF6' },
+  diplomat: { groupName: '外交家', groupColor: '#10B981' },
+  sentinel: { groupName: '守护者', groupColor: '#3B82F6' },
+  explorer: { groupName: '探险家', groupColor: '#F59E0B' },
+};
+
+/**
+ * dimensions 极点键（leftKey/rightKey，取自极标签首字母大写：I/E、S/N、T/F、J/P）。
+ * left=偏向低分极，right=偏向高分极；与 DIMENSION_POLES 顺序一一对应。
+ */
+export const DIMENSION_POLE_KEYS: Record<'EI' | 'SN' | 'TF' | 'JP', { leftKey: string; rightKey: string }> = {
+  EI: { leftKey: 'I', rightKey: 'E' },
+  SN: { leftKey: 'S', rightKey: 'N' },
+  TF: { leftKey: 'T', rightKey: 'F' },
+  JP: { leftKey: 'J', rightKey: 'P' },
+};
+
 /** Redis 日配额计数器前缀。 */
 export const REPORT_QUOTA_REDIS_PREFIX = 'report:quota:';
 

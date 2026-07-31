@@ -93,3 +93,110 @@ export class ResumeGenerateVo {
   @ApiProperty({ description: '是否走了降级兜底' })
   degraded!: boolean;
 }
+
+// ============ M4 简历上传优化（POST /ai/resume/optimize，multipart） ============
+
+/**
+ * §6 简历上传优化入参（表单字段，file 走 multipart 由 FileInterceptor 解析，不在此 DTO）。
+ * 校验次序（LLM 前）：4620 无文件→4621 非PDF→4622>10MB→4624 岗位缺失/不存在→4623 提取空/加密/扫描件→4625>20000字→4516 敏感词→4090 同哈希幂等。
+ */
+export class ResumeOptimizeFormDto {
+  @ApiProperty({ description: '目标职业 id（career.id）', example: '10001' })
+  @IsString()
+  @IsNotEmpty({ message: 'targetCareerId 不能为空' })
+  @MaxLength(32, { message: 'targetCareerId 超长' })
+  targetCareerId!: string;
+
+  @ApiPropertyOptional({ description: '备注', example: '偏向后端方向', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'note 超长（≤500）' })
+  note?: string;
+}
+
+/** §6.3 冻结：单条优化建议。 */
+export class ResumeSuggestionItemVo {
+  @ApiProperty({ description: '简历段落名' })
+  section!: string;
+
+  @ApiProperty({ description: '原文片段' })
+  original!: string;
+
+  @ApiProperty({ description: '优化后建议' })
+  suggestion!: string;
+
+  @ApiProperty({ description: '优化理由' })
+  reason!: string;
+}
+
+/** §6.3 冻结：目标职业信息。 */
+export class ResumeTargetCareerVo {
+  @ApiProperty({ description: '职业 id' })
+  careerId!: string;
+
+  @ApiProperty({ description: '职业名称' })
+  name!: string;
+
+  @ApiProperty({ description: '职业分类' })
+  category!: string;
+}
+
+/** §6.3 冻结：suggestions 结构化结果。 */
+export class ResumeSuggestionsVo {
+  @ApiProperty({ description: '匹配度 0~100' })
+  matchScore!: number;
+
+  @ApiProperty({ description: '整体评价' })
+  overallComment!: string;
+
+  @ApiProperty({ description: '逐段优化建议', type: [ResumeSuggestionItemVo] })
+  items!: ResumeSuggestionItemVo[];
+
+  @ApiProperty({ description: '缺失关键词', type: [String] })
+  missingKeywords!: string[];
+
+  @ApiProperty({ description: '目标职业', type: ResumeTargetCareerVo })
+  targetCareer!: ResumeTargetCareerVo;
+}
+
+/** §6 简历上传优化出参。 */
+export class ResumeOptimizeVo {
+  @ApiProperty({ description: '文档 id（ai_resume_doc.id）' })
+  docId!: string;
+
+  @ApiProperty({ description: '上传原文件名（不存二进制）' })
+  sourceFileName!: string;
+
+  @ApiProperty({ description: '优化建议', type: ResumeSuggestionsVo })
+  suggestions!: ResumeSuggestionsVo;
+
+  @ApiProperty({ description: '是否走了降级兜底' })
+  degraded!: boolean;
+
+  @ApiProperty({ description: '过期时间（ISO8601，默认30天）' })
+  expireAt!: string;
+}
+
+/** §6 历史优化文档列表项。 */
+export class ResumeOptimizeListItemVo {
+  @ApiProperty({ description: '文档 id' })
+  docId!: string;
+
+  @ApiProperty({ description: '上传原文件名' })
+  sourceFileName!: string;
+
+  @ApiProperty({ description: '目标职业 id' })
+  targetCareerId!: string;
+
+  @ApiProperty({ description: '匹配度 0~100' })
+  matchScore!: number;
+
+  @ApiProperty({ description: '是否降级' })
+  degraded!: boolean;
+
+  @ApiProperty({ description: '创建时间（ISO8601）' })
+  createdAt!: string;
+
+  @ApiProperty({ description: '过期时间（ISO8601）' })
+  expireAt!: string;
+}

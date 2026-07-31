@@ -169,6 +169,43 @@ export const BizCode = {
   /** [AI 拓展] 辅导师智能匹配：当前无可用辅导师（PRD §2.4 4713） */
   COACHING_MATCH_NO_COACH: 4713,
 
+  // ============ 内容可持续化域 46xx（M1：AI 检索任务 + 岗位/资源审核导入，PRD 内容升级 §2.2）============
+  // 注：PRD v1.0 冻结将 4600~4605 归内容源任务域（激活码兑换域实际未在本文件占用 46xx）。
+  /** [M1] AI 检索任务不存在：taskId 无效/已删除 */
+  CONTENT_SOURCE_TASK_NOT_FOUND: 4600,
+  /** [M1] AI 检索任务执行中：重复触发（status=2 并发锁命中） */
+  CONTENT_SOURCE_TASK_RUNNING: 4601,
+  /** [M1] 导入文件格式非法：表头缺列/非 CSV/编码不可解析 */
+  CONTENT_IMPORT_FORMAT_INVALID: 4602,
+  /** [M1] 导入数据行非法：必填缺失/类型错误（随 failRows 明细返回） */
+  CONTENT_IMPORT_ROW_INVALID: 4603,
+  /** [M1] 编码重复：careerCode / resourceCode 唯一约束冲突 */
+  CONTENT_DUPLICATE_CODE: 4604,
+  /** [M1] 审核态流转非法：目标 reviewStatus 不被当前态允许 */
+  CONTENT_REVIEW_STATUS_INVALID: 4605,
+
+  // ============ 报告导出一致性域 461x（M2：批量导出，PRD 内容升级 §2.2）============
+  /** [M2] 批量导出报告列表为空：reportIds 为空数组 */
+  REPORT_BATCH_EMPTY: 4610,
+  /** [M2] 批量导出数量超限：reportIds > 50*/
+  REPORT_BATCH_LIMIT: 4611,
+  /** [M2] 导出渲染不一致：PDF 的 meta.version 与 reportView 不一致（单一数据源校验失败） */
+  REPORT_EXPORT_RENDER_MISMATCH: 4612,
+
+  // ============ AI 简历上传优化域 462x（M4：PRD 内容升级 §2.2）============
+  /** [M4] 缺少简历文件：multipart 无 file 字段 */
+  RESUME_FILE_REQUIRED: 4620,
+  /** [M4] 文件类型非法：非 PDF */
+  RESUME_FILE_TYPE_INVALID: 4621,
+  /** [M4] 文件超大：> 10MB */
+  RESUME_FILE_TOO_LARGE: 4622,
+  /** [M4] PDF 文本提取失败：提取为空/加密/扫描件（LLM 前拦截） */
+  RESUME_PARSE_FAILED: 4623,
+  /** [M4] 目标岗位缺失或不存在：targetCareerId 未传/无效 */
+  RESUME_TARGET_CAREER_REQUIRED: 4624,
+  /** [M4] 简历内容超长：提取文本 > 20000 字 */
+  RESUME_CONTENT_TOO_LONG: 4625,
+
   // ============ 运营后台域 48xx ============
   /** 后台账号或密码错误：登录失败 */
   ADMIN_LOGIN_FAILED: 4801,

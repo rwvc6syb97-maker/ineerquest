@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -44,6 +44,21 @@ export class GenerateDeepContentDto {
   @IsOptional()
   @IsString({ each: true })
   sections?: string[];
+}
+
+/**
+ * POST /reports/export/batch 批量导出请求。
+ * 空数组 4610 / 超 50 4611 / 含他人报告 4003 均由 service 判定并抛，
+ * 此处仅宽松声明（每项字符串化 BigInt），避免 class-validator 抢先抛通用 4000。
+ */
+export class ExportBatchDto {
+  @ApiProperty({
+    description: '待导出报告 id 列表（字符串化 BigInt），1~50 份，越权整批拒绝',
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  reportIds!: string[];
 }
 
 /**

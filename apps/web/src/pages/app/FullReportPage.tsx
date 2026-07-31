@@ -1,22 +1,19 @@
 /**
  * P09 完整报告页（/app/report/:id/full）
  * -------------------------------------------------------------
- * 解锁后的完整人格报告：不再对 locked 段做模糊遮罩，而是完整呈现所有 sections。
- *  头图族群色主卡（TypeAvatar + GroupBadge）→ 开篇寄语(Quote)
- *  → 四维度雷达图(RadarChart) + DimensionBar → 全量性格解读卡片
- *  → TOP 职业匹配列表（有 matchScore 数据则展示，否则引导跳 /app/career）。
- * 数据 hook 复用 useReport(id)；加载/错误/空态用 EmptyState 兜底，风格对齐 ReportPage.tsx。
- * 路由挂 report/:id/full，免费化后无付费守卫，登录 + 有结果即可访问（见 routes.tsx）。
+ * M2 一致性改造：改用 GET /reports/:id/view（reportView）作为唯一渲染数据源，
+ * 与 PDF 导出严格同源（所见即所得），不再混用 GET /reports/:id 概览或 mock 推荐。
+ *  头图分组色主卡（TypeAvatar + GroupBadge）→ 四维度雷达 + 填充条
+ *  → 全量性格解读 sections → TOP 职业匹配（reportView.careerMatches）。
+ * 加载/错误/空态用 EmptyState 兜底；所有 data 字段做可选判空，避免字段缺失白屏。
  */
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useReport } from '../../hooks/useReport';
-import { useRecommendCareers } from '../../hooks/useCareer';
+import { useReportView } from '../../hooks/useReport';
 import { RadarChart } from '../../components/charts/DimensionCharts';
 import {
   GlassCard,
   Card,
-  Tag,
   GroupBadge,
   TypeAvatar,
   DimensionBar,
@@ -29,10 +26,10 @@ import {
   SpringButton,
   BackButton,
 } from '../../components';
-import { FAMILY_COLORS, FAMILY_LABEL, COLORS } from '../../theme/tokens';
+import { COLORS } from '../../theme/tokens';
 import { ReportChapterBlock } from '../../components/ai/ReportChapterBlock';
 
-/** dimensions{dimension,...} → DimensionBar 的可读中文维度名 */
+/** dimension key → 可读中文维度名（后端已下发 label，此为兜底） */
 const DIM_LABEL: Record<string, string> = {
   EI: '能量来源',
   SN: '信息获取',
@@ -43,21 +40,34 @@ const DIM_LABEL: Record<string, string> = {
 export function FullReportPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { data: report, isLoading, isError } = useReport(id);
-  // TOP 职业匹配（复用推荐 hook，无后端时回退 mock）
-  const { data: careers = [] } = useRecommendCareers(id);
+ const { data: report, isLoading, isError } = useReportView(id);
 
-  const dims = report?.dimensions ?? [];
+  // RadarChart 期望 {dimension,left,right,score}；由 reportView 维度映射（score=右极占比）
+  const radarDims = useMemo(
+    () =>
+      (report?.dimensions ?? []).map((d) => {
+        const parts = (d.label ?? '').split('/').map((s) => s.trim());
+        return {
+          dimension: d.dimension,
+          left: parts[0] ?? d.leftKey,
+          right: parts[1] ?? d.rightKey,
+          score: Math.round(d.rightValue ?? 0),
+        };
+      }),
+    [report],
+  );
+
+  // 最鲜明倾向：离 50 最远的维度
   const topDim = useMemo(() => {
-    if (!dims.length) return null;
-    return dims.reduce((a, b) =>
+    if (!radarDims.length) return null;
+    return radarDims.reduce((a, b) =>
       Math.abs(b.score - 50) > Math.abs(a.score - 50) ? b : a,
     );
-  }, [dims]);
+  }, [radarDims]);
 
-  const topCareers = useMemo(
-    () => [...careers].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0)).slice(0, 5),
-    [careers],
+  const careerMatches = useMemo(
+    () => [...(report?.careerMatches ?? [])].sort((a, b) => a.rankNo - b.rankNo).slice(0, 5),
+    [report],
   );
 
   if (isLoading) {
@@ -71,7 +81,7 @@ export function FullReportPage() {
         <EmptyState
           icon="sparkle"
           title="暂无报告数据"
-          description="还没有可展示的完整报告。先完成一次测评并解锁完整版，我们会为你生成专属的人格深度解读。"
+          description="还没有可展示的完整报告。先完成一次测评并生成报告，我们会为你呈现专属的人格深度解读。"
           action={
             <SpringButton variant="accent" onClick={() => navigate('/assessment')}>
               去做测评
@@ -82,9 +92,11 @@ export function FullReportPage() {
     );
   }
 
-  const color = FAMILY_COLORS[report.family];
-  // P09：解锁后完整呈现所有 sections（不做锁态遮罩）
-  const sections = report.sections;
+  // 后端下发的分组主题色（前端不得反解）；缺失时兜底品牌色
+  const color = report.groupColor || COLORS.accent;
+  const personalityType = report.personalityType || '';
+  const groupName = report.groupName || '';
+  const sections = report.sections ?? [];
 
   return (
     <article className="mx-auto max-w-5xl pb-20">
@@ -103,10 +115,10 @@ export function FullReportPage() {
         >
           <div className="flex flex-col items-center gap-4 md:col-span-4 md:items-start">
             <div className="animate-fadeUp rounded-3xl p-5" style={{ background: `${color}12` }}>
-              <TypeAvatar mbtiType={report.mbtiType} size={160} />
+              <TypeAvatar mbtiType={personalityType} size={160} />
             </div>
             <div className="animate-fadeUp" style={{ animationDelay: '80ms' }}>
-              <GroupBadge mbtiType={report.mbtiType} size="lg" />
+              <GroupBadge mbtiType={personalityType} size="lg" />
             </div>
           </div>
 
@@ -115,22 +127,24 @@ export function FullReportPage() {
               className="animate-fadeUp font-sans text-sm font-semibold uppercase tracking-wider"
               style={{ color }}
             >
-              完整人格报告 · 已解锁
+              完整人格报告
             </span>
             <h1
               className="mt-2 animate-fadeUp font-display text-5xl font-black tracking-tight text-brand-primary-950 md:text-6xl"
               style={{ animationDelay: '80ms' }}
             >
-              {report.mbtiType}
+              {personalityType}
               <span className="ml-3 align-middle font-sans text-lg font-medium text-neutral-400">
-                {FAMILY_LABEL[report.family]}
+                {groupName}
               </span>
             </h1>
-            <div className="mt-5 animate-fadeUp" style={{ animationDelay: '160ms' }}>
-              <Quote size="md" className="text-left">
-                {report.summary}
-              </Quote>
-            </div>
+            {sections[0]?.content ? (
+              <div className="mt-5 animate-fadeUp" style={{ animationDelay: '160ms' }}>
+                <Quote size="md" className="text-left">
+                  {sections[0].content}
+                </Quote>
+              </div>
+            ) : null}
             {topDim ? (
               <div className="mt-6 flex animate-fadeUp flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
                 <StatPill
@@ -160,21 +174,24 @@ export function FullReportPage() {
             subtitle="每一维都是一段光谱，而非非此即彼的开关。"
           />
           <div className="mt-6 flex justify-center md:justify-start">
-            <RadarChart data={dims} color={color} />
+            <RadarChart data={radarDims} color={color} />
           </div>
         </div>
         <div className="md:col-span-7">
-          <Reveal className="space-y-5" deps={[report.id]}>
-            {dims.map((d) => (
-              <DimensionBar
-                key={d.dimension}
-                label={DIM_LABEL[d.dimension] ?? d.dimension}
-                leftPole={d.left}
-                rightPole={d.right}
-                value={d.score}
-                dimensionColor={color}
-              />
-            ))}
+          <Reveal className="space-y-5" deps={[report.reportId]}>
+          {(report.dimensions ?? []).map((d) => {
+              const parts = (d.label ?? '').split('/').map((s) => s.trim());
+              return (
+                <DimensionBar
+                  key={d.dimension}
+                  label={DIM_LABEL[d.dimension] ?? d.label ?? d.dimension}
+                  leftPole={parts[0] ?? d.leftKey}
+                  rightPole={parts[1] ?? d.rightKey}
+                  value={Math.round(d.rightValue ?? 0)}
+                  dimensionColor={color}
+                />
+              );
+            })}
           </Reveal>
         </div>
       </section>
@@ -182,24 +199,26 @@ export function FullReportPage() {
       {/* ============ 完整性格解读 · 全量 sections ============ */}
       <section className="mt-14">
         <SectionHeading size="md" eyebrow="FULL INSIGHT" title="完整性格解读" />
-        <Reveal className="mt-6 grid grid-cols-1 gap-5" deps={[report.id]}>
-          {sections.map((s, i) => (
-            <RevealItem key={s.sectionKey} index={i}>
-              <Card padding="lg">
-                <h3 className="flex items-center gap-2 font-display text-xl font-bold text-brand-primary-950">
-                  <span className="h-5 w-1.5 rounded-full" style={{ background: color }} />
-                  {s.title}
-                </h3>
-                <p className="mt-4 leading-relaxed text-neutral-700">
-                  {s.content || '深度解读你的职业倾向、协作风格与关系模式，帮助你把人格优势转化为现实选择。'}
-                </p>
-              </Card>
-            </RevealItem>
-          ))}
+        <Reveal className="mt-6 grid grid-cols-1 gap-5" deps={[report.reportId]}>
+          {[...sections]
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .map((s, i) => (
+              <RevealItem key={s.sectionKey} index={i}>
+                <Card padding="lg">
+                  <h3 className="flex items-center gap-2 font-display text-xl font-bold text-brand-primary-950">
+                    <span className="h-5 w-1.5 rounded-full" style={{ background: color }} />
+                    {s.title}
+                  </h3>
+                  <p className="mt-4 whitespace-pre-line leading-relaxed text-neutral-700">
+                    {s.content || '深度解读你的职业倾向、协作风格与关系模式，帮助你把人格优势转化为现实选择。'}
+                  </p>
+                </Card>
+              </RevealItem>
+            ))}
         </Reveal>
       </section>
 
-      {/* ============ TOP 职业匹配 ============ */}
+      {/* ============ TOP 职业匹配（reportView.careerMatches 同源） ============ */}
       <section className="mt-14">
         <SectionHeading
           size="md"
@@ -207,22 +226,22 @@ export function FullReportPage() {
           title="与你高度匹配的职业"
           subtitle="根据你的人格倾向排出的匹配 TOP 榜单。"
         />
-        {topCareers.length ? (
-          <Reveal className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" deps={[report.id]}>
-            {topCareers.map((c, i) => {
+        {careerMatches.length ? (
+          <Reveal className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" deps={[report.reportId]}>
+            {careerMatches.map((c, i) => {
               const score = c.matchScore ?? 0;
               return (
-                <RevealItem key={c.id} index={i}>
+                <RevealItem key={c.careerId} index={i}>
                   <Card
                     padding="md"
                     interactive
-                    onClick={() => navigate(`/app/career/${c.id}`)}
-                    className="flex h-full cursor-pointer flex-col"
+                    onClick={() => navigate(`/app/career/${c.careerId}`)}
+               className="flex h-full cursor-pointer flex-col"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h3 className="truncate font-display text-lg font-bold text-brand-primary-950">
-                          {c.title}
+                          {c.name}
                         </h3>
                         <span className="font-mono text-xs text-neutral-400">{c.category}</span>
                       </div>
@@ -243,15 +262,9 @@ export function FullReportPage() {
                         }}
                       />
                     </div>
-                    <p className="mt-3 text-sm leading-relaxed text-neutral-600">{c.summary}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {c.salaryRange ? <StatPill value={c.salaryRange} tone="accent" /> : null}
-                      {c.tags.map((t) => (
-                        <Tag key={t} tone="neutral" size="sm">
-                          {t}
-                        </Tag>
-                      ))}
-                    </div>
+                    {c.reason ? (
+                      <p className="mt-3 text-sm leading-relaxed text-neutral-600">{c.reason}</p>
+                    ) : null}
                   </Card>
                 </RevealItem>
               );
@@ -266,7 +279,7 @@ export function FullReportPage() {
               action={
                 <SpringButton
                   variant="accent"
-                  onClick={() => navigate(`/app/career?reportId=${report.id}&mbti=${report.mbtiType}`)}
+                  onClick={() => navigate(`/app/career?reportId=${report.reportId}&mbti=${personalityType}`)}
                 >
                   查看职业匹配
                 </SpringButton>
@@ -291,7 +304,7 @@ export function FullReportPage() {
           <SpringButton variant="accent" onClick={() => navigate('/app/me/plan')}>
             我的成长计划
           </SpringButton>
-          <SpringButton variant="ghost" onClick={() => navigate(`/app/report/${report.id}/share`)}>
+          <SpringButton variant="ghost" onClick={() => navigate(`/app/report/${report.reportId}/share`)}>
             生成分享海报
           </SpringButton>
         </div>

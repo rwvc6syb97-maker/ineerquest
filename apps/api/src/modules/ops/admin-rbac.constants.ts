@@ -41,7 +41,9 @@ export type AdminRoleKey = (typeof AdminRole)[keyof typeof AdminRole];
  */
 export const ADMIN_ROLE_PERMISSIONS: Record<string, string[]> = {
   [AdminRole.SUPER_ADMIN]: ['*'],
-  [AdminRole.CONTENT_OPS]: ['question:*', 'career:*', 'resource:*', 'topic:review', 'payment:manage', 'membership:plan:manage'],
+  // 新增 content:*（前缀通配，覆盖 PRD 内容升级 M1 要求的 content:manage / content:read）；
+  // 保留 career:*/resource:* 供旧 admin-content 接口沿用，二者并存不冲突。
+  [AdminRole.CONTENT_OPS]: ['question:*', 'career:*', 'resource:*', 'content:*', 'topic:review', 'payment:manage', 'membership:plan:manage'],
   [AdminRole.USER_OPS]: ['user:read', 'user:ban'],
   [AdminRole.COACH_OPS]: ['coach:audit', 'coach:shelf', 'review:manage'],
   [AdminRole.ANALYST]: ['analytics:read'],

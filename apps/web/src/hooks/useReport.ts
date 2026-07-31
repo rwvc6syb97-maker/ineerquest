@@ -40,6 +40,18 @@ export function useReport(id: string, options?: { poll?: boolean }) {
   });
 }
 
+/**
+ * 报告视图（GET /reports/:id/view）——报告详情/完整报告页的唯一渲染数据源。
+ * 与 PDF 导出严格同源；不做 mock 兜底，契约缺失时暴露真实错误态。
+ */
+export function useReportView(id: string) {
+  return useQuery({
+    queryKey: ['report', 'view', id] as const,
+    enabled: !!id,
+    queryFn: () => reportApi.getReportView(id),
+  });
+}
+
 /** 我的报告列表 */
 export function useReportList() {
   return useQuery({

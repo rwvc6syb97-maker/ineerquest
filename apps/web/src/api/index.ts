@@ -21,3 +21,4 @@ export * as adminQuestionsApi from './modules/admin-questions.api';
 export * as adminUsersApi from './modules/admin-users.api';
 export * as adminCoachesApi from './modules/admin-coaches.api';
 export * as adminContentApi from './modules/admin-content.api';
+export * as contentSourceApi from './modules/content-source.api';

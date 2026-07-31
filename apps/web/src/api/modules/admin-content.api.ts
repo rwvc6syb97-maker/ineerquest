@@ -1,58 +1,24 @@
 /**
- * 运营后台 - 内容管理 API（T4-18 / P34）
+ * 运营后台 - 内容管理 API（M1 内容可持续化 / 后端 ops/admin-content）
  * -------------------------------------------------------------
- * 对齐后端 ops/content controller：
+ * 严格对齐后端 admin-content.controller.ts + admin-content.dto.ts + service.serialize：
  *   /admin/content/careers   CRUD（career:read / career:write）
  *   /admin/content/resources CRUD（resource:read / resource:write）
  *   /admin/content/topics    CRUD + 审核（topic:review）
  *
- * 删除操作需 confirm=true。接口失败统一抛 ApiError 交页面错误态，禁止 mock 兜底。
+ * 铁律：
+ *  - 字段名/类型/枚举严格与后端 DTO 一致，不私自新增或改名。
+ *  - serialize 将 bigint 序列化为 string，故所有 id 为 string。
+ *  - 删除为敏感操作，必须携带 confirm=true。
+ *  - 接口失败统一抛 ApiError 交页面错误态，禁止 mock 兜底。
+ *  - data 字段一律做可选判空，防后端字段缺失白屏。
  */
 import { adminRequest } from '../admin-client';
 
-/** 上下线状态：1 上线 / 0 下线 */
+/** 上下线状态：1 上线 / 0 下线（对齐 DTO status @IsIn([0,1])） */
 export type ContentStatus = 0 | 1;
 
-/** 职业词条 */
-export interface CareerItem {
-  id: string;
-  /** 职业名称 */
-  name: string;
-  /** 所属类别 */
-  category: string;
-  /** 简介 */
-  summary: string;
-  /** 详情正文（纯文本/富文本 HTML） */
-  content?: string;
-  /** 关联 MBTI 类型标签 */
-  mbtiTags?: string[];
-  status: ContentStatus;
-  updatedAt?: string;
-}
-
-/** 学习资源 */
-export interface ResourceItem {
-  id: string;
-  title: string;
-  /** 资源类型：文章 / 视频 / 书籍 等 */
-  type: string;
-  /** 外链或正文 */
-  url?: string;
-  cover?: string;
-  summary?: string;
-  status: ContentStatus;
-  updatedAt?: string;
-}
-
-/** 通用列表查询参数 */
-export interface ContentListParams {
-  keyword?: string;
-  status?: ContentStatus;
-  page?: number;
-  pageSize?: number;
-}
-
-/** 分页列表返回 */
+/** 分页列表返回（对齐 service：{total,page,pageSize,list}） */
 export interface ContentListResult<T> {
   total: number;
   page: number;
@@ -60,77 +26,192 @@ export interface ContentListResult<T> {
   list: T[];
 }
 
-/** 职业词条新增/编辑请求体 */
-export interface UpsertCareerParams {
+// ==================== 职业库 ====================
+
+/**
+ * 职业词条（对齐 Prisma Career serialize 透传字段）。
+ * salaryMin/salaryMax 可空；status 0/1；reviewStatus 由审核流转维护。
+ */
+export interface CareerItem {
+  id: string;
+  careerCode: string;
   name: string;
   category: string;
-  summary: string;
-  content?: string;
-  mbtiTags?: string[];
+  description?: string | null;
+  responsibility?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  prospect?: string | null;
+  /** 逗号分隔的适配 MBTI 类型 */
+  suitTypes?: string | null;
   status: ContentStatus;
+  /** 审核态：1 草稿 / 2 上线 / 3 下线（审核流转维护，可空兼容旧数据） */
+  reviewStatus?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-/** 资源新增/编辑请求体 */
-export interface UpsertResourceParams {
-  title: string;
-  type: string;
-  url?: string;
-  cover?: string;
-  summary?: string;
-  status: ContentStatus;
+/** 职业详情（含关联技能） */
+export interface CareerDetail extends CareerItem {
+  skills?: Array<Record<string, unknown>>;
 }
 
-// ---- 职业词条 ----
-export function listCareers(params?: ContentListParams): Promise<ContentListResult<CareerItem>> {
+/** 职业列表查询参数（对齐 listCareers query） */
+export interface CareerListParams {
+  category?: string;
+  status?: ContentStatus;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 新建职业请求体（对齐 CreateCareerDto，*必填） */
+export interface CreateCareerParams {
+  careerCode: string;
+  name: string;
+  category: string;
+  description?: string;
+  responsibility?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  prospect?: string;
+  suitTypes?: string;
+  status?: ContentStatus;
+}
+
+/** 更新职业请求体（对齐 UpdateCareerDto，全部可选，careerCode 不可改） */
+export interface UpdateCareerParams {
+  name?: string;
+  category?: string;
+  description?: string;
+  responsibility?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  prospect?: string;
+  suitTypes?: string;
+  status?: ContentStatus;
+}
+
+export function listCareers(params?: CareerListParams): Promise<ContentListResult<CareerItem>> {
   return adminRequest({ url: '/admin/content/careers', method: 'GET', params });
 }
 
-export function createCareer(body: UpsertCareerParams): Promise<CareerItem> {
-  return adminRequest<CareerItem>({ url: '/admin/content/careers', method: 'POST', data: body });
+export function careerDetail(id: string): Promise<CareerDetail> {
+  return adminRequest<CareerDetail>({ url: `/admin/content/careers/${id}`, method: 'GET' });
 }
 
-export function updateCareer(id: string, body: UpsertCareerParams): Promise<CareerItem> {
-  return adminRequest<CareerItem>({ url: `/admin/content/careers/${id}`, method: 'PUT', data: body });
+export function createCareer(body: CreateCareerParams): Promise<CareerItem & { indexed?: boolean }> {
+  return adminRequest({ url: '/admin/content/careers', method: 'POST', data: body });
 }
 
-export function deleteCareer(id: string): Promise<void> {
-  return adminRequest<void>({
+export function updateCareer(
+  id: string,
+  body: UpdateCareerParams,
+): Promise<CareerItem & { indexed?: boolean }> {
+  return adminRequest({ url: `/admin/content/careers/${id}`, method: 'PUT', data: body });
+}
+
+export function deleteCareer(
+  id: string,
+  reason?: string,
+): Promise<{ id: string; removed: boolean; indexed?: boolean; reason: string | null }> {
+  return adminRequest({
     url: `/admin/content/careers/${id}`,
     method: 'DELETE',
-    data: { confirm: true },
+    data: { confirm: true, reason },
   });
 }
 
-// ---- 学习资源 ----
-export function listResources(params?: ContentListParams): Promise<ContentListResult<ResourceItem>> {
+// ==================== 学习资源库 ====================
+
+/**
+ * 学习资源（对齐 Prisma LearningResource serialize 透传）。
+ * resourceType 为 number（后端枚举，非字符串）。
+ */
+export interface ResourceItem {
+  id: string;
+  title: string;
+  /** 资源类型枚举（number，具体值以后端字典为准） */
+  resourceType: number;
+  url?: string | null;
+  /** 逗号分隔技能标签 */
+  skillTags?: string | null;
+  careerId?: string | null;
+  provider?: string | null;
+  status: ContentStatus;
+  reviewStatus?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 资源列表查询参数（对齐 listResources query） */
+export interface ResourceListParams {
+  resourceType?: number;
+  status?: ContentStatus;
+  careerId?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 新建资源请求体（对齐 CreateResourceDto，title/resourceType 必填） */
+export interface CreateResourceParams {
+  title: string;
+  resourceType: number;
+  url?: string;
+  skillTags?: string;
+  careerId?: string;
+  provider?: string;
+  status?: ContentStatus;
+}
+
+/** 更新资源请求体（对齐 UpdateResourceDto，全部可选） */
+export interface UpdateResourceParams {
+  title?: string;
+  resourceType?: number;
+  url?: string;
+  skillTags?: string;
+  careerId?: string;
+  provider?: string;
+  status?: ContentStatus;
+}
+
+export function listResources(
+  params?: ResourceListParams,
+): Promise<ContentListResult<ResourceItem>> {
   return adminRequest({ url: '/admin/content/resources', method: 'GET', params });
 }
 
-export function createResource(body: UpsertResourceParams): Promise<ResourceItem> {
-  return adminRequest<ResourceItem>({ url: '/admin/content/resources', method: 'POST', data: body });
+export function createResource(
+  body: CreateResourceParams,
+): Promise<ResourceItem & { indexed?: boolean }> {
+  return adminRequest({ url: '/admin/content/resources', method: 'POST', data: body });
 }
 
-export function updateResource(id: string, body: UpsertResourceParams): Promise<ResourceItem> {
-  return adminRequest<ResourceItem>({ url: `/admin/content/resources/${id}`, method: 'PUT', data: body });
+export function updateResource(
+  id: string,
+  body: UpdateResourceParams,
+): Promise<ResourceItem & { indexed?: boolean }> {
+  return adminRequest({ url: `/admin/content/resources/${id}`, method: 'PUT', data: body });
 }
 
-export function deleteResource(id: string): Promise<void> {
-  return adminRequest<void>({
+export function deleteResource(
+  id: string,
+  reason?: string,
+): Promise<{ id: string; removed: boolean; indexed?: boolean; reason: string | null }> {
+  return adminRequest({
     url: `/admin/content/resources/${id}`,
     method: 'DELETE',
-    data: { confirm: true },
+    data: { confirm: true, reason },
   });
 }
 
-// ---- 话题管理（topic:review）----
+// ==================== 话题管理（topic:review） ====================
 
 /** 审核状态：0 待审核 / 1 已通过 / 2 已驳回（对齐后端 Topic.auditStatus） */
 export type TopicAuditStatus = 0 | 1 | 2;
 
-/**
- * 话题（对齐后端 Prisma Topic model + serialize，bigint 序列化为 string）。
- * 出参字段以后端 admin-content.service.ts serialize 透传为准。
- */
+/** 话题（对齐 Prisma Topic model + serialize） */
 export interface TopicItem {
   id: string;
   title: string;
@@ -201,7 +282,10 @@ export function updateTopic(id: string, body: UpdateTopicParams): Promise<TopicI
   return adminRequest<TopicItem>({ url: `/admin/content/topics/${id}`, method: 'PUT', data: body });
 }
 
-export function deleteTopic(id: string, reason?: string): Promise<{ id: string; removed: boolean; reason: string | null }> {
+export function deleteTopic(
+  id: string,
+  reason?: string,
+): Promise<{ id: string; removed: boolean; reason: string | null }> {
   return adminRequest({
     url: `/admin/content/topics/${id}`,
     method: 'DELETE',

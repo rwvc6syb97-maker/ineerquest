@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { SpringLink } from '../system/SpringButton';
 import { Logo } from './Logo';
+import { useAuthStore } from '../../stores/auth.store';
 
 /**
  * Nav 公共布局顶栏
@@ -30,10 +31,9 @@ export interface NavProps {
 }
 
 const DEFAULT_ITEMS: NavItem[] = [
-  { label: '产品介绍', to: '/#features' },
-  { label: '人格类型', to: '/#types' },
-  { label: '职业地图', to: '/#careers' },
-  { label: '定价', to: '/#pricing' },
+  { label: '产品介绍', to: '/#journey' },
+  { label: '人格类型', to: '/personality-types' },
+  { label: '职业地图', to: '/#ai-toolkit' },
 ];
 
 export function Nav({
@@ -44,6 +44,7 @@ export function Nav({
 }: NavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const loggedIn = useAuthStore((s) => s.isAuthenticated());
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -81,12 +82,21 @@ export function Nav({
 
         {/* 桌面 CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to={loginTo}
-            className="text-sm font-medium text-neutral-700 transition-colors hover:text-brand-primary-600"
-          >
-            登录
-          </Link>
+          {loggedIn ? (
+            <Link
+              to="/app"
+              className="text-sm font-medium text-brand-primary-700 transition-colors hover:text-brand-primary-600"
+            >
+              进入工作台
+            </Link>
+          ) : (
+            <Link
+              to={loginTo}
+              className="text-sm font-medium text-neutral-700 transition-colors hover:text-brand-primary-600"
+            >
+              登录
+            </Link>
+          )}
           <SpringLink to={ctaTo} variant="accent">
             开始测评
           </SpringLink>
@@ -133,13 +143,23 @@ export function Nav({
               </li>
             ))}
             <li className="mt-2 flex flex-col gap-2 border-t border-neutral-100 pt-3">
-              <Link
-                to={loginTo}
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-              >
-                登录
-              </Link>
+              {loggedIn ? (
+                <Link
+                  to="/app"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-primary-700 hover:bg-neutral-100"
+                >
+                  进入工作台
+                </Link>
+              ) : (
+                <Link
+               to={loginTo}
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                >
+                  登录
+                </Link>
+              )}
               <SpringLink to={ctaTo} variant="accent" className="w-full">
                 开始测评
               </SpringLink>

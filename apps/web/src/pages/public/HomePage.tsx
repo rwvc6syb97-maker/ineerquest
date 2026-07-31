@@ -149,7 +149,7 @@ export function HomePage() {
       </section>
 
       {/* ============ 探索旅程：网格错落（4 步，非等宽） ============ */}
-      <section className="bg-neutral-50 px-6 py-20 md:py-24">
+      <section id="journey" className="scroll-mt-20 bg-neutral-50 px-6 py-20 md:py-24">
         <div className="mx-auto max-w-6xl">
           <SectionHeading
             align="asymmetric"
@@ -172,7 +172,7 @@ export function HomePage() {
       </section>
 
       {/* ============ AI 求职工具：Bento 双卡（非等宽，暖橙 accent） ============ */}
-      <section className="px-6 py-20 md:py-24">
+      <section id="ai-toolkit" className="scroll-mt-20 px-6 py-20 md:py-24">
         <div className="mx-auto max-w-6xl">
           <SectionHeading
             align="asymmetric"
